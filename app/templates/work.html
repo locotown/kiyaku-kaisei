@@ -66,6 +66,7 @@ setTimeout(poll, 2000);
     {% for c in cats %}<button type="button" class="fbtn f-{{ c }}" data-filter="{{ c }}">{{ c }} <span>{{ counts[c] }}</span></button>{% endfor %}
     <button type="button" class="fbtn f-保留" data-filter="保留" title="推奨・参考のうち、まだ「保留」のもの">保留中 <span data-tally="保留">{{ tally["保留"] }}</span></button>
   </div>
+  <div id="flist-top"></div>
   <p class="muted fempty" id="fempty" hidden>この区分の指摘はありません。</p>
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
   {% set ns2 = namespace(cat="") %}
@@ -225,7 +226,9 @@ setTimeout(poll, 2000);
       current = b.dataset.filter;
       try { sessionStorage.setItem('kiyaku-filter-{{ id }}', current); } catch (e2) {}
       apply();
-      document.getElementById('filters').scrollIntoView({ block: 'start' });
+      // 一覧の先頭へ移る（切り替えボタンは上に固定表示なので、その高さの分だけずらす）
+      var top = document.getElementById('flist-top').getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, top - bar.offsetHeight - 8);
     });
     apply();
   })();
