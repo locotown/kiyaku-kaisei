@@ -36,11 +36,23 @@
   <p style="margin-top:1.2em"><button type="submit">点検を始める</button></p>
   <p class="muted">読み込んだ規約と判断の記録は、このパソコン（private/ フォルダ）に保存されます。点検では、必要な条だけを AI に渡します。</p>
 </form>
-<form action="/works" method="post" style="margin-top:8px">
-  <input type="hidden" name="name" value="サンプル：改正前の標準管理規約（単棟型）">
-  <input type="hidden" name="sample" value="1">
-  <button class="secondary" type="submit">サンプル（改正前の標準管理規約）で試す</button>
-</form>
+</div>
+
+<div class="card">
+<h2>サンプルで試す</h2>
+<p class="muted">手元に規約がなくても、次のサンプルで流れを確かめられます（公開資料をもとにした規約と、架空の規約です）。点検から説明文まで通すと、API の費用が $2〜3 ほどかかります。</p>
+<div class="samples">
+{% for key, s in samples.items() %}
+  <form action="/works" method="post" class="sample">
+    <input type="hidden" name="name" value="{{ s.name }}">
+    <input type="hidden" name="sample" value="{{ key }}">
+    <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
+    <div class="s-contents">{{ s.contents }}</div>
+    <div class="muted s-point">{{ s.point }}</div>
+    <button class="secondary" type="submit">このサンプルで試す</button>
+  </form>
+{% endfor %}
+</div>
 </div>
 
 {% if works %}

@@ -24,6 +24,25 @@ from core.taisho import to_html, to_markdown
 app = FastAPI(title="管理規約 改正対応ツール")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
+# 画面で選べるサンプル（すべて公開資料か架空のデータ）
+SAMPLES = {
+    "standard": {"path": SAMPLE, "name": "サンプル：改正前の標準管理規約（単棟型）",
+                 "title": "改正前の標準管理規約", "format": "テキスト",
+                 "contents": "規約本体 87条（細則なし）",
+                 "point": "国の標準どおりの規約。改正で必ず直す箇所（必須）が、標準の条番号どおりに見つかるかを確認できます。"},
+    "collection": {"path": ROOT / "evals/data/old_collection.txt", "name": "サンプル：細則を含む規約集（架空）",
+                   "title": "細則を含む規約集", "format": "テキスト",
+                   "contents": "規約 74条＋細則3種（総会運営・駐車場使用・ペット飼育）＋改正履歴・メモ",
+                   "point": "規約と細則を分けて読み込み、細則への指摘（普通決議）や、規約と細則の食い違いを確認できます。"},
+    "old": {"path": ROOT / "evals/data/old_style_kiyaku.txt", "name": "サンプル：長く改正していない古い規約（架空）",
+            "title": "長く改正していない古い規約", "format": "テキスト",
+            "contents": "規約本体 74条（細則なし。条番号が標準と違う）",
+            "point": "条番号が標準管理規約と違っていても、見出しと内容から該当する条を探せるかを確認できます。"},
+    "docx": {"path": ROOT / "evals/data/old_collection.docx", "name": "サンプル：Word の規約集（架空）",
+             "title": "Word（.docx）の規約集", "format": "Word",
+             "contents": "「細則を含む規約集」と同じ内容。改正履歴は表",
+             "point": "Word で管理している規約集を、そのまま読み込めるかを確認できます。"},
+}
 DECISIONS = ("採用", "不採用", "保留")
 CHOICE_HELP = {"採用": "改定案に入れる", "保留": "まだ決めない（改定案には入れない）", "不採用": "今回は改定しない"}
 BUSY = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
@@ -157,7 +176,7 @@ def board_state(work: dict) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"works": store.list_works(), "supported": sorted(SUPPORTED)})
+    return templates.TemplateResponse(request, "index.html", {"works": store.list_works(), "supported": sorted(SUPPORTED), "samples": SAMPLES})
 
 
 @app.post("/works")
@@ -181,7 +200,8 @@ def create_work(
     d = store.path(work_id)
     d.mkdir(parents=True, exist_ok=True)
     if sample:
-        shutil.copy(SAMPLE, d / "source.txt")
+        src = SAMPLES.get(sample, SAMPLES["standard"])["path"]
+        shutil.copy(src, d / f"source{src.suffix}")
     else:
         with open(d / f"source{suffix}", "wb") as out:
             shutil.copyfileobj(file.file, out)
