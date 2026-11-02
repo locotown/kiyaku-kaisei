@@ -1,0 +1,126 @@
+{
+  "source": "evals/data/old_style_kiyaku.txt に架空の細則を加えたもの（evals/build_old_collection.py）。実在のマンションとは関係ない",
+  "documents": [
+    {
+      "kind": "メモ",
+      "title": "○○マンション　管理規約・細則",
+      "lines": 1,
+      "articles": 0,
+      "style": "",
+      "annotations": 2,
+      "appendix_lines": 0
+    },
+    {
+      "kind": "規約",
+      "title": "○○マンション管理規約(試験用・架空)",
+      "lines": 397,
+      "articles": 74,
+      "style": "条",
+      "annotations": 0,
+      "appendix_lines": 3
+    },
+    {
+      "kind": "細則",
+      "title": "○○マンション総会運営細則",
+      "lines": 12,
+      "articles": 6,
+      "style": "条",
+      "annotations": 0,
+      "appendix_lines": 0
+    },
+    {
+      "kind": "細則",
+      "title": "○○マンション駐車場使用細則",
+      "lines": 8,
+      "articles": 4,
+      "style": "条",
+      "annotations": 0,
+      "appendix_lines": 0
+    },
+    {
+      "kind": "細則",
+      "title": "○○マンションペット飼育細則",
+      "lines": 7,
+      "articles": 3,
+      "style": "項目",
+      "annotations": 0,
+      "appendix_lines": 0
+    },
+    {
+      "kind": "改正履歴",
+      "title": "細則の改正履歴(判明している範囲)",
+      "lines": 2,
+      "articles": 0,
+      "style": "",
+      "annotations": 0,
+      "appendix_lines": 0
+    }
+  ],
+  "planted": [
+    {
+      "document": "総会運営細則",
+      "article": "3",
+      "issue": "緊急時の招集期間を5日前までに短縮できる（改正法第35条第1項は1週間前。規約で伸ばすことしかできない）",
+      "kind": "改正法との食い違い"
+    },
+    {
+      "document": "総会運営細則",
+      "article": "5",
+      "issue": "規約の変更の決議要件を細則で定め、しかも全員を母数にした4分の3（改正法第31条第1項と食い違い、規約で定めるべき事項）",
+      "kind": "改正法との食い違い・規約で定めるべき事項"
+    },
+    {
+      "document": "駐車場使用細則",
+      "article": "1",
+      "issue": "規約の駐車場の条を第16条と参照しているが、規約の駐車場の使用は第15条",
+      "kind": "規約との食い違い"
+    }
+  ],
+  "clean_rules": [
+    "ペット飼育細則"
+  ],
+  "required": {
+    "1-1": {
+      "captions": [
+        "総会の会議及び議事"
+      ],
+      "articles": [
+        "第49条"
+      ]
+    },
+    "1-2": {
+      "captions": [
+        "総会の会議及び議事"
+      ],
+      "articles": [
+        "第49条"
+      ]
+    },
+    "2-1": {
+      "captions": [
+        "招集手続"
+      ],
+      "articles": [
+        "第45条"
+      ]
+    },
+    "2-2": {
+      "captions": [
+        "招集手続"
+      ],
+      "articles": [
+        "第45条"
+      ]
+    },
+    "3": {
+      "captions": [
+        "損害保険",
+        "理事長の勧告及び指示等"
+      ],
+      "articles": [
+        "第25条",
+        "第69条"
+      ]
+    }
+  }
+}

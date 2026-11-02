@@ -69,7 +69,16 @@ def main() -> None:
     findings = [Finding(**{k: v for k, v in f.items()}) for f in review["findings"]]
     input_path = ROOT / review.get("input", "evals/data/r7_tantou_before.txt")
     info = review.get("basic_info", BASIC_INFO)
-    kiyaku = load_kiyaku(input_path)
+    if review.get("collection"):
+        from core.corpus import Corpus
+        from core.ingest import load_collection
+
+        corpus = Corpus.from_collection(load_collection(input_path))
+    else:
+        from core.corpus import Corpus
+
+        corpus = Corpus(load_kiyaku(input_path))
+    kiyaku = corpus.main
     is_standard = input_path.name == "r7_tantou_before.txt"
     print(f"指摘 {len(findings)}件（{review_path}）から改定案を作ります", flush=True)
 
@@ -79,7 +88,8 @@ def main() -> None:
         elif kind == "tool" and text == "check_draft":
             print("  [tool] check_draft", flush=True)
 
-    result = run_draft(kiyaku, findings, info, on_event=progress, title=f"評価：改定案の作成（{input_path.name}）")
+    result = run_draft(kiyaku, findings, info, on_event=progress, title=f"評価：改定案の作成（{input_path.name}）",
+                       rules=corpus.rules)
     stamp = datetime.now(JST).strftime("%Y%m%d-%H%M")
     out = RESULTS / "drafts" / (stamp if is_standard else f"{stamp}-{input_path.stem}")
     out.mkdir(parents=True, exist_ok=True)
@@ -101,11 +111,13 @@ def main() -> None:
         covered = {t for a in result.draft.amendments for t in a.finding_refs}
         metrics["必須の論点への対応"] = f"{len([t for t in required if t in covered])}/{len(required)}"
         metrics["改定の内訳"] = {k: sum(1 for a in result.draft.amendments if a.kind == k) for k in ("改正", "新設", "削除")}
+        metrics["文書ごとの改定"] = {d: sum(1 for a in result.draft.amendments if a.document == d)
+                               for d in dict.fromkeys(a.document for a in result.draft.amendments)}
         if is_standard:
             metrics["国交省の改正後条文との近さ"] = closeness(result.draft, DATA / "r7_tantou_after.txt")
         (out / "kaitei.json").write_text(json.dumps(result.draft.to_dict(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        (out / "taisho.html").write_text(to_html(result.draft, kiyaku, f"新旧対照表（評価用：{input_path.name}）"), encoding="utf-8")
-        (out / "taisho.md").write_text(to_markdown(result.draft, kiyaku, f"新旧対照表（評価用：{input_path.name}）"), encoding="utf-8")
+        (out / "taisho.html").write_text(to_html(result.draft, corpus, f"新旧対照表（評価用：{input_path.name}）"), encoding="utf-8")
+        (out / "taisho.md").write_text(to_markdown(result.draft, corpus, f"新旧対照表（評価用：{input_path.name}）"), encoding="utf-8")
     (out / "metrics.json").write_text(json.dumps({"metrics": metrics, "result": result.to_dict()}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
     print(f"保存: {out.relative_to(ROOT)}/")
