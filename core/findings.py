@@ -25,7 +25,8 @@ NO_ARTICLE = "規定なし"
 FINDING_SCHEMA = {
     "type": "object",
     "properties": {
-        "article": {"type": "string", "description": "対象となる現行規約の条（例：「第47条」）。該当する規定が現行規約にない場合は「規定なし」"},
+        "document": {"type": "string", "description": "対象の文書。規約本体なら「規約」、細則ならその題名（list_rules で確認）。新しい細則を作るべき場合は「規約」とし、where を「細則で対応可」にする"},
+        "article": {"type": "string", "description": "対象となる条（例：「第47条」。項目形式の細則なら「2.」）。該当する規定がない場合は「規定なし」"},
         "topic_id": {"type": "string", "description": "改正論点のID（スキルの論点表の ID。例：「1-1」）。論点表にない場合は「other」"},
         "category": {"type": "string", "enum": list(CATEGORIES), "description": "必須／推奨／参考。既知の論点は論点表の区分が優先される"},
         "issue": {"type": "string", "description": "何が問題か。専門家でない担当者が読んで分かる日本語で、2〜3文"},
@@ -37,7 +38,7 @@ FINDING_SCHEMA = {
         "choice_needed": {"type": "boolean", "description": "標準管理規約に選択肢（（ア）（イ）など）があり、担当者が選ぶ必要がある場合 true"},
         "choice_note": {"type": "string", "description": "choice_needed が true のとき、選択肢と判断のポイント"},
     },
-    "required": ["article", "topic_id", "category", "issue", "current_excerpt", "law_basis", "standard_basis", "where", "proposal"],
+    "required": ["document", "article", "topic_id", "category", "issue", "current_excerpt", "law_basis", "standard_basis", "where", "proposal"],
     "additionalProperties": False,
 }
 
@@ -57,6 +58,7 @@ class Finding:
     choice_note: str = ""
     needs_confirmation: bool = False  # 論点表で「要確認」の論点
     warnings: list[str] = field(default_factory=list)
+    document: str = "規約"  # 「規約」または細則の題名
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -76,10 +78,20 @@ def _standard_exists(ref: str) -> bool:
     return standard().find(normalize_article_ref(ref)) is not None
 
 
-def validate(raw: dict, kiyaku: Kiyaku) -> tuple[Finding | None, list[str]]:
-    """指摘を検証する。受け付けられれば (Finding, 警告)、受け付けられなければ (None, 理由) を返す。"""
+def validate(raw: dict, kiyaku) -> tuple[Finding | None, list[str]]:
+    """指摘を検証する。受け付けられれば (Finding, 警告)、受け付けられなければ (None, 理由) を返す。
+
+    kiyaku には規約本体（Kiyaku）か、規約本体と細則をまとめた Corpus を渡す。
+    """
+    from core.corpus import Corpus
+
+    corpus = Corpus.of(kiyaku)
     errors: list[str] = []
     warnings: list[str] = []
+    document = corpus.resolve(raw.get("document"))
+    if document is None:
+        errors.append(f"文書「{raw.get('document')}」が見つかりません。規約本体なら「規約」、細則は list_rules の題名を使ってください。")
+        return None, errors
     law_basis = [x for x in raw.get("law_basis", []) if x.strip()]
     standard_basis = [x for x in raw.get("standard_basis", []) if x.strip()]
 
@@ -96,9 +108,10 @@ def validate(raw: dict, kiyaku: Kiyaku) -> tuple[Finding | None, list[str]]:
     excerpt = raw.get("current_excerpt", "").strip()
     if article != NO_ARTICLE:
         number = normalize_article_ref(article)
-        found = [a for a in kiyaku.articles if a.number == number]
+        found = corpus.find(document, number)
         if not found:
-            errors.append(f"現行規約に「{article}」が見つかりません。list_articles で条番号を確認してください。")
+            where = "現行規約" if document == "規約" else f"「{document}」"
+            errors.append(f"{where}に「{article}」が見つかりません。list_articles／list_rules で条番号を確認してください。")
         elif excerpt and not any(_squash(excerpt) in _squash(a.text()) for a in found):
             errors.append(f"引用が「{article}」の本文と一致しません。get_articles で取得した本文から一字一句そのまま引用してください。")
         elif not excerpt:
@@ -126,6 +139,7 @@ def validate(raw: dict, kiyaku: Kiyaku) -> tuple[Finding | None, list[str]]:
     if errors:
         return None, errors
     return Finding(
+        document=document,
         article=article,
         topic_id=topic_id,
         category=category,

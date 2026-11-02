@@ -20,6 +20,7 @@ CHOICE_MARK = "〔選択〕"
 AMENDMENT_SCHEMA = {
     "type": "object",
     "properties": {
+        "document": {"type": "string", "description": "改定する文書。規約本体なら「規約」、細則ならその題名"},
         "kind": {"type": "string", "enum": list(KINDS)},
         "article": {"type": "string", "description": "改定後の条番号（例：「第47条」「第24条の2」）。削除なら削除する条"},
         "before_article": {"type": ["string", "null"], "description": "現行規約の条番号。新設なら null"},
@@ -61,6 +62,7 @@ class Amendment:
     law_basis: list[str]
     standard_basis: list[str]
     choices: list[dict] = field(default_factory=list)
+    document: str = "規約"  # 「規約」または細則の題名
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -76,12 +78,21 @@ class Draft:
 
 
 def _lead_number(text: str) -> str | None:
+    item = re.match(r"^\s*([0-9０-９]{1,3})[.．]", text)  # 項目形式の細則（「2.　…」）
+    if item:
+        return normalize_article_ref(item.group(1) + ".")
     m = re.match(r"^\s*第\s*([0-9０-９一二三四五六七八九十百]+)\s*条((?:\s*の\s*[0-9０-９一二三四五六七八九十]+)*)", text)
     return normalize_article_ref(m.group(0)) if m else None
 
 
-def check(data: dict, kiyaku: Kiyaku, findings: list[Finding]) -> tuple[Draft | None, list[str], list[str]]:
-    """改定案を検査する。(Draft または None, エラー, 注意) を返す。"""
+def check(data: dict, kiyaku, findings: list[Finding]) -> tuple[Draft | None, list[str], list[str]]:
+    """改定案を検査する。(Draft または None, エラー, 注意) を返す。
+
+    kiyaku には規約本体（Kiyaku）か、規約本体と細則をまとめた Corpus を渡す。
+    """
+    from core.corpus import Corpus
+
+    corpus = Corpus.of(kiyaku)
     errors: list[str] = []
     warnings: list[str] = []
     if not isinstance(data, dict) or not isinstance(data.get("amendments"), list):
@@ -99,16 +110,21 @@ def check(data: dict, kiyaku: Kiyaku, findings: list[Finding]) -> tuple[Draft | 
         if kind not in KINDS:
             errors.append(f"{where}：kind は 改正／新設／削除 のどれかにしてください。")
             continue
+        document = corpus.resolve(raw.get("document"))
+        if document is None:
+            errors.append(f"{where}：文書「{raw.get('document')}」が見つかりません。「規約」か細則の題名にしてください。")
+            continue
+        doc_name = "現行規約" if document == "規約" else f"「{document}」"
         number = normalize_article_ref(raw["article"])
         before = raw.get("before_article")
         if kind in ("改正", "削除"):
-            if not before or not [a for a in kiyaku.articles if a.number == normalize_article_ref(before)]:
-                errors.append(f"{where}：現行規約に before_article「{before}」がありません。")
+            if not before or not corpus.find(document, normalize_article_ref(before)):
+                errors.append(f"{where}：{doc_name}に before_article「{before}」がありません。")
         if kind == "新設":
             if before:
                 errors.append(f"{where}：新設なら before_article は null にしてください。")
-            if [a for a in kiyaku.articles if a.number == number]:
-                errors.append(f"{where}：「{raw['article']}」は現行規約にすでにあります。新設するなら枝番（例：第24条の2）を使ってください。")
+            if corpus.find(document, number):
+                errors.append(f"{where}：「{raw['article']}」は{doc_name}にすでにあります。新設するなら枝番（例：第24条の2）を使ってください。")
         if kind != "削除":
             lead = _lead_number(raw["text"])
             if lead != number:
@@ -128,17 +144,17 @@ def check(data: dict, kiyaku: Kiyaku, findings: list[Finding]) -> tuple[Draft | 
             kind=kind, article=raw["article"], before_article=before, caption=raw.get("caption", ""),
             text=raw.get("text", ""), reason=raw["reason"], finding_refs=raw.get("finding_refs", []),
             law_basis=raw.get("law_basis", []), standard_basis=raw.get("standard_basis", []),
-            choices=raw.get("choices", []) or [],
+            choices=raw.get("choices", []) or [], document=document,
         ))
 
     required = sorted({f.topic_id for f in findings if f.category == "必須"})
     for topic in required:
         if topic not in covered:
             errors.append(f"必須の指摘（論点 {topic}）に対応する改定がありません。finding_refs に論点IDを入れてください。")
-    keys = [normalize_article_ref(a.article) for a in amendments]
+    keys = [(a.document, normalize_article_ref(a.article)) for a in amendments]
     dup = {k for k in keys if keys.count(k) > 1}
     if dup:
-        errors.append(f"同じ条の改定が複数あります：{', '.join(sorted(dup))}。1つの条は1つの改定にまとめてください。")
+        errors.append(f"同じ条の改定が複数あります：{', '.join(f'{d}の{n}' for d, n in sorted(dup))}。1つの条は1つの改定にまとめてください。")
     if "法的助言" not in (data.get("notes") or ""):
         warnings.append("notes に「総会提案の下書きであり、法的助言ではない」旨がありません。")
 

@@ -89,6 +89,9 @@ def normalize_article_ref(ref: str) -> str:
     from core.split import article_number, normalize
 
     ref = normalize(ref).replace(" ", "")
+    item = re.match(r"^([0-9]{1,3})\.$", ref)  # 項目形式の細則（「2.」）
+    if item:
+        return item.group(1)
     m = re.match(r"^(?:区分所有法)?第?([0-9一二三四五六七八九十百]+)条?((?:の[0-9一二三四五六七八九十]+)*)", ref)
     if not m:
         return ref

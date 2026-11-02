@@ -45,7 +45,8 @@ RUBRIC = """# 改定案のルーブリック（各項目を独立に採点する
 6. 各改定の reason が、専門家でない理事会の担当者に分かる平易な日本語で、なぜ変えるのかを説明している
 7. 各改定に根拠（区分所有法の条文、または標準管理規約の条番号）がある
 8. 選択式の規定（電磁的方法の利用の有無など）や、組合が決めるべき事項を勝手に決めず、本文に〔選択〕を付け、choices に選択肢と判断のポイントを書いている
-9. 条文中の他の条の参照（「第○条」「前条」）が、改定後の規約で正しい条を指している
+9. 条文中の他の条の参照（「第○条」「前条」）が、改定後の規約で正しい条を指している。細則が規約の条を参照している場合も、改定後の規約の条を正しく指している
+11. 各改定の document が正しい（規約本体の改定は「規約」、細則の改定はその細則の題名）。規約で定めるべき事項を細則に、細則で足りる事項を規約に入れていない
 10. notes が、スキルの見出し（【決議の進め方】【優先して提案する改定】【組合が選ぶ点】【条・項の番号が変わる箇所】【あわせて検討するとよい点】【使った資料】のうち該当するもの）で整理され、総会提案の下書きであり法的助言ではないことが書かれている
 """
 
@@ -79,12 +80,12 @@ class DraftResult:
 
 
 class DraftToolHandler(ToolHandler):
-    def __init__(self, kiyaku: Kiyaku, findings: list[Finding]):
-        super().__init__(kiyaku)
+    def __init__(self, kiyaku: Kiyaku, findings: list[Finding], rules: dict[str, Kiyaku] | None = None):
+        super().__init__(kiyaku, rules)
         self.adopted = findings
 
     def _check_draft(self, draft: dict) -> str:
-        result, errors, warnings = check(draft, self.kiyaku, self.adopted)
+        result, errors, warnings = check(draft, self.corpus, self.adopted)
         if errors:
             return json.dumps({"結果": "エラーあり", "エラー": errors, "注意": warnings}, ensure_ascii=False)
         return json.dumps({"結果": "検査に合格", "改定の数": len(result.amendments), "注意": warnings,
@@ -95,7 +96,7 @@ def build_description(findings: list[Finding], info: dict) -> str:
     today = datetime.now(JST).date()
     compact = [
         {k: v for k, v in f.to_dict().items() if k in (
-            "article", "topic_id", "category", "issue", "law_basis", "standard_basis", "where", "proposal", "choice_needed", "choice_note")}
+            "document", "article", "topic_id", "category", "issue", "law_basis", "standard_basis", "where", "proposal", "choice_needed", "choice_note")}
         for f in findings
     ]
     return "\n".join([
@@ -112,6 +113,10 @@ def build_description(findings: list[Finding], info: dict) -> str:
         "- 1つの条に複数の指摘がある場合は、1つの改定にまとめる（finding_refs に複数の論点IDを入れる）",
         f"- 書き終えたら check_draft で検査し、エラーがなくなったら /mnt/session/outputs/{OUTPUT_NAME} に保存する",
         "",
+        "## 細則",
+        ("この規約集には細則があります（list_rules で確認）。細則の改定は document に細則の題名を入れてください。"
+         if any(f.document != "規約" for f in findings) else "（指摘の対象は規約本体です。細則がある場合は list_rules で確認できます）"),
+        "",
         "## 採用済みの指摘（JSON）",
         json.dumps(compact, ensure_ascii=False),
     ])
@@ -123,10 +128,11 @@ def run_draft(
     info: dict,
     on_event: Callable[[str, str], None] | None = None,
     title: str = "改定案の作成",
+    rules: dict[str, Kiyaku] | None = None,
 ) -> DraftResult:
     state = json.loads(STATE.read_text(encoding="utf-8"))
     c = client()
-    handler = DraftToolHandler(kiyaku, findings)
+    handler = DraftToolHandler(kiyaku, findings, rules)
     notify = on_event or (lambda kind, text: None)
     evaluations: list[dict] = []
     started = time.monotonic()
@@ -195,7 +201,7 @@ def run_draft(
     else:
         try:
             data = json.loads(raw)
-            draft, errors, warnings = check(data, kiyaku, findings)
+            draft, errors, warnings = check(data, handler.corpus, findings)
         except json.JSONDecodeError as e:
             data, draft, errors, warnings = None, None, [f"{OUTPUT_NAME} が JSON として読めません: {e}"], []
     info_after = c.beta.sessions.retrieve(session_id=session.id)

@@ -59,10 +59,14 @@ def _marked(old: str, new: str) -> tuple[list[tuple[str, bool]], list[tuple[str,
     return old_parts, new_parts
 
 
-def rows(draft: Draft, kiyaku: Kiyaku) -> list[dict]:
+def rows(draft: Draft, kiyaku) -> list[dict]:
+    """kiyaku には規約本体（Kiyaku）か、規約本体と細則をまとめた Corpus を渡す。"""
+    from core.corpus import Corpus
+
+    corpus = Corpus.of(kiyaku)
     out = []
     for a in draft.amendments:
-        old = _current_text(kiyaku, a.before_article)
+        old = _current_text(corpus.get(a.document) or corpus.main, a.before_article)
         new = "" if a.kind == "削除" else a.text
         old_parts, new_parts = _marked(old, new)
         if a.kind == "新設":
@@ -135,11 +139,41 @@ def _class_html(c: dict) -> str:
     return "".join(out)
 
 
-def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
-    body = []
+def groups(all_rows: list[dict]) -> list[tuple[str, list[dict]]]:
+    """文書ごとにまとめる（規約本体を先に、細則はその後に出てきた順）。"""
+    order: list[str] = []
+    for r in all_rows:
+        d = r["amendment"].document
+        if d not in order:
+            order.append(d)
+    order.sort(key=lambda d: 0 if d == "規約" else 1)
+    return [(d, [r for r in all_rows if r["amendment"].document == d]) for d in order]
+
+
+def group_heading(document: str) -> str:
+    from core.corpus import Corpus
+
+    name = "管理規約" if document == "規約" else document
+    return f"{name}の改定案（総会の{Corpus.resolution(document)}）"
+
+
+RESOLUTION_GUIDE = ("規約の改定は総会の特別決議（組合員総数・議決権総数の各過半数の出席、出席者の各4分の3以上の賛成）、"
+                    "細則の改定は普通決議（出席者の議決権の過半数）で決めます。総会では別の議案になります。")
+
+
+def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
-    for r in all_rows:
+    grouped = groups(all_rows)
+    sections = []
+    for document, group_rows in grouped:
+        sections.append(_html_table(group_rows, group_heading(document) if len(grouped) > 1 or document != "規約" else ""))
+    return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1)
+
+
+def _html_table(group_rows: list[dict], heading: str) -> str:
+    body = []
+    for r in group_rows:
         a = r["amendment"]
         c = classify(a)
         caption = f"（{html.escape(a.caption)}）<br>" if a.caption else ""
@@ -157,12 +191,19 @@ def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対�
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
         )
+    head = f"<h2>{html.escape(heading)}（{len(group_rows)}条）</h2>" if heading else ""
+    return (f"{head}<table><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>"
+            f"<tbody>{''.join(body)}</tbody></table>")
+
+
+def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, tables: str, multi: bool) -> str:
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
 <style>
 body {{ font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; margin: 24px; line-height: 1.7; color: #222; }}
 h1 {{ font-size: 1.3rem; }}
+h2 {{ font-size: 1.1rem; margin-top: 1.6em; border-left: 6px solid #1f5fae; padding-left: 8px; }}
 .note {{ background: #fff6e0; border-left: 4px solid #e0a000; padding: 8px 12px; }}
 table {{ border-collapse: collapse; width: 100%; table-layout: fixed; }}
 th, td {{ border: 1px solid #888; padding: 8px; vertical-align: top; font-size: 0.92rem; word-break: break-all; }}
@@ -184,8 +225,8 @@ del {{ color: #b42318; text-decoration-color: #b42318; text-decoration-thickness
 <p class="legend">{LEGEND}</p>
 <p class="legend">{GUIDE}</p>
 <p class="summary">改定 {len(all_rows)}条のうち、<span class="tag must">{REQUIRED_LABEL}</span>を含む条 {n_required}条、<span class="tag opt">{OPTIONAL_LABEL}</span>だけの条 {len(all_rows) - n_required}条</p>
-<table><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>
-<tbody>{''.join(body)}</tbody></table>
+{('<p class="legend">' + RESOLUTION_GUIDE + '</p>') if multi else ''}
+{tables}
 <h2>申し送り</h2>{_notes_html(draft.notes)}
 </body></html>
 """
@@ -195,14 +236,26 @@ def to_markdown(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧�
     def md(parts, side):
         return "".join(f"{side}{t.strip()}{side}" if c and t.strip() else t for t, c in parts).replace("\n", "<br>")
 
-    lines = [f"# {title}", "", f"> {DISCLAIMER}", "", LEGEND_MD, "", GUIDE, "", "| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
-    for r in rows(draft, kiyaku):
-        a = r["amendment"]
-        basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
-        c = classify(a)
-        label = (f"【{REQUIRED_LABEL}】" if c["is_required"] else "") + (f"【{OPTIONAL_LABEL}】" if c["optional"] else "")
-        lines.append(f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | {label}<br>**{a.kind}** {a.reason}<br>根拠：{basis} |")
+    lines = [f"# {title}", "", f"> {DISCLAIMER}", "", LEGEND_MD, "", GUIDE, ""]
+    grouped = groups(rows(draft, kiyaku))
+    if len(grouped) > 1:
+        lines += [RESOLUTION_GUIDE, ""]
+    for document, group_rows in grouped:
+        if len(grouped) > 1 or document != "規約":
+            lines += [f"## {group_heading(document)}", ""]
+        lines += ["| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
+        lines += [_md_row(r, md) for r in group_rows]
+        lines.append("")
     lines += ["", "## 申し送り", ""]
     for h, body in notes_sections(draft.notes):
         lines += ([f"### {h}", ""] if h else []) + [body, ""]
     return "\n".join(lines) + "\n"
+
+
+def _md_row(r: dict, md) -> str:
+    if True:
+        a = r["amendment"]
+        basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
+        c = classify(a)
+        label = (f"【{REQUIRED_LABEL}】" if c["is_required"] else "") + (f"【{OPTIONAL_LABEL}】" if c["optional"] else "")
+        return f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | {label}<br>**{a.kind}** {a.reason}<br>根拠：{basis} |"

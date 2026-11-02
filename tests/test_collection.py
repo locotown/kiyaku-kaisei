@@ -83,3 +83,53 @@ def test_paragraph_dot_and_paren_items():
     a1, a2 = k.articles
     assert [p.num for p in a1.paragraphs] == [1, 2] and len(a1.paragraphs[0].items) == 2
     assert len(a2.paragraphs[0].items) == 1 and "(1) さらに細分" in a2.paragraphs[0].items[0]
+
+
+def _corpus():
+    from core.corpus import Corpus
+
+    return Corpus.from_collection(segment(SAMPLE.read_text(encoding="utf-8").splitlines()))
+
+
+def test_corpus_resolve():
+    c = _corpus()
+    assert c.resolve("規約") == "規約"
+    assert c.resolve("駐車場使用細則") == "○○マンション駐車場使用細則"  # 題名の一部でも引ける
+    assert c.resolve("存在しない細則") is None
+    assert c.resolution("規約") == "特別決議" and c.resolution("○○マンション駐車場使用細則") == "普通決議"
+
+
+def test_finding_in_rule():
+    from core.findings import validate
+
+    c = _corpus()
+    base = {"topic_id": "other", "category": "参考", "issue": "x", "law_basis": [], "standard_basis": ["第18条"],
+            "where": "細則で対応可", "proposal": "y"}
+    ok, _ = validate(dict(base, document="駐車場使用細則", article="第2条", current_excerpt="使用料は、月額5,000円とする。"), c)
+    assert ok is not None and ok.document == "○○マンション駐車場使用細則"
+    bad, errors = validate(dict(base, document="駐車場使用細則", article="第9条", current_excerpt=""), c)
+    assert bad is None and "駐車場使用細則" in errors[0]
+    item, _ = validate(dict(base, document="○○マンション使用細則", article="2.", current_excerpt="居住者は、ごみを所定の場所に出す。"), c)
+    assert item is not None  # 項目形式の細則
+
+
+def test_draft_and_taisho_with_rules():
+    from core.draft import check
+    from core.taisho import to_html, to_markdown
+
+    c = _corpus()
+    data = {"notes": "法的助言ではありません", "amendments": [
+        {"document": "規約", "kind": "改正", "article": "第4条", "before_article": "第4条", "caption": "総会の会議及び議事",
+         "text": "第4条　総会の会議は、議決権総数の過半数を有する組合員が出席しなければならない。", "reason": "r",
+         "finding_refs": ["1-3"], "law_basis": [], "standard_basis": ["第47条"]},
+        {"document": "○○マンション使用細則", "kind": "改正", "article": "2.", "before_article": "2.", "caption": "清掃",
+         "text": "2.　(1)　共用部分の清掃は、管理会社が行う。", "reason": "r",
+         "finding_refs": [], "law_basis": [], "standard_basis": ["第18条"]},
+    ]}
+    draft, errors, _ = check(data, c, [])
+    assert errors == [], errors
+    html = to_html(draft, c)
+    assert "管理規約の改定案（総会の特別決議）" in html
+    assert "○○マンション使用細則の改定案（総会の普通決議）" in html
+    assert "<del>管理員</del>" in html  # 細則の現行本文と比べている
+    assert "普通決議" in to_markdown(draft, c)

@@ -75,6 +75,7 @@ def build_request(info: dict, today: date | None = None) -> str:
         "",
         "## お願い",
         "- スキル kiyaku-kaisei の手順に従い、論点表のすべての論点を確認してください",
+        "- 細則がある場合（list_rules）は、細則も点検してください（スキルの「細則の点検」）",
         "- 指摘はすべて record_findings で記録してください",
         "- 最後に、指摘の件数（必須・推奨・参考の内訳）と、担当者が判断すべき点を短くまとめてください",
     ]
@@ -86,11 +87,12 @@ def run_review(
     info: dict,
     on_event: Callable[[str, str], None] | None = None,
     title: str = "規約の点検",
+    rules: dict[str, Kiyaku] | None = None,
 ) -> ReviewResult:
     """点検を実行する。on_event(種類, 内容) で進み具合を受け取れる。"""
     state = json.loads(STATE.read_text(encoding="utf-8"))
     c = client()
-    handler = ToolHandler(kiyaku)
+    handler = ToolHandler(kiyaku, rules)
     notify = on_event or (lambda kind, text: None)
     texts: list[str] = []
     started = time.monotonic()

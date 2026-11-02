@@ -7,7 +7,7 @@
 {% if work.documents and work.documents|length > 1 %}
 <div class="card">
   <h2>読み込んだ文書</h2>
-  <p class="muted">ファイルを文書ごとに分けました。いまは「規約」を点検します（細則の点検は準備中）。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
+  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
   <table>
     <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
     {% for d in work.documents %}
@@ -55,7 +55,7 @@ setTimeout(poll, 2000);
   <div class="finding">
     <div class="head">
       <span class="badge b-{{ f.category }}">{{ f.category }}</span>
-      <strong>{{ f.article }}</strong>
+      <strong>{% if f.document and f.document != "規約" %}{{ f.document }} {% endif %}{{ f.article }}</strong>
       <span class="muted">論点 {{ f.topic_id }}{% if f.needs_confirmation %}（要確認）{% endif %}／{{ f.where }}</span>
     </div>
     <p>{{ f.issue }}</p>

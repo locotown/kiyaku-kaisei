@@ -34,6 +34,26 @@ TOOL_DEFS = [
     },
     {
         "type": "custom",
+        "name": "list_rules",
+        "description": "細則（使用細則・駐車場使用細則など）の一覧（題名・条や項目の数・書き方）を返す。細則がなければ空。",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "type": "custom",
+        "name": "get_rule_articles",
+        "description": "細則の条（項目形式なら項目）の本文を返す。rule は list_rules の題名（一部でもよい）。articles を省くと、その細則の全文を返す。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rule": {"type": "string"},
+                "articles": {"type": "array", "items": {"type": "string"}, "maxItems": MAX_ITEMS},
+            },
+            "required": ["rule"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "custom",
         "name": "get_standard_articles",
         "description": "マンション標準管理規約（令和7年10月改正・単棟型）の条の本文を返す。選択式の規定は（ア）（イ）の両案を返す。一度に20条まで。",
         "input_schema": {
@@ -75,8 +95,11 @@ TOOL_DEFS = [
 class ToolHandler:
     """1回のレビューで使うツールの実行役。受け付けた指摘をためておく。"""
 
-    def __init__(self, kiyaku: Kiyaku):
+    def __init__(self, kiyaku: Kiyaku, rules: dict[str, Kiyaku] | None = None):
+        from core.corpus import Corpus
+
         self.kiyaku = kiyaku
+        self.corpus = Corpus(kiyaku, rules)
         self.findings: list[Finding] = []
         self.rejected: list[dict] = []
         self.calls: list[str] = []
@@ -107,6 +130,21 @@ class ToolHandler:
                 out.append(head + note + "\n" + a.text())
         return "\n\n".join(out)
 
+    def _list_rules(self) -> str:
+        rows = [{"題名": name, "数": len(k.articles), "書き方": k.articles[0].style if k.articles else "",
+                 "見出し": [a.caption for a in k.articles][:40]}
+                for name, k in self.corpus.rules.items()]
+        return json.dumps({"細則の数": len(rows), "細則": rows}, ensure_ascii=False)
+
+    def _get_rule_articles(self, rule: str, articles: list[str] | None = None) -> str:
+        name = self.corpus.resolve(rule)
+        if name is None or name == "規約":
+            return f"細則「{rule}」が見つかりません。list_rules の題名を使ってください。"
+        k = self.corpus.rules[name]
+        if not articles:
+            return f"【{name}】\n" + "\n\n".join(a.text() for a in k.articles)
+        return f"【{name}】\n" + self._get_from(k, articles, name)
+
     def _get_articles(self, articles: list[str]) -> str:
         return self._get_from(self.kiyaku, articles, "現行規約")
 
@@ -124,10 +162,10 @@ class ToolHandler:
     def _record_findings(self, findings: list[dict]) -> str:
         accepted, rejected = [], []
         for i, raw in enumerate(findings[:MAX_ITEMS]):
-            finding, messages = validate(raw, self.kiyaku)
+            finding, messages = validate(raw, self.corpus)
             if finding:
                 self.findings.append(finding)
-                accepted.append({"番号": i, "条": finding.article, "論点": finding.topic_id, "区分": finding.category, "注意": messages})
+                accepted.append({"番号": i, "文書": finding.document, "条": finding.article, "論点": finding.topic_id, "区分": finding.category, "注意": messages})
             else:
                 rejected.append({"番号": i, "条": raw.get("article"), "理由": messages})
                 self.rejected.append({"finding": raw, "reasons": messages})

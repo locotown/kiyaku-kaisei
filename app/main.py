@@ -35,6 +35,17 @@ def _source(work_id: str) -> Path:
     return files[0]
 
 
+def _corpus(work_id: str):
+    """規約本体と細則を読み込む（規約集でなければ規約本体だけ）。"""
+    from core.corpus import Corpus
+    from core.ingest import load_collection
+
+    corpus = Corpus.from_collection(load_collection(_source(work_id)))
+    if len(corpus.main.articles) < 3:
+        corpus = Corpus(load_kiyaku(_source(work_id)))
+    return corpus
+
+
 def _findings(work: dict) -> list[Finding]:
     return [Finding(**f) for f in work.get("findings", [])]
 
@@ -44,8 +55,8 @@ def _run_review(work_id: str) -> None:
 
     work = store.load(work_id)
     try:
-        kiyaku = load_kiyaku(_source(work_id))
-        result = run_review(kiyaku, work["info"], on_event=lambda k, t: store.append_log(work_id, k, t),
+        corpus = _corpus(work_id)
+        result = run_review(corpus.main, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
                             title=f"点検：{work['name']}")
         decisions = {str(i): {"decision": "採用" if f.category == "必須" else "保留", "reason": ""}
                      for i, f in enumerate(result.findings)}
@@ -62,14 +73,14 @@ def _run_draft(work_id: str) -> None:
 
     work = store.load(work_id)
     try:
-        kiyaku = load_kiyaku(_source(work_id))
+        corpus = _corpus(work_id)
         adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
-        result = run_draft(kiyaku, adopted, work["info"], on_event=lambda k, t: store.append_log(work_id, k, t),
+        result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
                            title=f"改定案：{work['name']}")
         d = store.path(work_id)
         if result.draft:
-            (d / "taisho.html").write_text(to_html(result.draft, kiyaku, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
-            (d / "taisho.md").write_text(to_markdown(result.draft, kiyaku, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
+            (d / "taisho.html").write_text(to_html(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
+            (d / "taisho.md").write_text(to_markdown(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
         store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
                      draft=result.draft.to_dict() if result.draft else None,
                      draft_errors=result.errors, draft_evaluations=result.evaluations,

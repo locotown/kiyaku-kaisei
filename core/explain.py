@@ -7,6 +7,7 @@ Managed Agents ではなく Messages API の1回の呼び出し（構造化出�
 from __future__ import annotations
 
 import html
+import re
 import json
 from datetime import datetime
 
@@ -68,17 +69,34 @@ SYSTEM = """あなたは、マンション管理組合の理事会が住民（�
 """.format(jargon="、".join(JARGON))
 
 
+def ref_name(a) -> str:
+    """改定の参照名。規約本体は「第47条」、細則は「駐車場使用細則 第3条」（規約と細則の同じ番号を区別する）。"""
+    if a.document == "規約":
+        return a.article
+    short = re.sub(r"^.*?マンション[\s　]*", "", a.document) or a.document  # 「○○マンション駐車場使用細則」→「駐車場使用細則」
+    return f"{short} {a.article}"
+
+
+def _ref_key(text: str) -> str:
+    return re.sub(r"[\s　]", "", text)
+
+
 def build_prompt(draft: Draft, info: dict) -> str:
     today = datetime.now(JST).date()
     amendments = [
-        {k: v for k, v in a.to_dict().items() if k in ("kind", "article", "caption", "reason", "finding_refs", "choices")}
+        {"ref": ref_name(a), "document": a.document,
+         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices")}}
         for a in draft.amendments
     ]
+    has_rules = any(a.document != "規約" for a in draft.amendments)
     return "\n".join([
         "次の管理規約の改定案について、住民向けの説明資料の文章を作ってください。",
         f"基準日：{today.year}年{today.month}月{today.day}日"
         + ("（改正区分所有法は2026年4月1日に施行済み。規約の改正は改正法の要件で決議する）" if today >= ENFORCED else ""),
         "決議の要件（改正法）：組合員総数の過半数かつ議決権総数の過半数が出席し、出席者とその議決権の各4分の3以上の賛成。書面や代理人による投票も出席に数える。",
+        *(["細則（document が「規約」以外）の改定は、総会の普通決議（出席者の議決権の過半数）で決める。規約の改定とは別の議案になることを resolution で説明する。"]
+          if has_rules else []),
+        "各項目の articles には、改定案の ref をそのまま書く（例：「第47条」「駐車場使用細則 第3条」）。",
         "",
         "## マンションの基本情報",
         *[f"- {k}：{v}" for k, v in info.items()],
@@ -119,11 +137,9 @@ def mark_required(ex: Explanation, draft: Draft) -> None:
     from core.sources import normalize_article_ref
     from core.topics import REQUIRED_TOPIC_IDS
 
-    required_articles = {
-        normalize_article_ref(a.article) for a in draft.amendments if set(a.finding_refs) & set(REQUIRED_TOPIC_IDS)
-    }
+    required_refs = {_ref_key(ref_name(a)) for a in draft.amendments if set(a.finding_refs) & set(REQUIRED_TOPIC_IDS)}
     for item in ex.items:
-        item.required = any(normalize_article_ref(x) in required_articles for x in item.articles)
+        item.required = any(_ref_key(x) in required_refs for x in item.articles)
         if item.required:
             item.tier = "法律の改正に合わせる変更"
         elif item.tier == "法律の改正に合わせる変更":
@@ -139,13 +155,14 @@ def coverage(ex: Explanation, draft: Draft) -> dict:
     where: dict[str, list[int]] = {}
     for i, it in enumerate(ex.items, 1):
         for x in it.articles:
-            where.setdefault(normalize_article_ref(x), []).append(i)
+            where.setdefault(_ref_key(x), []).append(i)
     rows, missing = [], []
     for a in draft.amendments:
-        n = normalize_article_ref(a.article)
-        rows.append({"article": a.article, "caption": a.caption, "kind": a.kind, "items": where.get(n, [])})
-        if n not in where:
-            missing.append(a.article)
+        key = _ref_key(ref_name(a))
+        rows.append({"article": ref_name(a), "caption": a.caption, "kind": a.kind, "document": a.document,
+                     "items": where.get(key, [])})
+        if key not in where:
+            missing.append(ref_name(a))
     return {"rows": rows, "missing": missing}
 
 
@@ -176,11 +193,12 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None) -> str:
         trs = "".join(
             f"<tr><td>{html.escape(r['article'])}</td><td>{html.escape(r['caption'])}</td><td>{html.escape(r['kind'])}</td>"
             f"<td>{'法律の改正に合わせる' if classify(a)['is_required'] else '組合で選べる'}</td>"
+            f"<td>{'特別決議' if a.document == '規約' else '普通決議'}</td>"
             f"<td>{'、'.join(str(x) for x in r['items']) or '本文では取り上げていません'}</td></tr>"
             for r, a in zip(cov["rows"], draft.amendments)
         )
         appendix = (f'<h2>付録：変更する条の一覧（{len(cov["rows"])}条）</h2>'
-                    '<table class="list"><tr><th>条</th><th>見出し</th><th>種類</th><th>区分</th><th>説明の項目</th></tr>'
+                    '<table class="list"><tr><th>条</th><th>見出し</th><th>種類</th><th>区分</th><th>決議</th><th>説明の項目</th></tr>'
                     f"{trs}</table>")
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
