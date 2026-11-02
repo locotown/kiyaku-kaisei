@@ -82,6 +82,19 @@ input.reason { margin-top:8px; max-width:none; }
 .hist ul { margin:4px 0; padding-left:1.2em; }
 .legend div { margin:3px 0; }
 .legend .badge, .legend .tag { margin-right:6px; }
+.filters { position:sticky; top:0; z-index:5; background:#fff; display:flex; gap:6px; flex-wrap:wrap; padding:10px 0; border-bottom:1px solid var(--line); }
+.fbtn { background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:999px; padding:5px 14px; font-size:.92rem; }
+.fbtn span { display:inline-block; min-width:1.4em; margin-left:4px; padding:0 6px; border-radius:999px; background:#f2f4f7; font-size:.82rem; }
+.fbtn.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+.fbtn.on span { background:rgba(255,255,255,.25); }
+.fbtn.f-必須.on { background:var(--must); border-color:var(--must); }
+.fbtn.f-推奨.on { background:var(--rec); border-color:var(--rec); }
+.fbtn.f-参考.on { background:var(--ref); border-color:var(--ref); }
+.fbtn.f-保留.on { background:#93370d; border-color:#93370d; }
+.cathead { margin:22px 0 4px; padding:8px 12px; border-radius:8px; font-size:1rem; scroll-margin-top:64px; }
+.ch-必須 { background:#fef3f2; } .ch-推奨 { background:#fffaeb; } .ch-参考 { background:#f2f4f7; }
+.fcard { border-left:5px solid var(--line); padding-left:16px; scroll-margin-top:64px; }
+.fc-必須 { border-left-color:var(--must); } .fc-推奨 { border-left-color:var(--rec); } .fc-参考 { border-left-color:var(--ref); }
 footer { text-align:center; color:var(--muted); font-size:.85rem; padding:20px; }
 </style>
 </head>

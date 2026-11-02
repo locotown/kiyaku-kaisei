@@ -59,10 +59,22 @@ setTimeout(poll, 2000);
   <p class="tally">必須 <b>{{ summary.must }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - summary.must }}件</b>：
     {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} <span data-tally="{{ c }}">{{ tally[c] }}</span>件</span>{% if not loop.last %}・{% endif %}{% endfor %}
     <br><span class="muted">判断を選び、理由を書いて「確定する」を押すと保存されます（ページは移動しません）。判断を変えるたびに履歴が残ります。</span></p>
+  {% set cats = {"必須": "改定案に必ず入れる箇所", "推奨": "法改正に関係し、見直しを勧められている箇所", "参考": "標準管理規約と違う箇所"} %}
+  {% set counts = {} %}{% for c in cats %}{% set _ = counts.update({c: rows|selectattr("1.category", "equalto", c)|list|length}) %}{% endfor %}
+  <div class="filters" id="filters">
+    <button type="button" class="fbtn on" data-filter="all">すべて <span>{{ rows|length }}</span></button>
+    {% for c in cats %}<button type="button" class="fbtn f-{{ c }}" data-filter="{{ c }}">{{ c }} <span>{{ counts[c] }}</span></button>{% endfor %}
+    <button type="button" class="fbtn f-保留" data-filter="保留" title="推奨・参考のうち、まだ「保留」のもの">保留中 <span data-tally="保留">{{ tally["保留"] }}</span></button>
+  </div>
+  <p class="muted fempty" id="fempty" hidden>この区分の指摘はありません。</p>
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
+  {% set ns2 = namespace(cat="") %}
   {% for i, f in rows %}
   {% set d = decisions[i|string] %}{% set v = views[i] %}
-  <div class="finding fcard">
+  {% if f.category != ns2.cat %}{% set ns2.cat = f.category %}
+  <h3 class="cathead ch-{{ f.category }}" data-cat="{{ f.category }}"><span class="badge b-{{ f.category }}">{{ f.category }}</span> {{ counts.get(f.category, 0) }}件：{{ cats.get(f.category, "") }}</h3>
+  {% endif %}
+  <div class="finding fcard fc-{{ f.category }}" data-cat="{{ f.category }}" data-dec="{{ d.decision }}" id="f-{{ i }}">
     <div class="head">
       <span class="badge b-{{ f.category }}">{{ f.category }}</span>
       <h3 class="ftitle">{{ v.title }}</h3>
@@ -153,6 +165,8 @@ setTimeout(poll, 2000);
         .then(function (sum) {
           var it = sum.item;
           $('db-' + i).dataset.saved = it.decision;
+          $('f-' + i).dataset.dec = it.decision;
+          if (window.kiyakuFilter) window.kiyakuFilter();
           $('cr-' + i).textContent = it.reason || '（未記入）';
           $('hn-' + i).textContent = it.lines.length; $('hs-' + i).hidden = !it.lines.length;
           $('hl-' + i).innerHTML = '';
@@ -185,6 +199,35 @@ setTimeout(poll, 2000);
     });
     form.addEventListener('submit', function (e) { e.preventDefault(); });
     window.addEventListener('beforeunload', function (e) { if (pendingCount()) { e.preventDefault(); e.returnValue = ''; } });
+  })();
+  </script>
+  <script>
+  (function () {  // 区分ごとの絞り込み（すべて／必須／推奨／参考／保留中）
+    var bar = document.getElementById('filters'), current = 'all';
+    if (!bar) return;
+    try { current = sessionStorage.getItem('kiyaku-filter-{{ id }}') || 'all'; } catch (e) {}
+    function apply() {
+      var shown = 0, cats = {};
+      document.querySelectorAll('.fcard').forEach(function (c) {
+        var ok = current === 'all' || c.dataset.cat === current ||
+                 (current === '保留' && c.dataset.cat !== '必須' && c.dataset.dec === '保留');
+        // 確定前の選択中のカードは、絞り込みで消さない
+        if (!ok && c.querySelector('.pending:not([hidden])')) ok = true;
+        c.hidden = !ok; if (ok) { shown++; cats[c.dataset.cat] = 1; }
+      });
+      document.querySelectorAll('.cathead').forEach(function (h) { h.hidden = !cats[h.dataset.cat]; });
+      bar.querySelectorAll('.fbtn').forEach(function (b) { b.classList.toggle('on', b.dataset.filter === current); });
+      document.getElementById('fempty').hidden = shown > 0;
+    }
+    window.kiyakuFilter = apply;
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('.fbtn'); if (!b) return;
+      current = b.dataset.filter;
+      try { sessionStorage.setItem('kiyaku-filter-{{ id }}', current); } catch (e2) {}
+      apply();
+      document.getElementById('filters').scrollIntoView({ block: 'start' });
+    });
+    apply();
   })();
   </script>
   </form>
