@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date, datetime, timedelta, timezone
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -22,6 +23,8 @@ from core.tools import ToolHandler
 STATE = ROOT / "agents/state.json"
 BUDGET_CENTS = "500"  # 1セッションの上限 $5.00（公開価格ベース）
 DEADLINE_SEC = 30 * 60
+JST = timezone(timedelta(hours=9))
+ENFORCED = date(2026, 4, 1)  # 改正区分所有法の施行日
 
 
 @dataclass
@@ -48,10 +51,21 @@ class ReviewResult:
         }
 
 
-def build_request(info: dict) -> str:
+def build_request(info: dict, today: date | None = None) -> str:
+    today = today or datetime.now(JST).date()
     lines = [
         "次のマンションの現行管理規約を点検し、改正区分所有法（2026年4月施行）と",
         "マンション標準管理規約（2025年10月改正・単棟型）への対応が必要な箇所を、根拠付きで洗い出してください。",
+        "",
+        f"## 基準日：{today.year}年{today.month}月{today.day}日",
+    ]
+    if today >= ENFORCED:
+        lines.append("改正法はすでに施行されています。これから招集する総会は、規約の改正を含め、改正法の定足数・決議要件で決議します"
+                     "（改正前の規約の要件で決議できるのは、2026年3月31日までに招集手続きを始めた総会だけです）。")
+    else:
+        lines.append("改正法の施行（2026年4月1日）前です。総会の招集手続きを3月31日までに始めるか、4月1日以降に始めるかで、"
+                     "規約改正の手続きが変わります。")
+    lines += [
         "",
         "## マンションの基本情報",
     ]

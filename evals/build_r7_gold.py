@@ -33,6 +33,7 @@ SRC = ROOT / "data/public/mlit/r7_mikeshi_tantou.docx"
 OUT = ROOT / "evals/data"
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+DELETED_MARK = re.compile(r"[\u3000 ]*[（(]削る[）)]")
 
 
 
@@ -71,8 +72,9 @@ def read_redline(path: Path) -> tuple[list[str], list[str]]:
             else:
                 old += text
                 new += text
-        before.append(old)
-        after.append(new)
+        # 「（削る）」は見え消しの注記（改正で号を削ったことを示す）。規約の本文ではないので除く
+        before.append(DELETED_MARK.sub("", old))
+        after.append("" if DELETED_MARK.fullmatch(new.strip("\u3000 ")) else new)
     return before, after
 
 

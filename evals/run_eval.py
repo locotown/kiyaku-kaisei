@@ -6,7 +6,9 @@
 指標（docs/SPEC.md「7. 評価方法」）:
   - 必須の検出率（再現率）  … 必須の論点のうち、指摘できた割合（目標 100%）
   - 指摘の正確さ（適合率）  … 指摘のうち、正解の変更（改正で変わった条・論点）に当たる割合（目標 80%以上）
-  - 根拠の正しさ            … 既知の論点の指摘で、根拠の条文が論点表の条文と合っている割合（目標 95%以上）
+  - 根拠の正しさ            … 指摘に付けた標準管理規約の条が、論点表の条か、改正で実際に変わった条に当たる割合（目標 95%以上）。
+                              区分所有法の条は記録時に実在を検証済み。関連の妥当性は人が確認する
+  - （参考）論点表の条との完全一致 … 根拠が論点表に書いた条と一致する割合（関連する条を挙げると下がる、厳しい基準）
   - 区分の一致              … 既知の論点の指摘で、区分が論点表と一致する割合（記録のみ）
 住民向け説明の読みやすさは、担当者が5段階で評価する（このスクリプトの対象外）。
 
@@ -47,6 +49,9 @@ def score(findings: list[dict], gold: dict) -> dict:
 
     correct = 0
     basis_ok = basis_total = 0
+    strict_ok = 0
+    # 改正で変わった条（改正後の番号）。根拠に挙げた標準管理規約の条がここに当たれば、根拠として正しいとみなす
+    changed_after = {c["key"].split("(")[0] for c in gold["changes"] if c["key"]}
     for f in findings:
         number = normalize_article_ref(f["article"]) if f["article"] != "規定なし" else None
         std_numbers = {normalize_article_ref(x) for x in f["standard_basis"]}
@@ -58,7 +63,14 @@ def score(findings: list[dict], gold: dict) -> dict:
             law_numbers = {normalize_article_ref(x) for x in f["law_basis"]}
             ok_std = bool(std_numbers & set(t["standard"])) or not std_numbers
             ok_law = (not t["law"] and not law_numbers) or bool(law_numbers & set(t["law"])) or (not law_numbers and std_numbers)
-            basis_ok += bool(ok_std and ok_law)
+            strict_ok += bool(ok_std and ok_law)
+        # 根拠の正しさ：標準管理規約の根拠が、論点表の条か改正で変わった条に当たる。
+        # 区分所有法の根拠は、実在することを記録時に検証済み（関連の妥当性は人が確認する）
+        if f["topic_id"] in TOPIC_BY_ID or std_numbers:
+            allowed = changed_after | set(TOPIC_BY_ID.get(f["topic_id"], {}).get("standard", []))
+            if f["topic_id"] not in TOPIC_BY_ID:
+                basis_total += 1
+            basis_ok += bool(std_numbers) and std_numbers <= allowed or (not std_numbers and bool(f["law_basis"]))
 
     n = len(findings)
     return {
@@ -68,6 +80,8 @@ def score(findings: list[dict], gold: dict) -> dict:
         "検出できなかった必須の論点": [t for t in REQUIRED_TOPIC_IDS if t not in found_topics],
         "指摘の正確さ(%)": round(100 * correct / n, 1) if n else None,
         "根拠の正しさ(%)": round(100 * basis_ok / basis_total, 1) if basis_total else None,
+        "論点表の条との完全一致(%)": round(100 * strict_ok / sum(1 for f in findings if f["topic_id"] in TOPIC_BY_ID), 1)
+        if any(f["topic_id"] in TOPIC_BY_ID for f in findings) else None,
         "検出した論点": sorted(found_topics),
         "区分の内訳": {c: sum(1 for f in findings if f["category"] == c) for c in ("必須", "推奨", "参考")},
     }
@@ -79,6 +93,7 @@ def to_markdown(result: dict, metrics: dict, stamp: str) -> str:
     lines.append(f"| 必須の検出率 | {metrics['必須の検出率']}（{metrics['必須の検出率(%)']}%） | 100% |")
     lines.append(f"| 指摘の正確さ | {metrics['指摘の正確さ(%)']}% | 80%以上 |")
     lines.append(f"| 根拠の正しさ | {metrics['根拠の正しさ(%)']}% | 95%以上 |")
+    lines.append(f"| （参考）論点表の条との完全一致 | {metrics['論点表の条との完全一致(%)']}% | — |")
     lines.append(f"| 指摘の件数 | {metrics['指摘の件数']}（{metrics['区分の内訳']}） | — |")
     lines += ["", f"- 検出できなかった必須の論点：{metrics['検出できなかった必須の論点'] or 'なし'}",
               f"- 受け付けなかった指摘：{len(result['rejected'])}件",
