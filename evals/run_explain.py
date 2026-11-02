@@ -24,7 +24,7 @@ DRAFTS = ROOT / "evals/results/drafts"
 
 
 def main() -> None:
-    folder = Path(sys.argv[1]) if len(sys.argv) > 1 else sorted(p for p in DRAFTS.iterdir() if p.is_dir())[-1]
+    folder = (ROOT / sys.argv[1]).resolve() if len(sys.argv) > 1 else sorted(p for p in DRAFTS.iterdir() if p.is_dir())[-1]
     data = json.loads((folder / "kaitei.json").read_text(encoding="utf-8"))
     draft = Draft(amendments=[Amendment(**a) for a in data["amendments"]], notes=data["notes"])
     print(f"改定案 {len(draft.amendments)}条（{folder.relative_to(ROOT)}）から説明文を作ります", flush=True)
