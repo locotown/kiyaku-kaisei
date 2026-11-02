@@ -10,3 +10,9 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

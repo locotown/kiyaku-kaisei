@@ -1,0 +1,23 @@
+[project]
+name = "kiyaku-kaisei"
+version = "0.1.0"
+description = "管理規約 改正法対応ツール（総会提案の下書き作成支援）"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "python-docx>=1.1",
+    "pypdf>=5.0",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
