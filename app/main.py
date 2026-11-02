@@ -25,7 +25,7 @@ app = FastAPI(title="管理規約 改正対応ツール")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 DECISIONS = ("採用", "不採用", "保留")
-BUSY = ("点検中", "改定案作成中", "説明文作成中")
+BUSY = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
 
 
 def _source(work_id: str) -> Path:
@@ -68,21 +68,32 @@ def _run_review(work_id: str) -> None:
         store.update(work_id, status="エラー", error=traceback.format_exc(limit=3))
 
 
-def _run_draft(work_id: str) -> None:
+def _board(work: dict):
+    from core.board import BoardPaper
+
+    return BoardPaper.model_validate(work["board"]) if work.get("board") else None
+
+
+def _run_draft(work_id: str, with_board: bool = False) -> None:
+    from core.board import decisions_text
     from core.drafting import run_draft
 
     work = store.load(work_id)
     try:
         corpus = _corpus(work_id)
         adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
+        board = decisions_text(_board(work), work.get("board_decisions", {})) if with_board and work.get("board") else ""
         result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
-                           title=f"改定案：{work['name']}")
+                           title=f"改定案：{work['name']}", board=board)
         d = store.path(work_id)
         if result.draft:
             (d / "taisho.html").write_text(to_html(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
             (d / "taisho.md").write_text(to_markdown(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
+        extra = {"draft_reflects_board": bool(board)} if result.draft else {}
+        if result.draft and not board:
+            extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
         store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
-                     draft=result.draft.to_dict() if result.draft else None,
+                     draft=result.draft.to_dict() if result.draft else None, **extra,
                      draft_errors=result.errors, draft_evaluations=result.evaluations,
                      draft_session=result.session_id, draft_cost=result.usage.get("list_cost"))
     except Exception as e:
@@ -98,13 +109,49 @@ def _run_explain(work_id: str) -> None:
     work = store.load(work_id)
     try:
         store.append_log(work_id, "session", "住民向けの説明文を作っています")
+        from core.board import apply_to_draft, decisions_text
+
         draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
-        ex, _ = generate(draft, work["info"])
+        paper, decisions = _board(work), work.get("board_decisions", {})
+        draft = apply_to_draft(draft, paper, decisions)  # 理事会が見送りにした改定は説明しない
+        ex, _ = generate(draft, work["info"], board=decisions_text(paper, decisions))
         (store.path(work_id) / "explain.html").write_text(explain_html(ex, work["name"], draft), encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="説明文エラー", error=traceback.format_exc(limit=3))
+
+
+def _run_board(work_id: str) -> None:
+    from core.board import default_decisions, generate as board_generate, to_html as board_html
+    from core.draft import Amendment, Draft
+
+    work = store.load(work_id)
+    try:
+        store.append_log(work_id, "session", "理事会の検討資料を作っています")
+        draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
+        paper, _ = board_generate(draft, work["info"])
+        (store.path(work_id) / "board.html").write_text(board_html(paper, None, work["name"]), encoding="utf-8")
+        store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
+                     draft_reflects_board=False)
+    except Exception as e:
+        store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
+        store.update(work_id, status="検討資料エラー", error=traceback.format_exc(limit=3))
+
+
+def board_state(work: dict) -> dict:
+    """理事会の検討の状態。住民向け説明を作れるかを返す。"""
+    from core.board import status
+
+    paper = _board(work)
+    if not paper:
+        return {"ready": False, "reason": "理事会の検討資料をまだ作っていません。"}
+    st = status(paper, work.get("board_decisions", {}))
+    if not st["done"]:
+        return {**st, "ready": False, "reason": f"まだ判断していない議題が{len(st['undecided'])}つあります。"}
+    if st["redraft"] and not work.get("draft_reflects_board"):
+        return {**st, "ready": False, "reason": "「修正して採用」「要修正」の議題があります。先に理事会の判断を反映して改定案を作り直してください。"}
+    return {**st, "ready": True, "reason": ""}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -165,6 +212,10 @@ def show_work(request: Request, work_id: str):
     rows = sorted(enumerate(findings), key=lambda x: (order.get(x[1]["category"], 9), x[0]))
     return templates.TemplateResponse(request, "work.html", {
         "id": work_id, "work": work, "rows": rows, "decisions": work.get("decisions", {}), "choices": DECISIONS,
+        "board": work.get("board"), "board_decisions": work.get("board_decisions", {}),
+        "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
+        "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
+        "board_state": board_state(work) if work.get("draft") else None,
     })
 
 
@@ -223,6 +274,9 @@ def start_explain(work_id: str):
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
     if not work.get("draft"):
         raise HTTPException(400, "先に改定案を作ってください。")
+    state = board_state(work)
+    if not state["ready"]:
+        raise HTTPException(400, "住民向けの説明は、理事会での検討が済んでから作ります。" + state["reason"])
     store.update(work_id, status="説明文作成中")
     threading.Thread(target=_run_explain, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
@@ -233,4 +287,61 @@ def explain_page(work_id: str):
     p = store.path(work_id) / "explain.html"
     if not p.exists():
         raise HTTPException(404, "住民向けの説明はまだありません")
+    return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+@app.post("/works/{work_id}/board")
+def start_board(work_id: str):
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "処理中です。終わるまでお待ちください。")
+    if not work.get("draft"):
+        raise HTTPException(400, "先に改定案を作ってください。")
+    store.update(work_id, status="検討資料作成中")
+    threading.Thread(target=_run_board, args=(work_id,), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+@app.post("/works/{work_id}/board/decisions")
+async def save_board_decisions(request: Request, work_id: str):
+    from core.board import DECISIONS, NEEDS_REDRAFT, to_html as board_html
+
+    form = await request.form()
+    work = store.load(work_id)
+    paper = _board(work)
+    if not paper:
+        raise HTTPException(400, "検討資料がありません。")
+    old = work.get("board_decisions", {})
+    decisions = {}
+    changed_redraft = False
+    for i, it in enumerate(paper.items):
+        d = str(form.get(f"b_decision_{i}", ""))
+        entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
+                 "choice": str(form.get(f"b_choice_{i}", "")).strip()}
+        if entry != old.get(str(i)) and (entry["decision"] in NEEDS_REDRAFT or old.get(str(i), {}).get("decision") in NEEDS_REDRAFT):
+            changed_redraft = True
+        decisions[str(i)] = entry
+    changes = {"board_decisions": decisions}
+    if changed_redraft:
+        changes["draft_reflects_board"] = False
+    store.update(work_id, **changes)
+    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, work["name"]), encoding="utf-8")
+    return RedirectResponse(f"/works/{work_id}#board", status_code=303)
+
+
+@app.post("/works/{work_id}/board/redraft")
+def redraft_with_board(work_id: str):
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "処理中です。終わるまでお待ちください。")
+    store.update(work_id, status="改定案作成中")
+    threading.Thread(target=_run_draft, args=(work_id, True), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+@app.get("/works/{work_id}/board", response_class=HTMLResponse)
+def board_page(work_id: str):
+    p = store.path(work_id) / "board.html"
+    if not p.exists():
+        raise HTTPException(404, "理事会の検討資料はまだありません")
     return FileResponse(p, media_type="text/html; charset=utf-8")

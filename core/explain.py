@@ -81,7 +81,7 @@ def _ref_key(text: str) -> str:
     return re.sub(r"[\s　]", "", text)
 
 
-def build_prompt(draft: Draft, info: dict) -> str:
+def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
     today = datetime.now(JST).date()
     amendments = [
         {"ref": ref_name(a), "document": a.document,
@@ -106,10 +106,12 @@ def build_prompt(draft: Draft, info: dict) -> str:
         "",
         "## 担当者への申し送り（参考）",
         draft.notes,
+        *(["", "## 理事会の判断（この判断に沿って説明する。選んだ案があればその案で説明し、ご意見を伺いたい点には残さない）", board]
+          if board else []),
     ])
 
 
-def generate(draft: Draft, info: dict, effort: str = "medium") -> tuple[Explanation, dict]:
+def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") -> tuple[Explanation, dict]:
     """説明文を作る。(説明, 使用量) を返す。"""
     c = client()
     with c.beta.messages.stream(
@@ -121,7 +123,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium") -> tuple[Explanat
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         output_format=Explanation,
-        messages=[{"role": "user", "content": build_prompt(draft, info)}],
+        messages=[{"role": "user", "content": build_prompt(draft, info, board)}],
     ) as stream:
         message = stream.get_final_message()
     if message.stop_reason == "refusal" or message.parsed_output is None:

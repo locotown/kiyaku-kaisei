@@ -92,7 +92,7 @@ class DraftToolHandler(ToolHandler):
                            "次にすること": f"この JSON を /mnt/session/outputs/{OUTPUT_NAME} に保存する"}, ensure_ascii=False)
 
 
-def build_description(findings: list[Finding], info: dict) -> str:
+def build_description(findings: list[Finding], info: dict, board: str = "") -> str:
     today = datetime.now(JST).date()
     compact = [
         {k: v for k, v in f.to_dict().items() if k in (
@@ -117,6 +117,8 @@ def build_description(findings: list[Finding], info: dict) -> str:
         ("この規約集には細則があります（list_rules で確認）。細則の改定は document に細則の題名を入れてください。"
          if any(f.document != "規約" for f in findings) else "（指摘の対象は規約本体です。細則がある場合は list_rules で確認できます）"),
         "",
+        *(["## 理事会の判断（必ず反映する。「見送り」の議題の改定は含めない。「修正して採用」「要修正」はメモの内容で直す。選んだ案があればその案で書き、〔選択〕を外す）",
+            board, ""] if board else []),
         "## 採用済みの指摘（JSON）",
         json.dumps(compact, ensure_ascii=False),
     ])
@@ -129,6 +131,7 @@ def run_draft(
     on_event: Callable[[str, str], None] | None = None,
     title: str = "改定案の作成",
     rules: dict[str, Kiyaku] | None = None,
+    board: str = "",
 ) -> DraftResult:
     state = json.loads(STATE.read_text(encoding="utf-8"))
     c = client()
@@ -151,7 +154,7 @@ def run_draft(
             session_id=session.id,
             events=[{
                 "type": "user.define_outcome",
-                "description": build_description(findings, info),
+                "description": build_description(findings, info, board),
                 "rubric": {"type": "text", "content": RUBRIC},
                 "max_iterations": MAX_ITERATIONS,
             }],

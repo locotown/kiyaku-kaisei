@@ -19,9 +19,9 @@
 </div>
 {% endif %}
 
-{% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}
+{% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}
 <div class="card">
-  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
+  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
   <p class="muted">AI が規約の条文、標準管理規約、区分所有法を一つずつ取り寄せて照らし合わせています。数分かかります。</p>
   <div class="log" id="log">{% for l in work.log %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div>
 </div>
@@ -33,13 +33,13 @@ async function poll() {
   const log = document.getElementById("log");
   log.innerHTML = s.log.map(l => `<div>${l.t} [${KIND[l.kind]||l.kind}] ${String(l.text).replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])).slice(0,300)}</div>`).join("");
   log.scrollTop = log.scrollHeight;
-  if (["点検中", "改定案作成中", "説明文作成中"].includes(s.status)) setTimeout(poll, 2000); else location.reload();
+  if (["点検中", "改定案作成中", "検討資料作成中", "説明文作成中"].includes(s.status)) setTimeout(poll, 2000); else location.reload();
 }
 setTimeout(poll, 2000);
 </script>
 {% endif %}
 
-{% if work.status in ("エラー", "改定案エラー", "説明文エラー") %}
+{% if work.status in ("エラー", "改定案エラー", "検討資料エラー", "説明文エラー") %}
 <div class="card note"><strong>うまくいきませんでした。</strong>
   {% if work.draft_errors %}<ul>{% for e in work.draft_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   <pre class="muted">{{ work.error }}</pre></div>
@@ -83,14 +83,64 @@ setTimeout(poll, 2000);
        <a class="btn secondary" href="/works/{{ id }}/taisho.md">Markdownで保存</a></p>
   {% endif %}
   <form action="/works/{{ id }}/draft" method="post">
-    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
+    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
     <span class="muted">（判断を保存してから押してください）</span>
   </form>
 </div>
 
 {% if work.draft %}
+<div class="card" id="board">
+  <h2>4. 理事会での検討</h2>
+  <p class="muted">住民に説明する前に、改定案を3段に分けて理事会（委員会）で検討し、方針を固めます。
+    ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p>
+  {% if board %}
+    <p><a class="btn" href="/works/{{ id }}/board" target="_blank">検討資料を開く（印刷用）</a>
+       <a class="btn secondary" href="/works/{{ id }}/taisho" target="_blank">新旧対照表</a></p>
+    <form action="/works/{{ id }}/board/decisions" method="post">
+    {% set ns = namespace(tier="") %}
+    {% for it in board["items"] %}
+      {% set i = loop.index0 %}{% set d = board_decisions.get(i|string, {}) %}
+      {% if it.tier != ns.tier %}{% set ns.tier = it.tier %}
+        <h3 style="margin-top:1.4em">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h3>
+        <p class="muted">{{ board_tasks[it.tier][1] }}</p>
+      {% endif %}
+      <div class="finding">
+        <div class="head"><strong>{{ loop.index }}. {{ it.title }}</strong><span class="muted">{{ it.articles|join("、") }}</span></div>
+        <p>{{ it.summary }}</p>
+        <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
+        {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+        <select name="b_decision_{{ i }}">
+          <option value="">（未判断）</option>
+          {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+        {% if it.tier == "暮らしや運営に関わる変更" %}
+          <input type="text" name="b_choice_{{ i }}" value="{{ d.choice }}" placeholder="〔選択〕の箇所で選んだ案（あれば）" style="max-width:360px">
+        {% endif %}
+        <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}" style="max-width:560px">
+      </div>
+    {% endfor %}
+    <p><button type="submit">理事会の判断を保存する</button></p>
+    </form>
+    {% if board_state %}
+      {% if board_state.redraft and not work.draft_reflects_board %}
+        <form action="/works/{{ id }}/board/redraft" method="post">
+          <p class="note">「修正して採用」「要修正」の議題があります（{{ board_state.redraft|join("、") }}）。理事会の判断を反映して改定案を作り直してください。</p>
+          <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}disabled{% endif %}>理事会の判断を反映して改定案を作り直す</button>
+        </form>
+      {% elif board_state.ready %}
+        <p class="muted">理事会での検討が済みました。{% if board_state.skipped %}見送り：{{ board_state.skipped|join("、") }}（住民向け説明には含めません）{% endif %}</p>
+      {% else %}
+        <p class="muted">{{ board_state.reason }}</p>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+  <form action="/works/{{ id }}/board" method="post" style="margin-top:8px">
+    <button type="submit" class="{{ 'secondary' if board else '' }}" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}disabled{% endif %}>{{ "検討資料を作り直す（判断はリセットされます）" if board else "理事会の検討資料を作る" }}</button>
+  </form>
+</div>
+
 <div class="card">
-  <h2>4. 住民向けの説明</h2>
+  <h2>5. 住民向けの説明</h2>
   <p class="muted">改定案を、住民の方が読める言葉に書き換えます。説明会や総会資料の下書きに使えます。</p>
   {% if work.explain %}
     {% set m = work.explain_metrics %}
@@ -98,7 +148,8 @@ setTimeout(poll, 2000);
     <p><a class="btn" href="/works/{{ id }}/explain" target="_blank">説明資料を開く</a></p>
   {% endif %}
   <form action="/works/{{ id }}/explain" method="post">
-    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}disabled{% endif %}>{{ "説明文を作り直す" if work.explain else "住民向けの説明を作る" }}</button>
+    {% if not (board_state and board_state.ready) %}<p class="muted">理事会での検討が済んでから作れます。{{ board_state.reason if board_state else "" }}</p>{% endif %}
+    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") or not (board_state and board_state.ready) %}disabled{% endif %}>{{ "説明文を作り直す" if work.explain else "住民向けの説明を作る" }}</button>
   </form>
 </div>
 {% endif %}
