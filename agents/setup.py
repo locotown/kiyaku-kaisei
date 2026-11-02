@@ -31,6 +31,18 @@ SYSTEM = """あなたは、マンション管理組合の理事会・規約見�
 """
 
 
+DRAFTER_NAME = "kiyaku-kaisei-drafter"
+
+DRAFTER_SYSTEM = """あなたは、マンション管理組合の規約見直し担当者（専門家ではない）を手伝うアシスタントです。
+点検で見つかった指摘をもとに、管理規約の改定案（条文）を作ります。
+
+- 書き方は、スキル「kiyaku-kaisei」の「改定案の書き方」に従ってください。最初にスキルの SKILL.md と reference/topics.md を読んでください。
+- 規約・標準管理規約・区分所有法の本文は、必ずツールで取得してから使ってください。記憶に頼って条文を書かないでください。
+- 成果物は /mnt/session/outputs/kaitei.json です。保存の前に check_draft で検査してください。
+- 出力はすべて日本語です。成果は「総会提案の下書き」であり、法的助言ではありません。
+"""
+
+
 def topics_markdown() -> str:
     lines = [
         "# 改正論点の一覧（単棟型）",
@@ -111,6 +123,37 @@ def main() -> None:
         print(f"エージェントを作成: {agent.id}（版 {agent.version}）")
     state["agent_id"] = agent.id
     state["agent_version"] = agent.version
+
+    # 4. 改定案を作るエージェント（Outcomes で使う。kaitei.json を書くために write を有効にする）
+    from core.drafting import DRAFTER_TOOLS
+
+    drafter_params = dict(
+        name=DRAFTER_NAME,
+        model=MODEL,
+        system=DRAFTER_SYSTEM,
+        description="点検の指摘をもとに、管理規約の改定案（条文）を作る",
+        skills=[{"type": "custom", "skill_id": state["skill_id"], "version": "latest"}],
+        tools=[
+            {
+                "type": "agent_toolset_20260401",
+                "default_config": {"enabled": False},
+                "configs": [
+                    {"name": n, "enabled": True, "permission_policy": {"type": "always_allow"}}
+                    for n in ("read", "write", "edit", "glob", "grep")
+                ],
+            },
+            *DRAFTER_TOOLS,
+        ],
+    )
+    if state.get("drafter_id"):
+        current = c.beta.agents.retrieve(state["drafter_id"])
+        drafter = c.beta.agents.update(state["drafter_id"], version=current.version, **drafter_params)
+        print(f"改定案エージェントを更新: {drafter.id}（版 {drafter.version}）")
+    else:
+        drafter = c.beta.agents.create(**drafter_params)
+        print(f"改定案エージェントを作成: {drafter.id}（版 {drafter.version}）")
+    state["drafter_id"] = drafter.id
+    state["drafter_version"] = drafter.version
 
     STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"保存: {STATE.relative_to(ROOT)}")
