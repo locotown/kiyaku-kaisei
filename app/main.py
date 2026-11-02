@@ -251,7 +251,11 @@ def create_work(
         raise HTTPException(400, str(e))
     if len(kiyaku.articles) < 5:
         shutil.rmtree(d)
-        raise HTTPException(400, "条文を読み取れませんでした。「第1条」のような書き方の規約か確認してください。")
+        msg = "条文を読み取れませんでした。「第1条」のような書き方の規約か確認してください。"
+        if not sample and suffix == ".pdf":
+            msg += ("PDF の場合、紙をスキャンしただけの PDF（文字を選択できないもの）は読み取れません。"
+                    "文字に起こして Word やテキストで保存してから読み込み、点検の前に「現行」の文を原本と見比べてください。")
+        raise HTTPException(400, msg)
     from core.ingest import load_collection
 
     documents = load_collection(_source(work_id)).summary()
@@ -291,6 +295,19 @@ def _now() -> str:
     return datetime.now(JST).strftime("%m月%d日 %H:%M")
 
 
+
+def _source_note(work_id: str, work: dict) -> dict:
+    """読み込んだ元（電子データ／PDF／サンプル）と、「現行」欄について人が確認すること。"""
+    from core.quality import SOURCE_NOTES, source_kind
+
+    try:
+        suffix = _source(work_id).suffix
+    except HTTPException:
+        return {"kind": "", "text": ""}
+    kind = source_kind(suffix, sample=work.get("name", "").startswith("サンプル："))
+    label = {".docx": "Word", ".pdf": "PDF", ".txt": "テキスト", ".md": "テキスト"}.get(suffix.lower(), suffix)
+    return {"kind": kind, "label": label, "text": SOURCE_NOTES[kind]}
+
 @app.get("/works/{work_id}", response_class=HTMLResponse)
 def show_work(request: Request, work_id: str):
     work = store.load(work_id)
@@ -319,6 +336,7 @@ def show_work(request: Request, work_id: str):
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
         "quality": __import__("core.quality", fromlist=["draft_quality"]).draft_quality(work) if work.get("draft") else None,
+        "source_note": _source_note(work_id, work),
         "done": request.query_params.get("done", ""),
     })
 

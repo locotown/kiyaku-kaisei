@@ -147,3 +147,18 @@ def draft_quality(work: dict) -> dict:
         "checks_ok": not work.get("draft_errors"), "checks": CHECKS_PLAIN, "rubric": RUBRIC_PLAIN,
         "count": len(amendments), "by_doc": by_doc, "choices": choices, "extra": extra,
     }
+
+
+# 読み込んだ元のファイルの種類ごとの、「現行」欄の正確さと人が確認すること
+SOURCE_NOTES = {
+    "電子データ": "Word・テキストの電子データから読み込んだので、「現行」欄はほぼ正確です。ただし、その電子データが総会で改正した内容まで反映した最新版かは、改正履歴や原本で確かめてください。",
+    "PDF": "PDF から読み込みました。改行やページ番号を取り除く処理で、文が崩れることがあります。特に数字（4分の3、1週間など）と条番号は、原本と照らし合わせてください。紙をスキャンして文字に起こした PDF の場合は、読み違いにも注意してください。",
+    "サンプル": "サンプルのデータです。",
+}
+
+
+def source_kind(suffix: str, sample: bool = False) -> str:
+    if sample:
+        return "サンプル"
+    return "PDF" if suffix.lower() == ".pdf" else "電子データ"
+

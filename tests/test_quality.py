@@ -64,3 +64,32 @@ def test_current_texts_for_grader():
     assert t.count("■ 規約 第49条") == 1 and "組合員総数の4分の3以上" in t
     assert "■ ○○マンションペット飼育細則 1." in t
     assert not [line for line in t.splitlines() if line[:2].rstrip(".").isdigit() and line[1:3].startswith(". ")]  # 行頭に「1. 」が出ない
+
+
+def test_source_notes(monkeypatch):
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    import app.main as M
+    from app import store
+    from core.quality import source_kind
+
+    assert source_kind(".docx") == "電子データ" and source_kind(".pdf") == "PDF" and source_kind(".txt", sample=True) == "サンプル"
+    monkeypatch.setattr(M, "_run_review", lambda wid: None)
+    c = TestClient(M.app)
+    # 文字を読み取れない PDF（ここでは条のないテキストを .pdf 名で送る代わりに、条のないテキストで確かめる）
+    r = c.post("/works", data={"name": "t"}, files={"file": ("x.txt", "規約\\nなにもない".encode(), "text/plain")})
+    assert r.status_code == 400 and "スキャン" not in r.text
+    wid = store.new_id()
+    d = store.path(wid)
+    d.mkdir(parents=True)
+    shutil.copy(M.SAMPLES["docx"]["path"], d / "source.docx")
+    store.save(wid, {"name": "うちの規約", "info": {"型": "単棟型"}, "status": "点検済み", "articles": 74, "log": [],
+                     "documents": [{"kind": "規約", "title": "a", "articles": 74, "style": "条", "annotations": 0},
+                                   {"kind": "細則", "title": "b", "articles": 3, "style": "条", "annotations": 0}]})
+    try:
+        page = c.get(f"/works/{wid}").text
+        assert "Wordから読み込みました" in page and "最新版か" in page
+    finally:
+        shutil.rmtree(d)

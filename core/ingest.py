@@ -56,7 +56,7 @@ def _read_pdf(path: Path) -> list[str]:
     reader = PdfReader(str(path))
     pages = [[x.strip() for x in (page.extract_text() or "").splitlines() if x.strip()] for page in reader.pages]
     if not any(pages):
-        raise UnsupportedFormat("PDFから文字を取り出せませんでした。画像だけのPDF（スキャン）は、まだ対応していません。")
+        raise UnsupportedFormat("PDFから文字を取り出せませんでした。画像だけのPDF（紙をスキャンしたもの）は、まだ対応していません。文字に起こして Word やテキストで保存してから読み込み、点検の前に「現行」の文を原本と見比べてください（数字と条番号は特に）。")
     return _drop_page_furniture(pages)
 
 
