@@ -8,9 +8,11 @@
   },
   "postCreateCommand": "pip install --user uv && ~/.local/bin/uv sync",
   "postAttachCommand": {
-    "画面": "~/.local/bin/uv run uvicorn app.main:app --port 8000"
+    "画面": "bash scripts/codespace_serve.sh"
   },
-  "forwardPorts": [8000],
+  "forwardPorts": [
+    8000
+  ],
   "portsAttributes": {
     "8000": {
       "label": "規約見直しの画面",
@@ -19,7 +21,9 @@
   },
   "customizations": {
     "codespaces": {
-      "openFiles": ["README.md"]
+      "openFiles": [
+        "README.md"
+      ]
     }
   }
 }
