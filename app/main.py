@@ -205,6 +205,33 @@ def create_work(
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
 
+def next_step(work: dict) -> str:
+    """指摘の判断のあとに、次にすることの案内。"""
+    if not work.get("draft"):
+        return "判断が終わったら、下の「採用した指摘から改定案を作る」を押してください（10〜15分ほどかかります）。"
+    if work.get("draft_stale"):
+        return "今の改定案を作った後に判断が変わりました。下の「改定案を作り直す」を押してください。"
+    return "判断は今の改定案に反映されています。「4. 理事会での検討」に進めます。"
+
+
+def decision_summary(work: dict) -> dict:
+    findings = work.get("findings", [])
+    decisions = work.get("decisions", {})
+    tally = {c: sum(1 for i, f in enumerate(findings)
+                    if f["category"] != "必須" and decisions.get(str(i), {}).get("decision") == c) for c in DECISIONS}
+    must = sum(1 for f in findings if f["category"] == "必須")
+    return {"must": must, "chosen": tally["採用"], "total": must + tally["採用"], "tally": tally,
+            "next": next_step(work), "saved_at": work.get("decisions_saved_at", "")}
+
+
+def _now() -> str:
+    from datetime import datetime
+
+    from core.review import JST
+
+    return datetime.now(JST).strftime("%m月%d日 %H:%M")
+
+
 @app.get("/works/{work_id}", response_class=HTMLResponse)
 def show_work(request: Request, work_id: str):
     work = store.load(work_id)
@@ -221,12 +248,9 @@ def show_work(request: Request, work_id: str):
             corpus = None
         views = {i: view(f, corpus) for i, f in rows}
     decisions = work.get("decisions", {})
-    adopt = {"must": sum(1 for _, f in rows if f["category"] == "必須"),
-             "chosen": sum(1 for i, f in rows if f["category"] != "必須" and decisions.get(str(i), {}).get("decision") == "採用")}
-    tally = {c: sum(1 for i, f in rows if f["category"] != "必須" and decisions.get(str(i), {}).get("decision") == c)
-             for c in DECISIONS}
+    summary = decision_summary(work)
     return templates.TemplateResponse(request, "work.html", {
-        "id": work_id, "work": work, "rows": rows, "views": views, "tally": tally, "adopt": adopt, "saved": request.query_params.get("saved") == "1", "decisions": decisions, "choices": DECISIONS,
+        "id": work_id, "work": work, "rows": rows, "views": views, "summary": summary, "tally": summary["tally"], "decisions": decisions, "choices": DECISIONS,
         "choice_help": CHOICE_HELP,
         "board": work.get("board"), "board_decisions": work.get("board_decisions", {}),
         "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
@@ -254,17 +278,36 @@ async def save_decisions(request: Request, work_id: str):
             decision = "採用"  # 必須は改定案に自動で入れる（docs/SPEC.md）
         if decision in DECISIONS:
             decisions[key] = {"decision": decision, "reason": str(form.get(f"reason_{i}", "")).strip()}
-    from datetime import datetime
-
-    from core.review import JST
-
     changed = before != {k: v.get("decision") for k, v in decisions.items()}
     stale = bool(work.get("draft")) and (changed or work.get("draft_stale", False))
     store.update(work_id, decisions=decisions, draft_stale=stale,
-                 decisions_saved_at=datetime.now(JST).strftime("%m月%d日 %H:%M"))
+                 decisions_saved_at=_now())
     # 保存したら次の工程（改定案）の欄へ移り、保存の結果と次にすることを示す
     return RedirectResponse(f"/works/{work_id}?saved=1#next", status_code=303)
 
+
+
+@app.post("/works/{work_id}/decisions/{index}")
+async def save_one_decision(request: Request, work_id: str, index: int):
+    """指摘1件の判断を保存する（画面で選んだ時点で自動保存。ページは移動しない）。"""
+    form = await request.form()
+    work = store.load(work_id)
+    findings = work.get("findings", [])
+    if not 0 <= index < len(findings):
+        raise HTTPException(404, "指摘が見つかりません")
+    decisions = work.get("decisions", {})
+    key = str(index)
+    prev = decisions.get(key, {})
+    decision = str(form.get("decision", prev.get("decision", "保留")))
+    if findings[index]["category"] == "必須":
+        decision = "採用"
+    if decision not in DECISIONS:
+        raise HTTPException(400, "判断の値が正しくありません")
+    decisions[key] = {"decision": decision, "reason": str(form.get("reason", prev.get("reason", ""))).strip()}
+    stale = bool(work.get("draft")) and (decision != prev.get("decision") or work.get("draft_stale", False))
+    work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=_now())
+    store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=work["decisions_saved_at"])
+    return JSONResponse(decision_summary(work))
 
 @app.post("/works/{work_id}/draft")
 def start_draft(work_id: str):

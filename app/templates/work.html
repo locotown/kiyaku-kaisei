@@ -50,9 +50,10 @@ setTimeout(poll, 2000);
   <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
   <p class="note">「必須」は改正法に抵触するおそれがある箇所で、改定案に必ず入れます。「推奨」「参考」は、採用するかを委員会で判断して選んでください。</p>
   {% set must = rows|selectattr("1.category", "equalto", "必須")|list %}
-  <p class="tally">必須 <b>{{ must|length }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - must|length }}件</b>：
-    {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} {{ tally[c] }}件</span>{% if not loop.last %}・{% endif %}{% endfor %}</p>
-  <form action="/works/{{ id }}/decisions" method="post">
+  <p class="tally">必須 <b>{{ summary.must }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - summary.must }}件</b>：
+    {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} <span data-tally="{{ c }}">{{ tally[c] }}</span>件</span>{% if not loop.last %}・{% endif %}{% endfor %}
+    <br><span class="muted">選ぶと、その場で自動で保存されます（保存ボタンを押す必要はありません）。</span></p>
+  <form action="/works/{{ id }}/decisions" method="post" id="decform">
   {% for i, f in rows %}
   {% set d = decisions[i|string] %}{% set v = views[i] %}
   <div class="finding fcard">
@@ -76,7 +77,7 @@ setTimeout(poll, 2000);
           {% if b.text %}<div class="btext">{{ b.text }}</div>{% else %}<div class="muted">本文を表示できませんでした。</div>{% endif %}</details></li>
       {% endfor %}</ul><div class="muted small">見出しを押すと、条文の本文が開きます。</div></div></div>
 
-    <div class="sec decide"><div class="lbl">委員会の判断</div>
+    <div class="sec decide" data-index="{{ i }}"><div class="lbl">委員会の判断<div class="cardsave" id="cs-{{ i }}"></div></div>
       {% if f.category == "必須" %}
         <div class="fixed">✓ 改定案に入れます<span class="muted">（改正法に合わせるため、必ず入れます。選ぶ必要はありません）</span></div>
       {% else %}
@@ -91,15 +92,47 @@ setTimeout(poll, 2000);
     </div>
   </div>
   {% endfor %}
-  <div class="savebar"><button type="submit">判断を保存する</button>
-    <span id="savestate" class="muted">{% if work.decisions_saved_at %}最後に保存：{{ work.decisions_saved_at }}。{% endif %}保存してから、下の「3. 改定案」に進んでください。</span></div>
+  <div class="savebar">
+    <span class="bar-tally">改定案に入る指摘 <b data-sum="total">{{ summary.total }}</b>件
+      <span class="muted">（必須 {{ summary.must }}件＋採用 <span data-tally="採用">{{ tally["採用"] }}</span>件・保留 <span data-tally="保留">{{ tally["保留"] }}</span>件・不採用 <span data-tally="不採用">{{ tally["不採用"] }}</span>件）</span></span>
+    <span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}選ぶと自動で保存されます{% endif %}</span>
+    <a class="btn" href="#next">判断を終えて改定案へ ↓</a>
+    <noscript><button type="submit">判断を保存する</button></noscript>
+  </div>
   <script>
   (function () {
-    var form = document.querySelector('#findings form'), st = document.getElementById('savestate');
-    if (!form || !st) return;
-    var mark = function () { st.textContent = '未保存の変更があります。「判断を保存する」を押してください。'; st.className = 'unsaved'; };
-    form.addEventListener('change', mark);
-    form.addEventListener('input', mark);
+    var form = document.getElementById('decform'), st = document.getElementById('savestate');
+    if (!form) return;
+    function show(sum) {
+      document.querySelectorAll('[data-tally]').forEach(function (e) { e.textContent = sum.tally[e.dataset.tally]; });
+      document.querySelectorAll('[data-sum]').forEach(function (e) { e.textContent = sum[e.dataset.sum]; });
+      st.textContent = '最後に保存：' + sum.saved_at; st.className = 'muted';
+    }
+    function save(i) {
+      var box = document.getElementById('cs-' + i);
+      var data = new FormData();
+      var r = form.querySelector('input[name="decision_' + i + '"]:checked');
+      if (r) data.append('decision', r.value);
+      var reason = form.querySelector('input[name="reason_' + i + '"]');
+      if (reason) data.append('reason', reason.value);
+      box.textContent = '保存中…'; box.className = 'cardsave';
+      fetch('/works/{{ id }}/decisions/' + i, { method: 'POST', body: data })
+        .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
+        .then(function (sum) { box.textContent = '✓ 保存しました'; box.className = 'cardsave ok'; show(sum); })
+        .catch(function () { box.textContent = '保存できませんでした。もう一度選んでください'; box.className = 'cardsave ng'; });
+    }
+    var timers = {};
+    form.addEventListener('change', function (e) {
+      var m = (e.target.name || '').match(/^(decision|reason)_(\d+)$/);
+      if (m) { clearTimeout(timers[m[2]]); save(m[2]); }
+    });
+    form.addEventListener('input', function (e) {  // 理由の入力は、手が止まってから保存する
+      var m = (e.target.name || '').match(/^reason_(\d+)$/);
+      if (!m) return;
+      document.getElementById('cs-' + m[1]).textContent = '入力中…';
+      clearTimeout(timers[m[1]]); timers[m[1]] = setTimeout(function () { save(m[1]); }, 1200);
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
   })();
   </script>
   </form>
@@ -107,20 +140,13 @@ setTimeout(poll, 2000);
 
 <div class="card" id="next">
   <h2>3. 改定案と新旧対照表</h2>
-  {% if saved %}
-  <div class="done">
-    <div class="done-head">✓ 判断を保存しました{% if work.decisions_saved_at %}（{{ work.decisions_saved_at }}）{% endif %}</div>
-    <div>改定案に入れる指摘：<b>{{ adopt.must + adopt.chosen }}件</b>（必須 {{ adopt.must }}件＋採用 {{ adopt.chosen }}件）。
-      保留 {{ tally["保留"] }}件・不採用 {{ tally["不採用"] }}件は入りません。</div>
-    <div class="nextstep"><b>次にすること：</b>
-      {% if not work.draft %}下の「採用した指摘から改定案を作る」を押してください（10〜15分ほどかかります）。
-      {% elif work.draft_stale %}前回の改定案から判断が変わりました。下の「改定案を作り直す」を押してください。
-      {% else %}判断は前回の改定案から変わっていません。改定案はそのままで、「4. 理事会での検討」に進めます。{% endif %}
+  <div class="done{{ ' stale' if work.draft_stale else '' }}">
+    <div class="done-head">指摘の判断のまとめ{% if summary.saved_at %}<span class="muted">（最後に保存：<span data-sum="saved_at">{{ summary.saved_at }}</span>）</span>{% endif %}</div>
+    <div>改定案に入れる指摘：<b><span data-sum="total">{{ summary.total }}</span>件</b>（必須 {{ summary.must }}件＋採用 <span data-tally="採用">{{ tally["採用"] }}</span>件）。
+      保留 <span data-tally="保留">{{ tally["保留"] }}</span>件・不採用 <span data-tally="不採用">{{ tally["不採用"] }}</span>件は入りません。</div>
+    <div class="nextstep"><b>次にすること：</b><span data-sum="next">{{ summary.next }}</span>
       保留にした指摘は、あとで判断を変えて改定案を作り直せます。</div>
   </div>
-  {% elif work.draft_stale %}
-  <p class="note">指摘の判断が、今の改定案を作った後に変わっています。「改定案を作り直す」を押してください。</p>
-  {% endif %}
   {% if work.draft %}
     <p>改定 {{ work.draft.amendments|length }}条。採点役の結果：{% for e in work.draft_evaluations %}{{ loop.index }}回目 {{ e.result }}{% if not loop.last %} → {% endif %}{% endfor %}</p>
     <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>
@@ -128,7 +154,7 @@ setTimeout(poll, 2000);
   {% endif %}
   <form action="/works/{{ id }}/draft" method="post">
     <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
-    <span class="muted">（判断を保存してから押してください）</span>
+    
   </form>
 </div>
 

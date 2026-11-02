@@ -38,14 +38,22 @@ def test_save_shows_next_step():
                      "findings": [FINDING], "decisions": {"0": {"decision": "保留", "reason": ""}}})
     try:
         c = TestClient(M.app)
-        r = c.post(f"/works/{wid}/decisions", data={"decision_0": "採用"}, follow_redirects=False)
-        assert r.status_code == 303 and r.headers["location"].endswith("?saved=1#next")
-        page = c.get(r.headers["location"]).text
-        assert "判断を保存しました" in page and "採用した指摘から改定案を作る" in page
-        assert "マンションに特化した財産管理制度" in page
+        r = c.post(f"/works/{wid}/decisions/0", data={"decision": "採用"})  # 選んだ時点の自動保存
+        assert r.status_code == 200
+        sum_ = r.json()
+        assert sum_["total"] == 1 and sum_["tally"]["採用"] == 1 and "改定案を作る" in sum_["next"] and sum_["saved_at"]
+        assert c.post(f"/works/{wid}/decisions/0", data={"decision": "x"}).status_code == 400
+        assert c.post(f"/works/{wid}/decisions/5", data={"decision": "採用"}).status_code == 404
+        c.post(f"/works/{wid}/decisions/0", data={"reason": "委員会で合意"})  # 理由だけの保存では判断は変わらない
+        assert store.load(wid)["decisions"]["0"] == {"decision": "採用", "reason": "委員会で合意"}
+        page = c.get(f"/works/{wid}").text
+        assert "指摘の判断のまとめ" in page and "マンションに特化した財産管理制度" in page
         store.update(wid, draft={"amendments": [], "notes": ""})
-        c.post(f"/works/{wid}/decisions", data={"decision_0": "不採用"})
-        assert store.load(wid)["draft_stale"] is True
-        assert "改定案を作り直す" in c.get(f"/works/{wid}").text
+        assert store.load(wid).get("draft_stale") is not True
+        r = c.post(f"/works/{wid}/decisions/0", data={"decision": "不採用"})
+        assert store.load(wid)["draft_stale"] is True and "作り直す" in r.json()["next"]
+        # JS が使えないときの、まとめて保存も動く
+        r = c.post(f"/works/{wid}/decisions", data={"decision_0": "採用"}, follow_redirects=False)
+        assert r.status_code == 303
     finally:
         shutil.rmtree(d)
