@@ -2,7 +2,22 @@
 {% block title %}{{ work.name }}｜管理規約 改正対応ツール{% endblock %}
 {% block content %}
 <h1>{{ work.name }}</h1>
-<p class="muted">型：{{ work.info["型"] }}／読み込んだ条：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
+<p class="muted">型：{{ work.info["型"] }}／規約本体：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
+
+{% if work.documents and work.documents|length > 1 %}
+<div class="card">
+  <h2>読み込んだ文書</h2>
+  <p class="muted">ファイルを文書ごとに分けました。いまは「規約」を点検します（細則の点検は準備中）。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
+  <table>
+    <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
+    {% for d in work.documents %}
+    <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
+        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "条" }}{% else %}—{% endif %}</td>
+        <td>{{ d.annotations }}件</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
 
 {% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}
 <div class="card">

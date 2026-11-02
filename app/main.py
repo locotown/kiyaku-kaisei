@@ -134,10 +134,14 @@ def create_work(
     if len(kiyaku.articles) < 5:
         shutil.rmtree(d)
         raise HTTPException(400, "条文を読み取れませんでした。「第1条」のような書き方の規約か確認してください。")
+    from core.ingest import load_collection
+
+    documents = load_collection(_source(work_id)).summary()
     info = {"型": kind, "電磁的方法の利用": electronic}
     if units:
         info["戸数"] = units
-    store.save(work_id, {"name": name, "info": info, "status": "点検中", "articles": len(kiyaku.articles), "log": []})
+    store.save(work_id, {"name": name, "info": info, "status": "点検中", "articles": len(kiyaku.articles),
+                         "documents": documents, "log": []})
     threading.Thread(target=_run_review, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 

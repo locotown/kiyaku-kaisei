@@ -29,7 +29,11 @@ RE_ARTICLE = re.compile(
     rf"(?:{SP}*[（(]([^）)]{{1,40}})[）)])?(?:{SP}+|$)(.*)$"
 )
 RE_CAPTION = re.compile(r"^[（(]([^）)]{1,40})[）)]$")
-RE_PARAGRAPH = re.compile(rf"^([0-9]{{1,3}}){SP}+(.*)$")
+# 項：「2　…」のほか「2．…」「2. …」の書き方にも対応する
+RE_PARAGRAPH = re.compile(rf"^([0-9]{{1,3}})(?:\.{SP}*|{SP}+)(.*)$")
+# 号：「一　…」のほか「(1)　…」の書き方にも対応する（号の細分としての「(1)」と区別する）
+RE_PAREN_ITEM = re.compile(rf"^[（(]([0-9]{{1,3}})[）)]{SP}*(.*)$")
+RE_KANJI_OR_KANA_ITEM = re.compile(rf"^(?:[一二三四五六七八九十]+|[イロハニホヘトチリヌルヲワカヨタレソツネナラム]){SP}")
 RE_ITEM = re.compile(rf"^([一二三四五六七八九十]+){SP}+(.*)$")
 RE_SUBITEM = re.compile(rf"^(?:[イロハニホヘトチリヌルヲワカヨタレソツネナラム]|[（(][0-9]+[）)]){SP}*")
 RE_VARIANT_NOTE = re.compile(r"^〔※.*〕$")
@@ -180,6 +184,18 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
             continue
         m = RE_ITEM.match(line)
         if m:
+            para = current.paragraphs[-1]
+            para.items.append(line)
+            last = ("item", (para, len(para.items) - 1))
+            continue
+        m = RE_PAREN_ITEM.match(line)
+        if m:
+            # 直前が「一　」「イ　」の号なら、その細分。そうでなければ「(1)」形式の号
+            if last and last[0] == "item":
+                para, idx = last[1]
+                if RE_KANJI_OR_KANA_ITEM.match(para.items[idx].split("\n")[-1]) or RE_KANJI_OR_KANA_ITEM.match(para.items[idx]):
+                    para.items[idx] += "\n" + line
+                    continue
             para = current.paragraphs[-1]
             para.items.append(line)
             last = ("item", (para, len(para.items) - 1))

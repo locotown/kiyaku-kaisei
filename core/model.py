@@ -29,6 +29,7 @@ class Article:
     chapter: str = ""
     variant: str | None = None
     note: str = ""
+    style: str = "条"  # 「条」（第1条…）または「項目」（1. 管理員 … のような細則の書き方）
 
     @property
     def key(self) -> str:
@@ -38,6 +39,8 @@ class Article:
     @property
     def label(self) -> str:
         """表示用の条番号（例："第47条", "第24条の2"）。"""
+        if self.style == "項目":
+            return f"{self.number}."
         head, *rest = self.number.split("の")
         return f"第{head}条" + "".join(f"の{r}" for r in rest)
 

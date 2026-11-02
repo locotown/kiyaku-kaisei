@@ -81,5 +81,20 @@ def _drop_page_furniture(pages: list[list[str]], edge: int = 2) -> list[str]:
     return lines
 
 
+def load_collection(path: str | Path):
+    """規約集を文書ごと（規約本体・細則・改正履歴・メモ）に分けて読み込む。"""
+    from core.collection import segment
+
+    return segment(read_lines(path))
+
+
 def load_kiyaku(path: str | Path) -> Kiyaku:
-    return split_kiyaku(read_lines(path))
+    """規約本体を読み込む。規約集なら規約本体の部分だけを返す。題名が見つからなければ全体を規約として扱う。"""
+    lines = read_lines(path)
+    from core.collection import segment
+
+    collection = segment(lines)
+    main = collection.main
+    if main and main.kiyaku and len(main.kiyaku.articles) >= 3:
+        return main.kiyaku
+    return split_kiyaku(lines)
