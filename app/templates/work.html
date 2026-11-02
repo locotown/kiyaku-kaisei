@@ -316,7 +316,21 @@
       保留にした指摘は、あとで判断を変えて改定案を作り直せます。</div>
   </div>
   {% if work.draft %}
-    <p>改定 {{ work.draft.amendments|length }}条。採点役の結果：{% for e in work.draft_evaluations %}{{ loop.index }}回目 {{ e.result }}{% if not loop.last %} → {% endif %}{% endfor %}</p>
+    {% set q = quality %}
+    <div class="quality q-{{ q.level }}">
+      <div class="q-head">{{ "✓" if q.level == "ok" else "！" }} {{ q.head }}</div>
+      <div class="q-body">
+        <div>改定 <b>{{ q.count }}条</b>（{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}）</div>
+        <ul class="q-list">
+          <li>{{ "✓" if q.checks_ok else "！" }} <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
+            <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
+          <li>{{ "✓" if q.level == "ok" else "！" }} <b>採点役（別の AI）による確認</b>：{% for r in q.rounds %}{{ r.n }}回目 {{ r.result }}{% if not loop.last %} → {% endif %}{% else %}行われませんでした{% endfor %}
+            <details><summary>確認した内容（{{ q.rubric|length }}項目）</summary><ol>{% for c in q.rubric %}<li>{{ c }}</li>{% endfor %}</ol></details>
+            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメントを読む（技術的な言葉を含みます）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
+        </ul>
+        <div class="q-human"><b>人が確認すること：</b>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。{% if q.choices %}特に、組合が選ぶ点（{{ q.choices }}か所、〔選択〕の印）は、理事会で決めてください。{% endif %}</div>
+      </div>
+    </div>
     <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>
        <a class="btn secondary" href="/works/{{ id }}/taisho.md">Markdownで保存</a></p>
   {% endif %}

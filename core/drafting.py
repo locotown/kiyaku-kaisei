@@ -18,6 +18,7 @@ from core.draft import DRAFT_SCHEMA, Draft, check
 from core.findings import Finding
 from core.model import Kiyaku
 from core.progress import describe_builtin, describe_tool
+from core.quality import RESULT_JA
 from core.review import BUDGET_CENTS, DEADLINE_SEC, ENFORCED, JST
 from core.tools import TOOL_DEFS, ToolHandler
 
@@ -188,7 +189,7 @@ def run_draft(
                 notify("grading", f"採点 {event.iteration + 1}回目")
             elif etype == "span.outcome_evaluation_end":
                 evaluations.append({"iteration": event.iteration, "result": event.result, "explanation": event.explanation})
-                notify("graded", f"{event.result}：{event.explanation[:200]}")
+                notify("graded", f"{RESULT_JA.get(event.result, event.result)}：{event.explanation[:200]}")
             elif etype == "session.error":
                 notify("error", str(getattr(event, "error", event)))
             elif etype == "session.status_idle":

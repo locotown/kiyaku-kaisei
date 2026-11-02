@@ -318,6 +318,7 @@ def show_work(request: Request, work_id: str):
         "hist_line": __import__("core.history", fromlist=["line"]).line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
+        "quality": __import__("core.quality", fromlist=["draft_quality"]).draft_quality(work) if work.get("draft") else None,
         "done": request.query_params.get("done", ""),
     })
 
