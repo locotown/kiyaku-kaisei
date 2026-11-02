@@ -89,7 +89,7 @@ def _run_explain(work_id: str) -> None:
         store.append_log(work_id, "session", "住民向けの説明文を作っています")
         draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
         ex, _ = generate(draft, work["info"])
-        (store.path(work_id) / "explain.html").write_text(explain_html(ex, work["name"]), encoding="utf-8")
+        (store.path(work_id) / "explain.html").write_text(explain_html(ex, work["name"], draft), encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")

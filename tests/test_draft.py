@@ -110,3 +110,24 @@ def test_classify_required_and_optional():
     b = Amendment(kind="改正", article="第20条", before_article="第20条", caption="", text="第20条　…", reason="",
                   finding_refs=["10"], law_basis=[], standard_basis=["第20条"])
     assert not classify(b)["is_required"]
+
+
+def test_explanation_tiers_and_coverage():
+    from core.draft import Amendment, Draft
+    from core.explain import ExplainItem, Explanation, coverage, mark_required, to_html
+
+    draft = Draft([
+        Amendment("改正", "第47条", "第47条", "総会の会議及び議事", "第47条　…", "", ["1-1"], [], ["第47条"]),
+        Amendment("改正", "第20条", "第20条", "区分所有者の責務", "第20条　…", "", ["10"], [], ["第20条"]),
+        Amendment("改正", "第48条", "第48条", "議決事項", "第48条　…", "", ["other"], [], ["第48条"]),
+    ], "法的助言ではありません")
+    item = lambda title, arts, tier: ExplainItem(title=title, articles=arts, required=False, tier=tier, what="", why="", impact="")
+    ex = Explanation(title="t", intro="", choices=[], resolution="", closing="", items=[
+        item("責務", ["第20条"], "法律の改正に合わせる変更"),  # AI が誤って①にしても、必須の論点がなければ②に直す
+        item("総会", ["第47条"], "暮らしや運営に関わる変更"),  # 必須の論点を含むので①に直す
+    ])
+    mark_required(ex, draft)
+    assert [i.title for i in ex.items] == ["総会", "責務"]
+    assert ex.items[0].tier == "法律の改正に合わせる変更" and ex.items[1].tier == "暮らしや運営に関わる変更"
+    assert coverage(ex, draft)["missing"] == ["第48条"]
+    assert "本文では取り上げていません" in to_html(ex, "", draft)

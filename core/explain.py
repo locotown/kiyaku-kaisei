@@ -10,12 +10,21 @@ import html
 import json
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from core.config import MODEL, client
 from core.draft import Draft
 from core.readability import JARGON
 from core.review import ENFORCED, JST
+
+TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
+TIER_GUIDE = {
+    "法律の改正に合わせる変更": "改正された法律と食い違わないよう、必ず必要な変更です。",
+    "暮らしや運営に関わる変更": "法律上は必須ではなく、採用するか・どう書くかを組合で決められる変更です。",
+    "古い規定や表現の整理": "参照する条の番号や言い回しをそろえるなど、内容は変わらない整理です。",
+}
 
 DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。"
 
@@ -24,6 +33,8 @@ class ExplainItem(BaseModel):
     title: str = Field(description="住民向けの見出し。例：「総会での決め方が変わります」")
     articles: list[str] = Field(description="関係する条（例：「第47条」）")
     required: bool = Field(description="改正法への対応として必要な変更なら true（アプリ側で改定案の必須の論点から決め直す）")
+    tier: Literal["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"] = Field(
+        description="どの段に載せるか。参照先の直し・言い回しの統一・古い制度名の更新など、住民の暮らしや運営に実質的に関わらないものは「古い規定や表現の整理」")
     what: str = Field(description="何が変わるか。2〜4文")
     why: str = Field(description="なぜ変えるか。2〜3文")
     impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文")
@@ -47,7 +58,9 @@ SYSTEM = """あなたは、マンション管理組合の理事会が住民（�
   例：特別決議（規約の変更など大事なことを決めるときの、特に多くの賛成が必要な決め方）
 - 次の用語は、資料の中で最初に使うところで必ず（ ）で説明する：{jargon}
 - 条番号は本文では最小限にし、関係する条は articles に入れる
-- 関連する改定は1つの項目にまとめ、住民の関心が高い順（総会の決め方、お金、暮らしのルール、その他）に並べる。項目は多くても8つまで
+- 関連する改定は1つの項目にまとめる。項目は tier（段）ごとに、住民の関心が高い順（総会の決め方、お金、暮らしのルール、その他）に並べる
+- 段は3つ：「法律の改正に合わせる変更」「暮らしや運営に関わる変更」「古い規定や表現の整理」。変更が多いときも、項目は全体で10個まで、「古い規定や表現の整理」は1〜2項目にまとめて短く書く
+- すべての改定の条が、いずれかの項目の articles に入るようにする（取り上げない改定を作らない）
 - 改正法への対応として必要な変更と、そうでない変更を区別する（required）
 - 事実を誇張しない。「無効になります」と断定せず、「法律と食い違い、効力を失うおそれがあります」のように書く
 - 組合が選ぶ事項（〔選択〕の箇所）は、勝手に決めず choices に書く
@@ -111,22 +124,64 @@ def mark_required(ex: Explanation, draft: Draft) -> None:
     }
     for item in ex.items:
         item.required = any(normalize_article_ref(x) in required_articles for x in item.articles)
+        if item.required:
+            item.tier = "法律の改正に合わせる変更"
+        elif item.tier == "法律の改正に合わせる変更":
+            item.tier = "暮らしや運営に関わる変更"
+    order = {t: i for i, t in enumerate(TIERS)}
+    ex.items.sort(key=lambda it: order[it.tier])
 
 
-def to_html(ex: Explanation, name: str = "") -> str:
+def coverage(ex: Explanation, draft: Draft) -> dict:
+    """改定した条が、説明資料のどの項目で取り上げられているか。取り上げていない条も返す。"""
+    from core.sources import normalize_article_ref
+
+    where: dict[str, list[int]] = {}
+    for i, it in enumerate(ex.items, 1):
+        for x in it.articles:
+            where.setdefault(normalize_article_ref(x), []).append(i)
+    rows, missing = [], []
+    for a in draft.amendments:
+        n = normalize_article_ref(a.article)
+        rows.append({"article": a.article, "caption": a.caption, "kind": a.kind, "items": where.get(n, [])})
+        if n not in where:
+            missing.append(a.article)
+    return {"rows": rows, "missing": missing}
+
+
+def to_html(ex: Explanation, name: str = "", draft: Draft | None = None) -> str:
     def p(text: str) -> str:
         return "".join(f"<p>{html.escape(x)}</p>" for x in text.split("\n") if x.strip())
 
     items = []
+    current_tier = None
     for i, it in enumerate(ex.items, 1):
-        tag = '<span class="tag must">法律の改正に合わせるための変更</span>' if it.required else '<span class="tag">より良い運営のための変更</span>'
+        if it.tier != current_tier:
+            current_tier = it.tier
+            n = TIERS.index(it.tier) + 1
+            items.append(f'<div class="tier tier{n}"><h2>{"①②③"[n - 1]} {html.escape(it.tier)}</h2><p>{html.escape(TIER_GUIDE[it.tier])}</p></div>')
+        tag = '<span class="tag must">法律の改正に合わせるための変更</span>' if it.required else '<span class="tag">組合で選べる変更</span>'
         items.append(f"""<section class="item">
-<h2>{i}. {html.escape(it.title)}</h2>{tag}<span class="arts">関係する条：{html.escape('、'.join(it.articles))}</span>
-<h3>何が変わるのか</h3>{p(it.what)}
-<h3>なぜ変えるのか</h3>{p(it.why)}
-<h3>暮らしや手続きへの影響</h3>{p(it.impact)}
+<h3 class="title">{i}. {html.escape(it.title)}</h3>{tag}<span class="arts">関係する条：{html.escape('、'.join(it.articles))}</span>
+<h4>何が変わるのか</h4>{p(it.what)}
+<h4>なぜ変えるのか</h4>{p(it.why)}
+<h4>暮らしや手続きへの影響</h4>{p(it.impact)}
 </section>""")
     choices = "".join(f"<li>{html.escape(c)}</li>" for c in ex.choices)
+    appendix = ""
+    if draft is not None:
+        from core.taisho import classify
+
+        cov = coverage(ex, draft)
+        trs = "".join(
+            f"<tr><td>{html.escape(r['article'])}</td><td>{html.escape(r['caption'])}</td><td>{html.escape(r['kind'])}</td>"
+            f"<td>{'法律の改正に合わせる' if classify(a)['is_required'] else '組合で選べる'}</td>"
+            f"<td>{'、'.join(str(x) for x in r['items']) or '本文では取り上げていません'}</td></tr>"
+            for r, a in zip(cov["rows"], draft.amendments)
+        )
+        appendix = (f'<h2>付録：変更する条の一覧（{len(cov["rows"])}条）</h2>'
+                    '<table class="list"><tr><th>条</th><th>見出し</th><th>種類</th><th>区分</th><th>説明の項目</th></tr>'
+                    f"{trs}</table>")
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(ex.title)}</title>
@@ -134,7 +189,13 @@ def to_html(ex: Explanation, name: str = "") -> str:
 body {{ font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; line-height: 1.9; color: #1f2328; font-size: 17px; }}
 h1 {{ font-size: 1.45rem; border-bottom: 3px solid #1f5fae; padding-bottom: 6px; }}
 h2 {{ font-size: 1.2rem; margin: 1.6em 0 .3em; }}
-h3 {{ font-size: 1rem; color: #1f5fae; margin: .9em 0 .2em; }}
+h3.title {{ font-size: 1.12rem; color: #1f2328; margin: 1.2em 0 .2em; }}
+h4 {{ font-size: 1rem; color: #1f5fae; margin: .8em 0 .1em; }}
+.tier {{ margin-top: 2em; padding: 6px 14px; border-radius: 8px; }}
+.tier h2 {{ margin: .3em 0 .1em; }} .tier p {{ margin: 0 0 .4em; font-size: .9rem; }}
+.tier1 {{ background: #fde8e7; }} .tier2 {{ background: #e8eef7; }} .tier3 {{ background: #f1f3f5; }}
+table.list {{ border-collapse: collapse; width: 100%; font-size: .85rem; }}
+table.list th, table.list td {{ border: 1px solid #d6dbe1; padding: 4px 6px; text-align: left; }}
 .item {{ border-top: 1px solid #d6dbe1; padding-top: 4px; }}
 .tag {{ display: inline-block; font-size: .8rem; padding: 1px 8px; border-radius: 999px; background: #eef2f7; margin-right: 8px; }}
 .tag.must {{ background: #fde8e7; color: #b42318; font-weight: 700; }}
@@ -150,6 +211,7 @@ h3 {{ font-size: 1rem; color: #1f5fae; margin: .9em 0 .2em; }}
 <h2>皆さんのご意見を伺いたい点</h2><div class="box"><ul>{choices}</ul></div>
 <h2>総会での決め方</h2>{p(ex.resolution)}
 {p(ex.closing)}
+{appendix}
 <p class="note">{DISCLAIMER}</p>
 </body></html>
 """
