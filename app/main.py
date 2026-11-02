@@ -256,6 +256,7 @@ def show_work(request: Request, work_id: str):
         "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
+        "hist_line": __import__("core.history", fromlist=["line"]).line,
     })
 
 
@@ -269,19 +270,23 @@ def work_status(work_id: str):
 async def save_decisions(request: Request, work_id: str):
     form = await request.form()
     work = store.load(work_id)
+    from core.history import record
+
     decisions = work.get("decisions", {})
     before = {k: v.get("decision") for k, v in decisions.items()}
+    now = _now()
     for i, f in enumerate(work.get("findings", [])):
         key = str(i)
-        decision = form.get(f"decision_{i}", decisions.get(key, {}).get("decision", "保留"))
+        prev = decisions.get(key, {})
+        decision = form.get(f"decision_{i}", prev.get("decision", "保留"))
         if f["category"] == "必須":
             decision = "採用"  # 必須は改定案に自動で入れる（docs/SPEC.md）
         if decision in DECISIONS:
-            decisions[key] = {"decision": decision, "reason": str(form.get(f"reason_{i}", "")).strip()}
+            reason = str(form.get(f"reason_{i}", prev.get("reason", ""))).strip()
+            decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     changed = before != {k: v.get("decision") for k, v in decisions.items()}
     stale = bool(work.get("draft")) and (changed or work.get("draft_stale", False))
-    store.update(work_id, decisions=decisions, draft_stale=stale,
-                 decisions_saved_at=_now())
+    store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     # 保存したら次の工程（改定案）の欄へ移り、保存の結果と次にすることを示す
     return RedirectResponse(f"/works/{work_id}?saved=1#next", status_code=303)
 
@@ -289,7 +294,12 @@ async def save_decisions(request: Request, work_id: str):
 
 @app.post("/works/{work_id}/decisions/{index}")
 async def save_one_decision(request: Request, work_id: str, index: int):
-    """指摘1件の判断を保存する（画面で選んだ時点で自動保存。ページは移動しない）。"""
+    """指摘1件の判断と理由を保存する（画面で「確定する」を押したとき。ページは移動しない）。
+
+    判断を変えたら履歴を1件追加し、判断を変えずに理由だけ直したら最新の履歴を書き直す。
+    """
+    from core.history import record
+
     form = await request.form()
     work = store.load(work_id)
     findings = work.get("findings", [])
@@ -303,11 +313,17 @@ async def save_one_decision(request: Request, work_id: str, index: int):
         decision = "採用"
     if decision not in DECISIONS:
         raise HTTPException(400, "判断の値が正しくありません")
-    decisions[key] = {"decision": decision, "reason": str(form.get("reason", prev.get("reason", ""))).strip()}
+    from core.history import line
+
+    reason = str(form.get("reason", prev.get("reason", ""))).strip()
+    now = _now()
+    decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     stale = bool(work.get("draft")) and (decision != prev.get("decision") or work.get("draft_stale", False))
-    work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=_now())
-    store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=work["decisions_saved_at"])
-    return JSONResponse(decision_summary(work))
+    work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=now)
+    store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
+    item = decisions[key] | {"lines": [line(e) for e in reversed(decisions[key]["history"])]}
+    return JSONResponse(decision_summary(work) | {"item": item})
+
 
 @app.post("/works/{work_id}/draft")
 def start_draft(work_id: str):
@@ -379,15 +395,21 @@ async def save_board_decisions(request: Request, work_id: str):
     paper = _board(work)
     if not paper:
         raise HTTPException(400, "検討資料がありません。")
+    from core.history import record
+
     old = work.get("board_decisions", {})
     decisions = {}
     changed_redraft = False
+    now = _now()
     for i, it in enumerate(paper.items):
         d = str(form.get(f"b_decision_{i}", ""))
         entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
                  "choice": str(form.get(f"b_choice_{i}", "")).strip()}
-        if entry != old.get(str(i)) and (entry["decision"] in NEEDS_REDRAFT or old.get(str(i), {}).get("decision") in NEEDS_REDRAFT):
+        prev = old.get(str(i), {})
+        if entry != {k: prev.get(k, "") for k in entry} and (entry["decision"] in NEEDS_REDRAFT or prev.get("decision") in NEEDS_REDRAFT):
             changed_redraft = True
+        entry["history"] = record(prev, entry["decision"], entry["note"], now, reason_key="note",
+                                  extra={"choice": entry["choice"]})
         decisions[str(i)] = entry
     changes = {"board_decisions": decisions}
     if changed_redraft:

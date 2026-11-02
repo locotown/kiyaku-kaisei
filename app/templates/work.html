@@ -52,7 +52,7 @@ setTimeout(poll, 2000);
   {% set must = rows|selectattr("1.category", "equalto", "必須")|list %}
   <p class="tally">必須 <b>{{ summary.must }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - summary.must }}件</b>：
     {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} <span data-tally="{{ c }}">{{ tally[c] }}</span>件</span>{% if not loop.last %}・{% endif %}{% endfor %}
-    <br><span class="muted">選ぶと、その場で自動で保存されます（保存ボタンを押す必要はありません）。</span></p>
+    <br><span class="muted">判断を選び、理由を書いて「確定する」を押すと保存されます（ページは移動しません）。判断を変えるたびに履歴が残ります。</span></p>
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
   {% for i, f in rows %}
   {% set d = decisions[i|string] %}{% set v = views[i] %}
@@ -77,16 +77,26 @@ setTimeout(poll, 2000);
           {% if b.text %}<div class="btext">{{ b.text }}</div>{% else %}<div class="muted">本文を表示できませんでした。</div>{% endif %}</details></li>
       {% endfor %}</ul><div class="muted small">見出しを押すと、条文の本文が開きます。</div></div></div>
 
-    <div class="sec decide" data-index="{{ i }}"><div class="lbl">委員会の判断<div class="cardsave" id="cs-{{ i }}"></div></div>
+    <div class="sec decide"><div class="lbl">委員会の判断<div class="cardsave" id="cs-{{ i }}"></div></div>
       {% if f.category == "必須" %}
         <div class="fixed">✓ 改定案に入れます<span class="muted">（改正法に合わせるため、必ず入れます。選ぶ必要はありません）</span></div>
       {% else %}
-        <div>
+        <div class="decbox" id="db-{{ i }}" data-index="{{ i }}" data-saved="{{ d.decision }}">
         <div class="choices">{% for c in choice_help %}
           <label class="c-{{ c }}"><input type="radio" name="decision_{{ i }}" value="{{ c }}" {% if d.decision == c %}checked{% endif %}>
             <span><b>{{ c }}</b><br><span class="muted">{{ choice_help[c] }}</span></span></label>
         {% endfor %}</div>
-        <input type="text" name="reason_{{ i }}" value="{{ d.reason }}" placeholder="判断の理由（任意。議事録や引き継ぎに残ります）" class="reason">
+        <div class="current"><span class="muted">理由：</span><span id="cr-{{ i }}">{{ d.reason or "（未記入）" }}</span>
+          <button type="button" class="linkbtn" data-edit="{{ i }}">理由を書く・直す</button></div>
+        <div class="pending" id="pd-{{ i }}" hidden>
+          <div class="pd-head" id="ph-{{ i }}"></div>
+          <input type="text" name="reason_{{ i }}" id="rs-{{ i }}" value="{{ d.reason }}" class="reason" placeholder="理由（任意。議事録や引き継ぎに残ります）">
+          <div class="pd-actions"><button type="button" data-confirm="{{ i }}">確定する</button>
+            <button type="button" class="secondary" data-cancel="{{ i }}">取り消す</button></div>
+        </div>
+        {% set h = d.history or [] %}
+        <details class="hist" id="hs-{{ i }}" {% if not h %}hidden{% endif %}><summary>判断の履歴（<span id="hn-{{ i }}">{{ h|length }}</span>件）</summary>
+          <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>
         </div>
       {% endif %}
     </div>
@@ -95,7 +105,7 @@ setTimeout(poll, 2000);
   <div class="savebar">
     <span class="bar-tally">改定案に入る指摘 <b data-sum="total">{{ summary.total }}</b>件
       <span class="muted">（必須 {{ summary.must }}件＋採用 <span data-tally="採用">{{ tally["採用"] }}</span>件・保留 <span data-tally="保留">{{ tally["保留"] }}</span>件・不採用 <span data-tally="不採用">{{ tally["不採用"] }}</span>件）</span></span>
-    <span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}選ぶと自動で保存されます{% endif %}</span>
+    <span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% endif %}</span>
     <a class="btn" href="#next">判断を終えて改定案へ ↓</a>
     <noscript><button type="submit">判断を保存する</button></noscript>
   </div>
@@ -103,36 +113,72 @@ setTimeout(poll, 2000);
   (function () {
     var form = document.getElementById('decform'), st = document.getElementById('savestate');
     if (!form) return;
+    var $ = function (id) { return document.getElementById(id); };
+    var lastSaved = st.textContent;
+    function pendingCount() { return form.querySelectorAll('.pending:not([hidden])').length; }
+    function bar() {
+      var n = pendingCount();
+      if (n) { st.textContent = '確定していない判断が ' + n + '件あります'; st.className = 'unsaved'; }
+      else { st.textContent = lastSaved; st.className = 'muted'; }
+    }
     function show(sum) {
       document.querySelectorAll('[data-tally]').forEach(function (e) { e.textContent = sum.tally[e.dataset.tally]; });
       document.querySelectorAll('[data-sum]').forEach(function (e) { e.textContent = sum[e.dataset.sum]; });
-      st.textContent = '最後に保存：' + sum.saved_at; st.className = 'muted';
+      lastSaved = '最後に保存：' + sum.saved_at;
     }
-    function save(i) {
-      var box = document.getElementById('cs-' + i);
-      var data = new FormData();
-      var r = form.querySelector('input[name="decision_' + i + '"]:checked');
-      if (r) data.append('decision', r.value);
-      var reason = form.querySelector('input[name="reason_' + i + '"]');
-      if (reason) data.append('reason', reason.value);
+    function open(i, text, reason) {
+      $('ph-' + i).textContent = text; $('rs-' + i).value = reason;
+      $('pd-' + i).hidden = false; $('cs-' + i).textContent = '未確定'; $('cs-' + i).className = 'cardsave pend';
+      $('rs-' + i).focus(); bar();
+    }
+    function close(i) { $('pd-' + i).hidden = true; bar(); }
+    function checked(i) { var r = form.querySelector('input[name="decision_' + i + '"]:checked'); return r ? r.value : ''; }
+    function cancel(i) {
+      var saved = $('db-' + i).dataset.saved;
+      form.querySelectorAll('input[name="decision_' + i + '"]').forEach(function (r) { r.checked = r.value === saved; });
+      $('cs-' + i).textContent = ''; close(i);
+    }
+    function confirm(i) {
+      var data = new FormData(), box = $('cs-' + i);
+      data.append('decision', checked(i)); data.append('reason', $('rs-' + i).value);
       box.textContent = '保存中…'; box.className = 'cardsave';
       fetch('/works/{{ id }}/decisions/' + i, { method: 'POST', body: data })
         .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
-        .then(function (sum) { box.textContent = '✓ 保存しました'; box.className = 'cardsave ok'; show(sum); })
-        .catch(function () { box.textContent = '保存できませんでした。もう一度選んでください'; box.className = 'cardsave ng'; });
+        .then(function (sum) {
+          var it = sum.item;
+          $('db-' + i).dataset.saved = it.decision;
+          $('cr-' + i).textContent = it.reason || '（未記入）';
+          $('hn-' + i).textContent = it.lines.length; $('hs-' + i).hidden = !it.lines.length;
+          $('hl-' + i).innerHTML = '';
+          it.lines.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('hl-' + i).appendChild(li); });
+          box.textContent = '✓ 保存しました'; box.className = 'cardsave ok';
+          show(sum); close(i);
+        })
+        .catch(function () { box.textContent = '保存できませんでした。もう一度「確定する」を押してください'; box.className = 'cardsave ng'; });
     }
-    var timers = {};
-    form.addEventListener('change', function (e) {
-      var m = (e.target.name || '').match(/^(decision|reason)_(\d+)$/);
-      if (m) { clearTimeout(timers[m[2]]); save(m[2]); }
-    });
-    form.addEventListener('input', function (e) {  // 理由の入力は、手が止まってから保存する
-      var m = (e.target.name || '').match(/^reason_(\d+)$/);
+    form.addEventListener('change', function (e) {  // 選んだだけでは保存しない。理由を書いて「確定する」で保存
+      var m = (e.target.name || '').match(/^decision_(\d+)$/);
       if (!m) return;
-      document.getElementById('cs-' + m[1]).textContent = '入力中…';
-      clearTimeout(timers[m[1]]); timers[m[1]] = setTimeout(function () { save(m[1]); }, 1200);
+      var i = m[1], saved = $('db-' + i).dataset.saved;
+      if (e.target.value === saved) { cancel(i); return; }
+      open(i, '「' + (saved || '未判断') + '」から「' + e.target.value + '」に変えます。理由を書いて「確定する」を押してください（理由は空でも確定できます）。', '');
+    });
+    form.addEventListener('click', function (e) {
+      var t = e.target.dataset || {};
+      if (t.confirm) confirm(t.confirm);
+      else if (t.cancel) cancel(t.cancel);
+      else if (t.edit) {
+        var i = t.edit;
+        cancel(i);
+        open(i, '理由を書き直します（判断は「' + $('db-' + i).dataset.saved + '」のまま）。', $('cr-' + i).textContent === '（未記入）' ? '' : $('cr-' + i).textContent);
+      }
+    });
+    form.addEventListener('keydown', function (e) {  // 理由の欄で Enter を押したら確定
+      var m = (e.target.id || '').match(/^rs-(\d+)$/);
+      if (m && e.key === 'Enter' && !e.isComposing) { e.preventDefault(); confirm(m[1]); }
     });
     form.addEventListener('submit', function (e) { e.preventDefault(); });
+    window.addEventListener('beforeunload', function (e) { if (pendingCount()) { e.preventDefault(); e.returnValue = ''; } });
   })();
   </script>
   </form>
@@ -187,6 +233,9 @@ setTimeout(poll, 2000);
           <input type="text" name="b_choice_{{ i }}" value="{{ d.choice }}" placeholder="〔選択〕の箇所で選んだ案（あれば）" style="max-width:360px">
         {% endif %}
         <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}" style="max-width:560px">
+        {% set h = d.history or [] %}
+        {% if h %}<details class="hist"><summary>判断の履歴（{{ h|length }}件）</summary>
+          <ul>{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>{% endif %}
       </div>
     {% endfor %}
     {% if board.notes %}<p class="muted">参考：今回の改定案に含まれていない点</p><ul class="muted">{% for n in board.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}

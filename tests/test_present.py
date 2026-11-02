@@ -44,14 +44,18 @@ def test_save_shows_next_step():
         assert sum_["total"] == 1 and sum_["tally"]["採用"] == 1 and "改定案を作る" in sum_["next"] and sum_["saved_at"]
         assert c.post(f"/works/{wid}/decisions/0", data={"decision": "x"}).status_code == 400
         assert c.post(f"/works/{wid}/decisions/5", data={"decision": "採用"}).status_code == 404
-        c.post(f"/works/{wid}/decisions/0", data={"reason": "委員会で合意"})  # 理由だけの保存では判断は変わらない
-        assert store.load(wid)["decisions"]["0"] == {"decision": "採用", "reason": "委員会で合意"}
+        r = c.post(f"/works/{wid}/decisions/0", data={"decision": "採用", "reason": "委員会で合意"})  # 理由だけ直す
+        saved = store.load(wid)["decisions"]["0"]
+        assert saved["decision"] == "採用" and saved["reason"] == "委員会で合意" and len(saved["history"]) == 1
+        assert r.json()["item"]["lines"][0].endswith("「委員会で合意」（" + saved["history"][0]["edited_at"] + " に理由を修正）")
         page = c.get(f"/works/{wid}").text
         assert "指摘の判断のまとめ" in page and "マンションに特化した財産管理制度" in page
         store.update(wid, draft={"amendments": [], "notes": ""})
         assert store.load(wid).get("draft_stale") is not True
         r = c.post(f"/works/{wid}/decisions/0", data={"decision": "不採用"})
         assert store.load(wid)["draft_stale"] is True and "作り直す" in r.json()["next"]
+        assert [e["to"] for e in store.load(wid)["decisions"]["0"]["history"]] == ["採用", "不採用"]
+        assert 'id="hn-0">2</span>件' in c.get(f"/works/{wid}").text
         # JS が使えないときの、まとめて保存も動く
         r = c.post(f"/works/{wid}/decisions", data={"decision_0": "採用"}, follow_redirects=False)
         assert r.status_code == 303
