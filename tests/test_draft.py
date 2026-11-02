@@ -77,3 +77,22 @@ def test_taisho_marks_only_changes(kiyaku, findings):
     html = to_html(draft, kiyaku)
     assert "<mark>1週間</mark>" in html and "<del>5日間</del>" in html and "法的助言ではありません" in html
     assert "（新設）" in to_markdown(draft, kiyaku)
+
+
+def test_notes_sections():
+    from core.taisho import notes_sections
+
+    secs = notes_sections("総会提案の下書きです。\n【決議の進め方】改正法の要件で決議する。\n【組合が選ぶ点】電磁的方法の利用。")
+    assert secs[0] == ("", "総会提案の下書きです。")
+    assert secs[1] == ("決議の進め方", "改正法の要件で決議する。")
+    assert secs[2][0] == "組合が選ぶ点"
+    assert notes_sections("見出しなし") == [("", "見出しなし")]
+
+
+def test_readability():
+    from core.readability import measure
+
+    m = measure(["特別決議（大事なことを決める方法）が変わります。定足数が変わります。"])
+    assert m["文の数"] == 2
+    assert "特別決議" not in m["説明なしの専門用語"]
+    assert "定足数" in m["説明なしの専門用語"]

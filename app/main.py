@@ -25,6 +25,7 @@ app = FastAPI(title="管理規約 改正対応ツール")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 DECISIONS = ("採用", "不採用", "保留")
+BUSY = ("点検中", "改定案作成中", "説明文作成中")
 
 
 def _source(work_id: str) -> Path:
@@ -76,6 +77,23 @@ def _run_draft(work_id: str) -> None:
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3))
+
+
+def _run_explain(work_id: str) -> None:
+    from core.draft import Amendment, Draft
+    from core.explain import generate, to_html as explain_html
+    from core.readability import measure_explanation
+
+    work = store.load(work_id)
+    try:
+        store.append_log(work_id, "session", "住民向けの説明文を作っています")
+        draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
+        ex, _ = generate(draft, work["info"])
+        (store.path(work_id) / "explain.html").write_text(explain_html(ex, work["name"]), encoding="utf-8")
+        store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
+    except Exception as e:
+        store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
+        store.update(work_id, status="説明文エラー", error=traceback.format_exc(limit=3))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -160,7 +178,7 @@ async def save_decisions(request: Request, work_id: str):
 @app.post("/works/{work_id}/draft")
 def start_draft(work_id: str):
     work = store.load(work_id)
-    if work["status"] in ("点検中", "改定案作成中"):
+    if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
     store.update(work_id, status="改定案作成中")
     threading.Thread(target=_run_draft, args=(work_id,), daemon=True).start()
@@ -181,3 +199,23 @@ def taisho_md(work_id: str):
     if not p.exists():
         raise HTTPException(404, "新旧対照表はまだありません")
     return FileResponse(p, media_type="text/markdown; charset=utf-8", filename="shinkyu_taisho.md")
+
+
+@app.post("/works/{work_id}/explain")
+def start_explain(work_id: str):
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "処理中です。終わるまでお待ちください。")
+    if not work.get("draft"):
+        raise HTTPException(400, "先に改定案を作ってください。")
+    store.update(work_id, status="説明文作成中")
+    threading.Thread(target=_run_explain, args=(work_id,), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+@app.get("/works/{work_id}/explain", response_class=HTMLResponse)
+def explain_page(work_id: str):
+    p = store.path(work_id) / "explain.html"
+    if not p.exists():
+        raise HTTPException(404, "住民向けの説明はまだありません")
+    return FileResponse(p, media_type="text/html; charset=utf-8")

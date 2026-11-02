@@ -81,6 +81,27 @@ def _html_parts(parts, side: str) -> str:
     ).replace("\n", "<br>")
 
 
+NOTE_HEAD = re.compile(r"【([^】]{1,30})】")
+
+
+def notes_sections(notes: str) -> list[tuple[str, str]]:
+    """申し送りを【見出し】で区切る。見出しがなければ1つの節として返す。"""
+    parts = NOTE_HEAD.split(notes)
+    out = []
+    if parts[0].strip():
+        out.append(("", parts[0].strip()))
+    for i in range(1, len(parts), 2):
+        out.append((parts[i].strip(), parts[i + 1].strip() if i + 1 < len(parts) else ""))
+    return out
+
+
+def _notes_html(notes: str) -> str:
+    return "".join(
+        (f"<h3>{html.escape(h)}</h3>" if h else "") + f"<p>{html.escape(body).replace(chr(10), '<br>')}</p>"
+        for h, body in notes_sections(notes)
+    )
+
+
 def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
     body = []
     for r in rows(draft, kiyaku):
@@ -120,7 +141,7 @@ del {{ color: #b42318; text-decoration-color: #b42318; text-decoration-thickness
 <p class="legend">{LEGEND}</p>
 <table><thead><tr><th>改定案</th><th>現行</th><th>変更の理由・根拠</th></tr></thead>
 <tbody>{''.join(body)}</tbody></table>
-<h2>申し送り</h2><p>{html.escape(draft.notes).replace(chr(10), '<br>')}</p>
+<h2>申し送り</h2>{_notes_html(draft.notes)}
 </body></html>
 """
 
@@ -134,5 +155,7 @@ def to_markdown(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧�
         a = r["amendment"]
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
         lines.append(f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | **{a.kind}** {a.reason}<br>根拠：{basis} |")
-    lines += ["", "## 申し送り", "", draft.notes]
+    lines += ["", "## 申し送り", ""]
+    for h, body in notes_sections(draft.notes):
+        lines += ([f"### {h}", ""] if h else []) + [body, ""]
     return "\n".join(lines) + "\n"

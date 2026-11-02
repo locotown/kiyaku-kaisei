@@ -4,9 +4,9 @@
 <h1>{{ work.name }}</h1>
 <p class="muted">型：{{ work.info["型"] }}／読み込んだ条：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
 
-{% if work.status in ("点検中", "改定案作成中") %}
+{% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}
 <div class="card">
-  <h2>{{ "点検しています" if work.status == "点検中" else "改定案を作っています" }}</h2>
+  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
   <p class="muted">AI が規約の条文、標準管理規約、区分所有法を一つずつ取り寄せて照らし合わせています。数分かかります。</p>
   <div class="log" id="log">{% for l in work.log %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div>
 </div>
@@ -18,13 +18,13 @@ async function poll() {
   const log = document.getElementById("log");
   log.innerHTML = s.log.map(l => `<div>${l.t} [${KIND[l.kind]||l.kind}] ${String(l.text).replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])).slice(0,300)}</div>`).join("");
   log.scrollTop = log.scrollHeight;
-  if (s.status === "点検中" || s.status === "改定案作成中") setTimeout(poll, 2000); else location.reload();
+  if (["点検中", "改定案作成中", "説明文作成中"].includes(s.status)) setTimeout(poll, 2000); else location.reload();
 }
 setTimeout(poll, 2000);
 </script>
 {% endif %}
 
-{% if work.status in ("エラー", "改定案エラー") %}
+{% if work.status in ("エラー", "改定案エラー", "説明文エラー") %}
 <div class="card note"><strong>うまくいきませんでした。</strong>
   {% if work.draft_errors %}<ul>{% for e in work.draft_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   <pre class="muted">{{ work.error }}</pre></div>
@@ -68,9 +68,24 @@ setTimeout(poll, 2000);
        <a class="btn secondary" href="/works/{{ id }}/taisho.md">Markdownで保存</a></p>
   {% endif %}
   <form action="/works/{{ id }}/draft" method="post">
-    <button type="submit" {% if work.status in ("点検中", "改定案作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
+    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
     <span class="muted">（判断を保存してから押してください）</span>
   </form>
 </div>
+
+{% if work.draft %}
+<div class="card">
+  <h2>4. 住民向けの説明</h2>
+  <p class="muted">改定案を、住民の方が読める言葉に書き換えます。説明会や総会資料の下書きに使えます。</p>
+  {% if work.explain %}
+    {% set m = work.explain_metrics %}
+    <p>項目 {{ work.explain["items"]|length }}つ。読みやすさの目安：1文の平均 {{ m["1文の平均の長さ"] }}字、60字を超える文 {{ m["60字を超える文の割合(%)"] }}%、説明なしの専門用語 {{ m["説明なしの専門用語"]|join("、") or "なし" }}</p>
+    <p><a class="btn" href="/works/{{ id }}/explain" target="_blank">説明資料を開く</a></p>
+  {% endif %}
+  <form action="/works/{{ id }}/explain" method="post">
+    <button type="submit" {% if work.status in ("点検中", "改定案作成中", "説明文作成中") %}disabled{% endif %}>{{ "説明文を作り直す" if work.explain else "住民向けの説明を作る" }}</button>
+  </form>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
