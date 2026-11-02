@@ -55,7 +55,7 @@
   {% if work.status == "点検中" %}
   <div class="pcounts" id="counts">確認した規約の条 <b data-c="規約の条">{{ progress.counts["規約の条"] }}</b>回・標準管理規約との照合 <b data-c="標準管理規約">{{ progress.counts["標準管理規約"] }}</b>回・区分所有法との照合 <b data-c="区分所有法">{{ progress.counts["区分所有法"] }}</b>回・受け付けた指摘 <b data-c="指摘">{{ progress.counts["指摘"] }}</b>件</div>
   {% endif %}
-  <details class="plog"><summary>作業の記録を見る</summary>
+  <details class="plog" open><summary>作業の記録</summary>
     <div class="log" id="log">{% for l in progress.lines %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div></details>
 </div>
 <script>
@@ -325,10 +325,14 @@
           <li>{{ "✓" if q.checks_ok else "！" }} <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
             <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
           <li>{{ "✓" if q.level == "ok" else "！" }} <b>採点役（別の AI）による確認</b>：{% for r in q.rounds %}{{ r.n }}回目 {{ r.result }}{% if not loop.last %} → {% endif %}{% else %}行われませんでした{% endfor %}
-            <details><summary>確認した内容（{{ q.rubric|length }}項目）</summary><ol>{% for c in q.rubric %}<li>{{ c }}</li>{% endfor %}</ol></details>
-            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメントを読む（技術的な言葉を含みます）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
+            <ol class="checklist">{% for c in q.checklist %}
+              <li class="{{ 'ok' if c.ok else 'ng' }}"><span class="ck">{{ "✓" if c.ok else "—" }}</span><div><b>{{ c.label }}</b>{% if c.note %}<div class="ck-note">{{ c.note }}</div>{% endif %}</div></li>{% endfor %}</ol>
+            {% if q.limits %}<div class="limits"><b>採点役が確認できなかった点</b><ul>{% for l in q.limits %}<li>{{ l }}</li>{% endfor %}</ul>
+              <div class="muted small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
+            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
         </ul>
-        <div class="q-human"><b>人が確認すること：</b>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。{% if q.choices %}特に、組合が選ぶ点（{{ q.choices }}か所、〔選択〕の印）は、理事会で決めてください。{% endif %}</div>
+        <div class="q-human"><b>人が確認すること：</b>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。{% if q.choices %}特に、組合が選ぶ点（{{ q.choices }}か所、〔選択〕の印）は、理事会で決めてください。{% endif %}
+          {% if q.extra %}<div class="extra">指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。採点役はこれらの条の現行の文を見ていないので、新旧対照表で特に確認してください。</div>{% endif %}</div>
       </div>
     </div>
     <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>

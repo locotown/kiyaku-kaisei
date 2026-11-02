@@ -335,17 +335,29 @@ def progress_view(work: dict) -> dict:
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
              "error": "エラー", "tool": "作業", "builtin": "作業"}
-    lines = []
+    from core.quality import RESULT_JA
+
+    lines, now_text = [], "準備しています"
     for e in current[-40:]:
-        text = str(e.get("text", ""))
-        if e.get("kind") in ("tool", "builtin"):
+        kind, text = e.get("kind"), str(e.get("text", ""))
+        if kind in ("tool", "builtin"):
             text = text.split("：", 1)[-1]
-        elif e.get("kind") == "session" and text.startswith("sesn_"):
+        elif kind == "session" and text.startswith("sesn_"):
             text = "AI の作業を始めました"
-        lines.append({"t": e.get("t", ""), "kind": label.get(e.get("kind"), e.get("kind")), "text": text[:300]})
+        elif kind == "graded":  # 採点役のコメントは長く技術的なので、結果だけにする（中身は改定案の欄で見られる）
+            head = text.split("：", 1)
+            result = head[1] if head[0] == "採点役の確認" else head[0]
+            text = "採点役の確認：" + RESULT_JA.get(result.split("：")[0], result.split("：")[0])
+        elif kind == "grading" and text.startswith("採点 "):
+            text = "採点役が確認しています（" + text.removeprefix("採点 ") + "）"
+        elif kind == "message":  # AI のメモは内部の言葉が混じるので、短くして記録にだけ残す
+            text = text.replace("\n", " ")[:80] + ("…" if len(text) > 80 else "")
+        lines.append({"t": e.get("t", ""), "kind": label.get(kind, kind), "text": text[:300]})
+        if kind != "message":
+            now_text = text
     last = current[-1]["ts"] if current else since
     return {"elapsed": int(now - since), "last_age": int(now - last), "lines": lines,
-            "current": lines[-1]["text"] if lines else "準備しています", **summarize(work.get("status", ""), current)}
+            "current": now_text, **summarize(work.get("status", ""), current)}
 
 
 @app.get("/works/{work_id}/status")

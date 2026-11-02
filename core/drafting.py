@@ -42,7 +42,7 @@ RUBRIC = """# 改定案のルーブリック（各項目を独立に採点する
 1. /mnt/session/outputs/kaitei.json が存在し、{"amendments": [...], "notes": "..."} の形の JSON である
 2. 依頼文で「必須」とされた指摘の論点IDが、すべていずれかの改定の finding_refs に含まれ、その条文で実際に解消されている
 3. 改正区分所有法の数値と合っている：規約変更などの特別決議は「組合員総数の過半数かつ議決権総数の過半数の出席」「出席組合員及びその議決権の各4分の3以上」、緊急時の招集通知は「1週間」を下回らない、議案の要領はすべての議案で通知する
-4. 指摘と関係のない文言を変えていない（条番号の振り直しをしていない。新設は枝番で追加している）
+4. 指摘と関係のない文言を変えていない（条番号の振り直しをしていない。新設は枝番で追加している）。改定前の文は、末尾の【改定対象の条の現行の文】と一字一句比べて確かめる
 5. 各改定の text が、規約の書式（「第○条　」で始まり、第2項以降は「2　」、号は「一　」）に従い、現行規約の言い回し（「組合員」「理事長」など）を引き継いでいる
 6. 各改定の reason が、専門家でない理事会の担当者に分かる平易な日本語で、なぜ変えるのかを説明している
 7. 各改定に根拠（区分所有法の条文、または標準管理規約の条番号）がある
@@ -51,6 +51,32 @@ RUBRIC = """# 改定案のルーブリック（各項目を独立に採点する
 11. 各改定の document が正しい（規約本体の改定は「規約」、細則の改定はその細則の題名）。規約で定めるべき事項を細則に、細則で足りる事項を規約に入れていない
 10. notes が、スキルの見出し（【決議の進め方】【優先して提案する改定】【組合が選ぶ点】【条・項の番号が変わる箇所】【あわせて検討するとよい点】【使った資料】のうち該当するもの）で整理され、総会提案の下書きであり法的助言ではないことが書かれている
 """
+
+
+def current_texts(corpus, findings: list[Finding]) -> str:
+    """採点役に渡す、改定対象の条の現行の文（ツールが読み込んだ規約から取り出す）。
+
+    採点役は条文を取り寄せるツールを使えないため、確認基準（ルーブリック）に添えて渡す。
+    渡すのは採用した指摘の対象の条だけ（改定案を書く AI がもともと取り寄せる範囲）で、規約全体は渡さない。
+    """
+    from core.sources import normalize_article_ref
+
+    seen, parts = set(), []
+    for f in findings:
+        if f.article in ("", "規定なし"):
+            continue
+        doc = corpus.resolve(f.document) or "規約"
+        key = (doc, normalize_article_ref(f.article))
+        if key in seen:
+            continue
+        seen.add(key)
+        for a in corpus.find(doc, key[1]):
+            body = "\n".join("　" + line for line in a.text().splitlines())  # 行頭を字下げ（項目番号と紛れないように）
+            parts.append(f"■ {doc} {a.label}\n{body}")
+    if not parts:
+        return ""
+    return ("\n\n# 【改定対象の条の現行の文】（ツールが読み込んだ規約から取り出したもの。項目4の確認に使う）\n\n"
+            + "\n\n".join(parts) + "\n\nここにない条を改定している場合は、指摘との関係を申し送りで説明しているかを確かめる。\n")
 
 
 @dataclass
@@ -157,7 +183,7 @@ def run_draft(
             events=[{
                 "type": "user.define_outcome",
                 "description": build_description(findings, info, board),
-                "rubric": {"type": "text", "content": RUBRIC},
+                "rubric": {"type": "text", "content": RUBRIC + current_texts(handler.corpus, findings)},
                 "max_iterations": MAX_ITERATIONS,
             }],
         )
@@ -186,10 +212,10 @@ def run_draft(
                         events=[{"type": "user.tool_confirmation", "tool_use_id": event.id, "result": "deny"}],
                     )
             elif etype == "span.outcome_evaluation_start":
-                notify("grading", f"採点 {event.iteration + 1}回目")
+                notify("grading", f"採点役が確認しています（{event.iteration + 1}回目）")
             elif etype == "span.outcome_evaluation_end":
                 evaluations.append({"iteration": event.iteration, "result": event.result, "explanation": event.explanation})
-                notify("graded", f"{RESULT_JA.get(event.result, event.result)}：{event.explanation[:200]}")
+                notify("graded", f"採点役の確認：{RESULT_JA.get(event.result, event.result)}")
             elif etype == "session.error":
                 notify("error", str(getattr(event, "error", event)))
             elif etype == "session.status_idle":

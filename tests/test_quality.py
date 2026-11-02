@@ -24,3 +24,43 @@ def test_rubric_plain_matches_rubric():
     import re
 
     assert len(RUBRIC_PLAIN) == sum(1 for line in RUBRIC.splitlines() if re.match(r"^\d+\. ", line))
+
+
+def test_parse_explanation_and_extra():
+    from core.quality import parse_explanation
+
+    text = ("An independent grader found all criteria met:\n- 改定案（kaitei.json）がルーブリック各項目を満たしているか (met): "
+            "私の環境では get_articles などの取得ツールが使えないため、現行規約の原文との一字一句の照合はできていません。\n\n"
+            "(1) /mnt/session/outputs/kaitei.json は存在し、{amendments:[5件], notes} の形の JSON です。\n"
+            "(2) 必須の論点はすべて finding_refs に含まれ、条文で解消されています。\n"
+            "(7) すべての改定に law_basis と standard_basis があります。\n")
+    p = parse_explanation(text)
+    assert p["items"][2] == "必須の論点はすべて対応する指摘の欄に含まれ、条文で解消されています。"
+    assert p["items"][7] == "すべての改定に根拠（区分所有法と標準管理規約）があります。"
+    assert "改定 5件と申し送り" in p["items"][1]
+    assert len(p["limits"]) == 1 and "一字一句の照合はできていません" in p["limits"][0] and "get_articles" not in p["limits"][0]
+
+    work = {"draft": {"amendments": [{"document": "規約", "article": "第49条", "kind": "改正"},
+                                     {"document": "規約", "article": "第69条", "kind": "改正"},
+                                     {"document": "規約", "article": "第25条の2", "kind": "新設"}]},
+            "findings": [{"document": "規約", "article": "第49条"}, {"document": "規約", "article": "規定なし"}],
+            "decisions": {"0": {"decision": "採用"}, "1": {"decision": "採用"}},
+            "draft_evaluations": [{"result": "satisfied", "explanation": text}]}
+    q = draft_quality(work)
+    assert q["extra"] == ["第69条"] and q["limits"] and q["checklist"][1]["ok"] and q["checklist"][1]["note"]
+
+
+def test_current_texts_for_grader():
+    from core.corpus import Corpus
+    from core.drafting import current_texts
+    from core.findings import Finding
+    from core.ingest import load_collection
+
+    from core.config import ROOT
+
+    corpus = Corpus.from_collection(load_collection(ROOT / "evals/data/old_collection.txt"))
+    f = lambda doc, art: Finding(art, "1-1", "必須", "", "", [], [], "規約", "", document=doc)
+    t = current_texts(corpus, [f("規約", "第49条"), f("規約", "第49条"), f("○○マンションペット飼育細則", "1."), f("規約", "規定なし")])
+    assert t.count("■ 規約 第49条") == 1 and "組合員総数の4分の3以上" in t
+    assert "■ ○○マンションペット飼育細則 1." in t
+    assert not [line for line in t.splitlines() if line[:2].rstrip(".").isdigit() and line[1:3].startswith(". ")]  # 行頭に「1. 」が出ない
