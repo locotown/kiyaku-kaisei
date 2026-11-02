@@ -48,7 +48,13 @@ setTimeout(poll, 2000);
 {% if work.findings %}
 <div class="card" id="findings">
   <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
-  <p class="note">「必須」は改正法に抵触するおそれがある箇所で、改定案に必ず入れます。「推奨」「参考」は、採用するかを委員会で判断して選んでください。</p>
+  <div class="note legend">
+    <div><span class="badge b-必須">必須</span> 改正された区分所有法に合わず、そのままでは効力を失うおそれがある箇所です。改定案に必ず入れます。</div>
+    <div><span class="badge b-推奨">推奨</span> 今回の法改正に関係し、国の標準管理規約（2025年10月改正）が見直しを勧めている箇所です。</div>
+    <div><span class="badge b-参考">参考</span> 法改正とは直接関係しませんが、標準管理規約と違う箇所です（古い用語、条番号のずれなど）。</div>
+    <div><span class="tag">法律上必要かは確認中</span> 法律が見直しを求めているかを、国の資料でまだ確かめきれていない箇所です。いまは「推奨」として扱っています。</div>
+    <div class="muted">「推奨」「参考」は、採用するかを委員会で判断して選んでください。</div>
+  </div>
   {% set must = rows|selectattr("1.category", "equalto", "必須")|list %}
   <p class="tally">必須 <b>{{ summary.must }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - summary.must }}件</b>：
     {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} <span data-tally="{{ c }}">{{ tally[c] }}</span>件</span>{% if not loop.last %}・{% endif %}{% endfor %}
@@ -60,10 +66,10 @@ setTimeout(poll, 2000);
     <div class="head">
       <span class="badge b-{{ f.category }}">{{ f.category }}</span>
       <h3 class="ftitle">{{ v.title }}</h3>
-      {% if f.needs_confirmation %}<span class="tag">要確認の論点</span>{% endif %}
+      {% if f.needs_confirmation %}<span class="tag">法律上必要かは確認中</span>{% endif %}
     </div>
     <div class="target">対象：<b>{{ v.target }}</b>
-      <span class="muted">・{{ "規約の変更（総会の特別決議）" if f.where == "規約" else "細則で対応できる（総会の普通決議）" }}・論点 {{ f.topic_id }}</span></div>
+      <span class="muted">・{{ "規約の変更（総会の特別決議）" if f.where == "規約" else "細則で対応できる（総会の普通決議）" }}</span></div>
 
     <div class="sec"><div class="lbl">何が問題か</div><div>{{ v.issue }}</div></div>
     <div class="sec"><div class="lbl">今の規定</div>

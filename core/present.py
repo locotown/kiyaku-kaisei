@@ -16,7 +16,7 @@ from core.topics import TOPIC_BY_ID
 # 「第67条の4」「第43条第2項」「第47条第3項第一号」など
 REF = re.compile(r"第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)*"
                  r"(?:第[0-9０-９一二三四五六七八九十]+項)?(?:第[0-9０-９一二三四五六七八九十]+号)?")
-NO_TOPIC = "論点表にない見直し（標準管理規約との違い）"
+NO_TOPIC = "標準管理規約との違い"
 
 
 def topic_title(topic_id: str) -> str:
@@ -115,7 +115,7 @@ def _title(finding: dict, corpus) -> str:
     if finding.get("topic_id") in TOPIC_BY_ID:
         return topic_title(finding["topic_id"])
     cap = current_caption(corpus, finding)
-    return f"「{cap}」の見直し（論点表にない点）" if cap else NO_TOPIC
+    return f"「{cap}」の見直し" if cap else NO_TOPIC
 
 
 def view(finding: dict, corpus=None) -> dict:
