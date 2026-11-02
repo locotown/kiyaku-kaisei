@@ -25,6 +25,7 @@ app = FastAPI(title="管理規約 改正対応ツール")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 DECISIONS = ("採用", "不採用", "保留")
+CHOICE_HELP = {"採用": "改定案に入れる", "保留": "まだ決めない（改定案には入れない）", "不採用": "今回は改定しない"}
 BUSY = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
 
 
@@ -89,7 +90,7 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
         if result.draft:
             (d / "taisho.html").write_text(to_html(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
             (d / "taisho.md").write_text(to_markdown(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
-        extra = {"draft_reflects_board": bool(board)} if result.draft else {}
+        extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
         if result.draft and not board:
             extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
         store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
@@ -210,8 +211,23 @@ def show_work(request: Request, work_id: str):
     findings = work.get("findings", [])
     order = {"必須": 0, "推奨": 1, "参考": 2}
     rows = sorted(enumerate(findings), key=lambda x: (order.get(x[1]["category"], 9), x[0]))
+    views = {}
+    if findings:
+        from core.present import view
+
+        try:
+            corpus = _corpus(work_id)
+        except Exception:  # 表示の補助なので、読み込めなくても画面は出す
+            corpus = None
+        views = {i: view(f, corpus) for i, f in rows}
+    decisions = work.get("decisions", {})
+    adopt = {"must": sum(1 for _, f in rows if f["category"] == "必須"),
+             "chosen": sum(1 for i, f in rows if f["category"] != "必須" and decisions.get(str(i), {}).get("decision") == "採用")}
+    tally = {c: sum(1 for i, f in rows if f["category"] != "必須" and decisions.get(str(i), {}).get("decision") == c)
+             for c in DECISIONS}
     return templates.TemplateResponse(request, "work.html", {
-        "id": work_id, "work": work, "rows": rows, "decisions": work.get("decisions", {}), "choices": DECISIONS,
+        "id": work_id, "work": work, "rows": rows, "views": views, "tally": tally, "adopt": adopt, "saved": request.query_params.get("saved") == "1", "decisions": decisions, "choices": DECISIONS,
+        "choice_help": CHOICE_HELP,
         "board": work.get("board"), "board_decisions": work.get("board_decisions", {}),
         "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
@@ -230,6 +246,7 @@ async def save_decisions(request: Request, work_id: str):
     form = await request.form()
     work = store.load(work_id)
     decisions = work.get("decisions", {})
+    before = {k: v.get("decision") for k, v in decisions.items()}
     for i, f in enumerate(work.get("findings", [])):
         key = str(i)
         decision = form.get(f"decision_{i}", decisions.get(key, {}).get("decision", "保留"))
@@ -237,8 +254,16 @@ async def save_decisions(request: Request, work_id: str):
             decision = "採用"  # 必須は改定案に自動で入れる（docs/SPEC.md）
         if decision in DECISIONS:
             decisions[key] = {"decision": decision, "reason": str(form.get(f"reason_{i}", "")).strip()}
-    store.update(work_id, decisions=decisions)
-    return RedirectResponse(f"/works/{work_id}#findings", status_code=303)
+    from datetime import datetime
+
+    from core.review import JST
+
+    changed = before != {k: v.get("decision") for k, v in decisions.items()}
+    stale = bool(work.get("draft")) and (changed or work.get("draft_stale", False))
+    store.update(work_id, decisions=decisions, draft_stale=stale,
+                 decisions_saved_at=datetime.now(JST).strftime("%m月%d日 %H:%M"))
+    # 保存したら次の工程（改定案）の欄へ移り、保存の結果と次にすることを示す
+    return RedirectResponse(f"/works/{work_id}?saved=1#next", status_code=303)
 
 
 @app.post("/works/{work_id}/draft")

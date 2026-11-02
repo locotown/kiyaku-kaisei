@@ -49,34 +49,78 @@ setTimeout(poll, 2000);
 <div class="card" id="findings">
   <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
   <p class="note">「必須」は改正法に抵触するおそれがある箇所で、改定案に必ず入れます。「推奨」「参考」は、採用するかを委員会で判断して選んでください。</p>
+  {% set must = rows|selectattr("1.category", "equalto", "必須")|list %}
+  <p class="tally">必須 <b>{{ must|length }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - must|length }}件</b>：
+    {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} {{ tally[c] }}件</span>{% if not loop.last %}・{% endif %}{% endfor %}</p>
   <form action="/works/{{ id }}/decisions" method="post">
   {% for i, f in rows %}
-  {% set d = decisions[i|string] %}
-  <div class="finding">
+  {% set d = decisions[i|string] %}{% set v = views[i] %}
+  <div class="finding fcard">
     <div class="head">
       <span class="badge b-{{ f.category }}">{{ f.category }}</span>
-      <strong>{% if f.document and f.document != "規約" %}{{ f.document }} {% endif %}{{ f.article }}</strong>
-      <span class="muted">論点 {{ f.topic_id }}{% if f.needs_confirmation %}（要確認）{% endif %}／{{ f.where }}</span>
+      <h3 class="ftitle">{{ v.title }}</h3>
+      {% if f.needs_confirmation %}<span class="tag">要確認の論点</span>{% endif %}
     </div>
-    <p>{{ f.issue }}</p>
-    {% if f.current_excerpt %}<div class="quote">現行：{{ f.current_excerpt }}</div>{% endif %}
-    <p class="muted">改定の方向：{{ f.proposal }}<br>
-      根拠：{% for b in f.law_basis %}区分所有法{{ b }}{% if not loop.last %}、{% endif %}{% endfor %}{% if f.law_basis and f.standard_basis %}／{% endif %}{% for b in f.standard_basis %}標準管理規約{{ b }}{% if not loop.last %}、{% endif %}{% endfor %}
-      {% if f.choice_needed %}<br>〔選択が必要〕{{ f.choice_note }}{% endif %}</p>
-    {% if f.category == "必須" %}
-      <span class="muted">判断：採用（必須）</span>
-    {% else %}
-      <select name="decision_{{ i }}">{% for c in choices %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
-      <input type="text" name="reason_{{ i }}" value="{{ d.reason }}" placeholder="判断の理由（任意。議事録や引き継ぎに残ります）" style="max-width:560px">
-    {% endif %}
+    <div class="target">対象：<b>{{ v.target }}</b>
+      <span class="muted">・{{ "規約の変更（総会の特別決議）" if f.where == "規約" else "細則で対応できる（総会の普通決議）" }}・論点 {{ f.topic_id }}</span></div>
+
+    <div class="sec"><div class="lbl">何が問題か</div><div>{{ v.issue }}</div></div>
+    <div class="sec"><div class="lbl">今の規定</div>
+      {% if f.current_excerpt %}<div class="quote">{{ f.current_excerpt }}</div>{% else %}<div class="muted">今の規約に、この点の定めはありません。</div>{% endif %}</div>
+    <div class="sec"><div class="lbl">改定の方向</div>
+      <div class="proposal">{{ v.proposal }}
+        {% if f.choice_needed %}<div class="choicebox"><b>選ぶ必要があります：</b>{{ f.choice_note }}</div>{% endif %}</div></div>
+    <div class="sec"><div class="lbl">根拠</div>
+      <div><ul class="basis">{% for b in v.basis %}
+        <li><details><summary><span class="src src-{{ b.kind }}">{{ b.source }}</span> {{ b.ref }}{% if b.caption %} <span class="cap">{{ b.caption }}</span>{% endif %}</summary>
+          {% if b.text %}<div class="btext">{{ b.text }}</div>{% else %}<div class="muted">本文を表示できませんでした。</div>{% endif %}</details></li>
+      {% endfor %}</ul><div class="muted small">見出しを押すと、条文の本文が開きます。</div></div></div>
+
+    <div class="sec decide"><div class="lbl">委員会の判断</div>
+      {% if f.category == "必須" %}
+        <div class="fixed">✓ 改定案に入れます<span class="muted">（改正法に合わせるため、必ず入れます。選ぶ必要はありません）</span></div>
+      {% else %}
+        <div>
+        <div class="choices">{% for c in choice_help %}
+          <label class="c-{{ c }}"><input type="radio" name="decision_{{ i }}" value="{{ c }}" {% if d.decision == c %}checked{% endif %}>
+            <span><b>{{ c }}</b><br><span class="muted">{{ choice_help[c] }}</span></span></label>
+        {% endfor %}</div>
+        <input type="text" name="reason_{{ i }}" value="{{ d.reason }}" placeholder="判断の理由（任意。議事録や引き継ぎに残ります）" class="reason">
+        </div>
+      {% endif %}
+    </div>
   </div>
   {% endfor %}
-  <p><button type="submit">判断を保存する</button></p>
+  <div class="savebar"><button type="submit">判断を保存する</button>
+    <span id="savestate" class="muted">{% if work.decisions_saved_at %}最後に保存：{{ work.decisions_saved_at }}。{% endif %}保存してから、下の「3. 改定案」に進んでください。</span></div>
+  <script>
+  (function () {
+    var form = document.querySelector('#findings form'), st = document.getElementById('savestate');
+    if (!form || !st) return;
+    var mark = function () { st.textContent = '未保存の変更があります。「判断を保存する」を押してください。'; st.className = 'unsaved'; };
+    form.addEventListener('change', mark);
+    form.addEventListener('input', mark);
+  })();
+  </script>
   </form>
 </div>
 
-<div class="card">
+<div class="card" id="next">
   <h2>3. 改定案と新旧対照表</h2>
+  {% if saved %}
+  <div class="done">
+    <div class="done-head">✓ 判断を保存しました{% if work.decisions_saved_at %}（{{ work.decisions_saved_at }}）{% endif %}</div>
+    <div>改定案に入れる指摘：<b>{{ adopt.must + adopt.chosen }}件</b>（必須 {{ adopt.must }}件＋採用 {{ adopt.chosen }}件）。
+      保留 {{ tally["保留"] }}件・不採用 {{ tally["不採用"] }}件は入りません。</div>
+    <div class="nextstep"><b>次にすること：</b>
+      {% if not work.draft %}下の「採用した指摘から改定案を作る」を押してください（10〜15分ほどかかります）。
+      {% elif work.draft_stale %}前回の改定案から判断が変わりました。下の「改定案を作り直す」を押してください。
+      {% else %}判断は前回の改定案から変わっていません。改定案はそのままで、「4. 理事会での検討」に進めます。{% endif %}
+      保留にした指摘は、あとで判断を変えて改定案を作り直せます。</div>
+  </div>
+  {% elif work.draft_stale %}
+  <p class="note">指摘の判断が、今の改定案を作った後に変わっています。「改定案を作り直す」を押してください。</p>
+  {% endif %}
   {% if work.draft %}
     <p>改定 {{ work.draft.amendments|length }}条。採点役の結果：{% for e in work.draft_evaluations %}{{ loop.index }}回目 {{ e.result }}{% if not loop.last %} → {% endif %}{% endfor %}</p>
     <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>

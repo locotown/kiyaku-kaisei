@@ -34,7 +34,7 @@ FINDING_SCHEMA = {
         "law_basis": {"type": "array", "items": {"type": "string"}, "description": "根拠となる区分所有法の条文（例：「第31条第1項」）。改正後（2026年4月1日施行）の条文"},
         "standard_basis": {"type": "array", "items": {"type": "string"}, "description": "対応する標準管理規約（令和7年改正・単棟型）の条番号（例：「第47条第3項」）"},
         "where": {"type": "string", "enum": list(WHERE), "description": "規約の変更が必要か、使用細則などの細則で対応できるか"},
-        "proposal": {"type": "string", "description": "改定の方向性（1〜2文）。条文案そのものは後の工程で作る"},
+        "proposal": {"type": "string", "description": "改定の方向性（1〜2文）。何をどう変えるかを先に書き、条番号は括弧で補う。条番号には、どの規約の条か（今の規約／標準管理規約／区分所有法）と何を定めた条かを添える。条文案そのものは後の工程で作る"},
         "choice_needed": {"type": "boolean", "description": "標準管理規約に選択肢（（ア）（イ）など）があり、担当者が選ぶ必要がある場合 true"},
         "choice_note": {"type": "string", "description": "choice_needed が true のとき、選択肢と判断のポイント"},
     },
