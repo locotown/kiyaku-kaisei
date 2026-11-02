@@ -1,0 +1,25 @@
+{
+  "name": "kiyaku-kaisei（管理規約 改正法対応ツール）",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.13-bookworm",
+  "secrets": {
+    "KIYAKU_ANTHROPIC_API_KEY": {
+      "description": "Anthropic の API キー。点検・改定案・検討資料・説明文の作成に使います（値は画面やログに出しません）。"
+    }
+  },
+  "postCreateCommand": "pip install --user uv && ~/.local/bin/uv sync",
+  "postAttachCommand": {
+    "画面": "~/.local/bin/uv run uvicorn app.main:app --port 8000"
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "規約見直しの画面",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  }
+}
