@@ -98,3 +98,12 @@ def test_explain_requires_board(monkeypatch):
         assert "4. 理事会での検討" in page and "5. 住民向けの説明" in page
     finally:
         shutil.rmtree(d)
+
+
+def test_items_without_articles_become_notes():
+    draft, paper = make_draft(), make_paper()
+    paper.items.append(item("関連条文の見直し", [], T2))
+    fix_tiers(paper, draft)
+    assert all(it.articles for it in paper.items)
+    assert paper.notes and paper.notes[0].startswith("関連条文の見直し")
+    assert "今回の改定案に含まれていない点" in to_html(paper)

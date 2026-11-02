@@ -52,6 +52,7 @@ class BoardPaper(BaseModel):
     intro: str = Field(description="検討の目的と進め方（①→②→③の順に検討すること）。3〜4文")
     items: list[BoardItem]
     next_steps: str = Field(description="理事会で固めた後の流れ（改定案の修正、住民説明会、総会の議案と決議の種類）。2〜4文")
+    notes: list[str] = Field(default_factory=list, description="改定案には含まれていないが、あわせて検討するとよい点（議題にはしない）。各1〜2文")
 
 
 SYSTEM = """あなたは、マンション管理組合の理事会（規約見直し委員会）が規約の改定案を検討するための資料を書くアシスタントです。
@@ -64,7 +65,7 @@ SYSTEM = """あなたは、マンション管理組合の理事会（規約見�
   ・「法律の改正に合わせる変更」…改正された法律に合わせるため必ず必要な変更（アプリが改定案の必須の論点から決め直す）
   ・「暮らしや運営に関わる変更」…法律上は必須ではなく、組合が採用するか・どう書くかを決められる変更
   ・「古い規定や表現の整理」…参照する条の番号の誤りや古い用語を整えるだけで、内容が変わらないもの
-- すべての改定の ref が、いずれかの議題の articles に入るようにする
+- すべての改定の ref が、いずれかの議題の articles に入るようにする。改定案に含まれていない条についての提案は議題にせず notes に書く
 - ②の議題では、判断に必要な材料（利点・注意点・暮らしへの影響）を公平に書く。どちらかに誘導しない
 - 事実を誇張しない。「無効です」と断定せず「法律と食い違い、効力を失うおそれがあります」のように書く
 - 専門家への相談を一律に勧めない
@@ -103,6 +104,10 @@ def required_refs(draft: Draft) -> set[str]:
 
 def fix_tiers(paper: BoardPaper, draft: Draft) -> None:
     """①かどうかを改定案の必須の論点から決め直し、段の順に並べる。"""
+    # 関係する改定がない議題は判断のしようがないので、参考（notes）に移す
+    for item in [it for it in paper.items if not it.articles]:
+        paper.notes.append(f"{item.title}：{item.summary}")
+        paper.items.remove(item)
     req = required_refs(draft)
     for item in paper.items:
         if any(_ref_key(x) in req for x in item.articles):
@@ -242,6 +247,7 @@ h4 {{ font-size: .95rem; color: #1f5fae; margin: .6em 0 .1em; }} ul {{ margin: .
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 <p>{html.escape(paper.intro)}</p>
 {''.join(parts)}
+{('<h2>参考：今回の改定案に含まれていない点</h2><ul>' + li(paper.notes) + '</ul>') if paper.notes else ''}
 <h2>このあとの流れ</h2><p>{html.escape(paper.next_steps)}</p>
 <p class="note">{DISCLAIMER}　改定案の条文そのものは「新旧対照表」を見てください。</p>
 </body></html>
