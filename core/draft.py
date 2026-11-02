@@ -158,9 +158,79 @@ def check(data: dict, kiyaku, findings: list[Finding]) -> tuple[Draft | None, li
     if "法的助言" not in (data.get("notes") or ""):
         warnings.append("notes に「総会提案の下書きであり、法的助言ではない」旨がありません。")
 
+    warnings += numbering_warnings(amendments, corpus)
     if errors:
         return None, errors, warnings
     return Draft(amendments=amendments, notes=data.get("notes", "")), [], warnings
+
+
+# 条文中の「第○条」（細則の中の「規約第○条」は規約本体の条）
+REF_IN_TEXT = re.compile(r"(規約)?第([0-9０-９一二三四五六七八九十百]+)条((?:の[0-9０-９一二三四五六七八九十]+)*)")
+OTHER_SOURCE = re.compile(r"(?:法|法律|政令|省令|規則|標準管理規約|細則)$")  # ほかの法令・文書の条
+
+
+def references(amendments: list[Amendment], corpus) -> set[tuple[str, str]]:
+    """改定後の条文が参照している、規約・細則の条（文書名, 条番号）。区分所有法など、ほかの法令の条は除く。"""
+    from core.corpus import Corpus
+
+    corpus = Corpus.of(corpus)
+    refs: set[tuple[str, str]] = set()
+    for a in amendments:
+        if a.kind == "削除":
+            continue
+        doc = corpus.resolve(a.document) or "規約"
+        own = normalize_article_ref(a.article)
+        for m in REF_IN_TEXT.finditer(a.text):
+            before = a.text[max(0, m.start() - 12):m.start()]
+            if m.group(1) and before.endswith("標準管理"):  # 「標準管理規約第47条」は国の標準の条
+                continue
+            if not m.group(1) and OTHER_SOURCE.search(before):
+                continue
+            target = "規約" if m.group(1) else doc
+            num = normalize_article_ref(m.group(0).removeprefix("規約"))
+            if (target, num) != (doc, own):
+                refs.add((target, num))
+    return refs
+
+
+def _after_numbers(amendments: list[Amendment], corpus, doc: str) -> set[str]:
+    """改定後にその文書にある条番号（今の条 − 削除 ＋ 新設）。"""
+    kiyaku = corpus.get(doc)
+    nums = {a.number for a in kiyaku.articles} if kiyaku else set()
+    for a in amendments:
+        if (corpus.resolve(a.document) or "規約") != doc:
+            continue
+        n = normalize_article_ref(a.article)
+        if a.kind == "削除":
+            nums.discard(n)
+        elif a.kind == "新設":
+            nums.add(n)
+    return nums
+
+
+def numbering_warnings(amendments: list[Amendment], corpus) -> list[str]:
+    """採点役がよく指摘する点を、提出前に知らせる：新設の枝番の欠け、参照先が改定後にない条。"""
+    out = []
+    docs = {corpus.resolve(a.document) or "規約" for a in amendments} | {"規約"}
+    after = {d: _after_numbers(amendments, corpus, d) for d in docs}
+    for a in amendments:
+        if a.kind != "新設":
+            continue
+        doc = corpus.resolve(a.document) or "規約"
+        parts = normalize_article_ref(a.article).split("の")
+        if len(parts) >= 2 and parts[-1].isdigit():
+            k = int(parts[-1])
+            prev = "の".join(parts[:-1]) + (f"の{k - 1}" if k > 2 else "")
+            if k >= 2 and prev not in after[doc]:
+                out.append(f"新設の「{a.article}」の前の「第{prev.replace('の', '条の', 1) if 'の' in prev else prev + '条'}」がなく、欠番になります。"
+                           "欠番を避けるか、標準管理規約の番号に合わせた場合は理由を notes に書いてください。")
+    for doc, num in sorted(references(amendments, corpus)):
+        if doc not in after:
+            after[doc] = _after_numbers(amendments, corpus, doc)
+        if num not in after[doc]:
+            label = "規約" if doc == "規約" else f"「{doc}」"
+            out.append(f"改定後の条文が参照する{label}の第{num.replace('の', '条の', 1) if 'の' in num else num + '条'}は、改定後にありません。参照先を確かめてください。")
+    return out
 
 
 def parse_json(text: str) -> dict:

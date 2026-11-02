@@ -26,6 +26,7 @@ TOOLS = {
     "get_law_articles": (2, "区分所有法と照らし合わせ"),
     "record_findings": (3, "指摘を記録"),
     "check_draft": (3, "改定案を自分で点検"),
+    "share_references": (3, "参照先の条の現行の文を採点役に渡す"),
 }
 BUILTIN = {"read": "手順書を読む", "glob": "手順書を探す", "grep": "手順書を検索", "write": "改定案を書く", "edit": "改定案を直す"}
 

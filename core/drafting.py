@@ -53,30 +53,47 @@ RUBRIC = """# 改定案のルーブリック（各項目を独立に採点する
 """
 
 
+REF_MOUNT = "/mnt/session/uploads/genko_sansho.md"  # 改定案が参照する条の現行の文（自己点検のたびにツールが置く）
+MA_BETA = "managed-agents-2026-04-01"
+
+
+def target_keys(corpus, findings: list[Finding]) -> list[tuple[str, str]]:
+    """採用した指摘の対象の条（文書名, 条番号）。"""
+    from core.sources import normalize_article_ref
+
+    keys: list[tuple[str, str]] = []
+    for f in findings:
+        if f.article in ("", "規定なし"):
+            continue
+        key = (corpus.resolve(f.document) or "規約", normalize_article_ref(f.article))
+        if key not in keys:
+            keys.append(key)
+    return keys
+
+
+def article_texts(corpus, keys) -> str:
+    """条の現行の文を並べる（行頭は字下げして、項目番号と紛れないようにする）。"""
+    parts = []
+    for doc, num in keys:
+        for a in corpus.find(doc, num):
+            body = "\n".join("　" + line for line in a.text().splitlines())
+            parts.append(f"■ {doc} {a.label}\n{body}")
+    return "\n\n".join(parts)
+
+
 def current_texts(corpus, findings: list[Finding]) -> str:
     """採点役に渡す、改定対象の条の現行の文（ツールが読み込んだ規約から取り出す）。
 
     採点役は条文を取り寄せるツールを使えないため、確認基準（ルーブリック）に添えて渡す。
     渡すのは採用した指摘の対象の条だけ（改定案を書く AI がもともと取り寄せる範囲）で、規約全体は渡さない。
     """
-    from core.sources import normalize_article_ref
-
-    seen, parts = set(), []
-    for f in findings:
-        if f.article in ("", "規定なし"):
-            continue
-        doc = corpus.resolve(f.document) or "規約"
-        key = (doc, normalize_article_ref(f.article))
-        if key in seen:
-            continue
-        seen.add(key)
-        for a in corpus.find(doc, key[1]):
-            body = "\n".join("　" + line for line in a.text().splitlines())  # 行頭を字下げ（項目番号と紛れないように）
-            parts.append(f"■ {doc} {a.label}\n{body}")
-    if not parts:
+    body = article_texts(corpus, target_keys(corpus, findings))
+    if not body:
         return ""
     return ("\n\n# 【改定対象の条の現行の文】（ツールが読み込んだ規約から取り出したもの。項目4の確認に使う）\n\n"
-            + "\n\n".join(parts) + "\n\nここにない条を改定している場合は、指摘との関係を申し送りで説明しているかを確かめる。\n")
+            + body + "\n\nここにない条を改定している場合は、指摘との関係を申し送りで説明しているかを確かめる。\n"
+            + f"改定後の条文が参照する条の現行の文は {REF_MOUNT} にある（ツールが置く。項目9の確認に使う）。"
+            "ファイルがない、または載っていない条は、参照先が改定後の規約にあるかだけを確かめる。\n")
 
 
 @dataclass
@@ -111,9 +128,51 @@ class DraftToolHandler(ToolHandler):
     def __init__(self, kiyaku: Kiyaku, findings: list[Finding], rules: dict[str, Kiyaku] | None = None):
         super().__init__(kiyaku, rules)
         self.adopted = findings
+        self.targets = set(target_keys(self.corpus, findings))
+        self.client = None
+        self.session_id = ""
+        self.notify = lambda kind, text: None
+        self._resource_id = ""
+        self._shared = ""
+
+    def attach(self, client, session_id: str, notify=None) -> None:
+        self.client, self.session_id = client, session_id
+        if notify:
+            self.notify = notify
+
+    def share_references(self, amendments) -> int:
+        """改定後の条文が参照する条（対象の条を除く）の現行の文を、採点役が読めるよう作業場所に置く。
+
+        規約全体は渡さず、参照されている条だけを置く。置いた条の数を返す（変わらなければ 0）。
+        """
+        from core.draft import references
+
+        keys = sorted(k for k in references(amendments, self.corpus) - self.targets if self.corpus.find(*k))
+        text = article_texts(self.corpus, keys)
+        if not text or text == self._shared or self.client is None:
+            return 0
+        content = "# 改定後の条文が参照する条の現行の文（ツールが読み込んだ規約から取り出したもの）\n\n" + text + "\n"
+        uploaded = self.client.beta.files.upload(file=("genko_sansho.md", content.encode("utf-8"), "text/markdown"),
+                                                 betas=["files-api-2025-04-14", MA_BETA])
+        if self._resource_id:
+            try:
+                self.client.beta.sessions.resources.delete(self._resource_id, session_id=self.session_id, betas=[MA_BETA])
+            except Exception:
+                pass
+        res = self.client.beta.sessions.resources.add(self.session_id, file_id=uploaded.id, type="file",
+                                                      mount_path=REF_MOUNT, betas=[MA_BETA])
+        self._resource_id, self._shared = res.id, text
+        return len(keys)
 
     def _check_draft(self, draft: dict) -> str:
         result, errors, warnings = check(draft, self.corpus, self.adopted)
+        if result is not None:
+            try:
+                n = self.share_references(result.amendments)
+                if n:
+                    self.notify("tool", f"share_references：参照先の条の現行の文を採点役に渡す：{n}条")
+            except Exception as e:  # 渡せなくても改定案づくりは続ける（採点役は参照先の有無だけを確かめる）
+                self.notify("error", f"参照先の条の文を渡せませんでした：{e}")
         if errors:
             return json.dumps({"結果": "エラーあり", "エラー": errors, "注意": warnings}, ensure_ascii=False)
         return json.dumps({"結果": "検査に合格", "改定の数": len(result.amendments), "注意": warnings,
@@ -176,6 +235,7 @@ def run_draft(
         budget={"type": "limit", "max_list_cost": {"amount": BUDGET_CENTS, "currency": "USD"}},
     )
     notify("session", session.id)
+    handler.attach(c, session.id, notify)
 
     with c.beta.sessions.events.stream(session_id=session.id) as stream:
         c.beta.sessions.events.send(
