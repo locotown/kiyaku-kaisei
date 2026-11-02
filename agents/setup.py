@@ -66,7 +66,7 @@ def main() -> None:
     # 1. Skill（改正知識）
     if state.get("skill_id"):
         version = c.skills.versions.create(skill_id=state["skill_id"], files=skill_files())
-        print(f"Skill を更新: {state['skill_id']}（版 {version.version}）")
+        print(f"Skill を更新: {state['skill_id']}（版 {version.id}）")
     else:
         skill = c.skills.create(files=skill_files(), display_name="管理規約 改正対応チェック")
         state["skill_id"] = skill.id
