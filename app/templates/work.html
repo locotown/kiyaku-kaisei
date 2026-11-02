@@ -1,12 +1,27 @@
 {% extends "base.html" %}
-{% block title %}{{ work.name }}｜管理規約 改正対応ツール{% endblock %}
+{% block title %}{{ work.name }}｜管理規約 改正対応ツール<script>
+(function () {
+  function openFold(id) { if (id === 'findings') { var d = document.getElementById('findings-fold'); if (d) d.open = true; } }
+  document.querySelectorAll('.journey a').forEach(function (a) { a.addEventListener('click', function () { openFold(a.dataset.open); }); });
+  openFold(location.hash.slice(1));
+})();
+</script>
+{% endblock %}
 {% block content %}
 <h1>{{ work.name }}</h1>
 <p class="muted">型：{{ work.info["型"] }}／規約本体：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
 
+<nav class="journey" aria-label="進め方">
+  <ol>{% for st in journey.steps %}
+    <li class="j-{{ st.state }}"><a href="#{{ st.anchor }}" data-open="{{ st.anchor }}">{{ "✓ " if st.state == "done" else "" }}{{ loop.index }}. {{ st.label }}</a></li>{% endfor %}</ol>
+  <div class="j-next"><b>次にすること：</b>{{ journey.next }}</div>
+</nav>
+
 {% if work.documents and work.documents|length > 1 %}
 <div class="card">
-  <h2>読み込んだ文書</h2>
+  <h2>1. 読み込んだ文書</h2>
+  {% set docs = work.documents|selectattr("kind", "in", ["規約", "細則"])|list %}
+  <details class="fold" {% if not work.findings %}open{% endif %}><summary>{{ "文書の一覧" if not work.findings else "全" ~ work.documents|length ~ "件（規約・細則 " ~ docs|length ~ "件、その他 " ~ (work.documents|length - docs|length) ~ "件）。開いて確認" }}</summary>
   <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
   <table>
     <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
@@ -16,6 +31,7 @@
         <td>{{ d.annotations }}件</td></tr>
     {% endfor %}
   </table>
+  </details>
 </div>
 {% endif %}
 
@@ -61,7 +77,12 @@
     try {
       var r = await fetch("/works/{{ id }}/status"); var s = await r.json();
       $('status').textContent = s.status;
-      if (!BUSY.includes(s.status)) { location.reload(); return; }
+      if (!BUSY.includes(s.status)) {  // 終わったら、結果の欄へ移って知らせる
+        var to = s.status.indexOf('エラー') >= 0 ? 'error'
+          : {"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"];
+        location.href = '/works/{{ id }}?done=' + encodeURIComponent('{{ work.status }}') + '#' + to;
+        return;
+      }
       var p = s.progress;
       elapsed = p.elapsed; lastAge = p.last_age;
       $('current').textContent = p.current;
@@ -78,7 +99,7 @@
 {% endif %}
 
 {% if work.status in ("エラー", "改定案エラー", "検討資料エラー", "説明文エラー") %}
-<div class="card note"><strong>うまくいきませんでした。</strong>
+<div class="card note" id="error"><strong>うまくいきませんでした。</strong>
   {% if work.draft_errors %}<ul>{% for e in work.draft_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   <pre class="muted">{{ work.error }}</pre></div>
 {% endif %}
@@ -86,6 +107,10 @@
 {% if work.findings %}
 <div class="card" id="findings">
   <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
+  {% if done == "点検中" %}<div class="justdone">✓ 点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、採用するか判断してください。</div>{% endif %}
+  {% set folded = work.draft and done != "点検中" %}
+  {% if folded %}<p class="muted">判断は済んでいます（改定案に入れた指摘 {{ summary.total }}件）。判断を見直すときは、下を開いてください。</p>{% endif %}
+  <details class="fold" id="findings-fold" {% if not folded %}open{% endif %}><summary>{{ "指摘の一覧と判断を開く" if folded else "指摘の一覧と判断" }}</summary>
   <div class="note legend">
     <div><span class="badge b-必須">必須</span> 改正された区分所有法に合わず、そのままでは効力を失うおそれがある箇所です。改定案に必ず入れます。</div>
     <div><span class="badge b-推奨">推奨</span> 今回の法改正に関係し、国の標準管理規約（2025年10月改正）が見直しを勧めている箇所です。</div>
@@ -277,10 +302,12 @@
   })();
   </script>
   </form>
+  </details>
 </div>
 
 <div class="card" id="next">
   <h2>3. 改定案と新旧対照表</h2>
+  {% if done == "改定案作成中" and work.draft %}<div class="justdone">✓ 改定案ができました（改定 {{ work.draft.amendments|length }}条）。「新旧対照表を開く」で中身を確認し、次は「4. 理事会での検討」で検討資料を作ってください。</div>{% endif %}
   <div class="done{{ ' stale' if work.draft_stale else '' }}">
     <div class="done-head">指摘の判断のまとめ{% if summary.saved_at %}<span class="muted">（最後に保存：<span data-sum="saved_at">{{ summary.saved_at }}</span>）</span>{% endif %}</div>
     <div>改定案に入れる指摘：<b><span data-sum="total">{{ summary.total }}</span>件</b>（必須 {{ summary.must }}件＋採用 <span data-tally="採用">{{ tally["採用"] }}</span>件）。
@@ -302,6 +329,7 @@
 {% if work.draft %}
 <div class="card" id="board">
   <h2>4. 理事会での検討</h2>
+  {% if done == "検討資料作成中" and board %}<div class="justdone">✓ 検討資料ができました。議題ごとに判断を選び、「理事会の判断を保存する」を押してください。印刷用の資料は「検討資料を開く」から開けます。</div>{% endif %}
   <p class="muted">住民に説明する前に、改定案を3段に分けて理事会（委員会）で検討し、方針を固めます。
     ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p>
   {% if board %}
@@ -354,8 +382,9 @@
   </form>
 </div>
 
-<div class="card">
+<div class="card" id="explain">
   <h2>5. 住民向けの説明</h2>
+  {% if done == "説明文作成中" and work.explain %}<div class="justdone">✓ 住民向けの説明ができました。「説明資料を開く」で確認してください。</div>{% endif %}
   <p class="muted">改定案を、住民の方が読める言葉に書き換えます。説明会や総会資料の下書きに使えます。</p>
   {% if work.explain %}
     {% set m = work.explain_metrics %}
@@ -369,4 +398,11 @@
 </div>
 {% endif %}
 {% endif %}
+<script>
+(function () {
+  function openFold(id) { if (id === 'findings') { var d = document.getElementById('findings-fold'); if (d) d.open = true; } }
+  document.querySelectorAll('.journey a').forEach(function (a) { a.addEventListener('click', function () { openFold(a.dataset.open); }); });
+  openFold(location.hash.slice(1));
+})();
+</script>
 {% endblock %}

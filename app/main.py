@@ -174,6 +174,45 @@ def board_state(work: dict) -> dict:
     return {**st, "ready": True, "reason": ""}
 
 
+
+STEP_OF_BUSY = {"点検中": "review", "改定案作成中": "draft", "検討資料作成中": "board", "説明文作成中": "explain"}
+STEP_OF_ERROR = {"エラー": "review", "改定案エラー": "draft", "検討資料エラー": "board", "説明文エラー": "explain"}
+
+
+def journey(work: dict, bstate: dict | None) -> dict:
+    """ページ上部の進め方の案内（済んだ段階・いまの段階・次にすること）。"""
+    steps = [{"key": "review", "label": "点検", "anchor": "findings"},
+             {"key": "decide", "label": "指摘の判断", "anchor": "findings"},
+             {"key": "draft", "label": "改定案", "anchor": "next"},
+             {"key": "board", "label": "理事会での検討", "anchor": "board"},
+             {"key": "explain", "label": "住民向けの説明", "anchor": "explain"}]
+    draft_ok = bool(work.get("draft")) and not work.get("draft_stale")
+    done = {"review": bool(work.get("findings")), "decide": bool(work.get("draft")), "draft": draft_ok,
+            "board": draft_ok and bool(bstate and bstate.get("ready")), "explain": bool(work.get("explain"))}
+    status = work.get("status", "")
+    current = STEP_OF_BUSY.get(status) or STEP_OF_ERROR.get(status) or next(
+        (st["key"] for st in steps if not done[st["key"]]), "")
+    if status in STEP_OF_BUSY:
+        text = "AI が作業しています。下の進み具合で状況を確認できます。"
+    elif status in STEP_OF_ERROR:
+        text = "うまくいきませんでした。下の内容を確認して、もう一度ボタンを押してください。"
+    elif current == "decide":
+        text = "「2. 対応が必要な箇所」で推奨・参考の指摘を判断し、「3. 改定案」の「改定案を作る」を押してください。"
+    elif current == "draft":
+        text = "「3. 改定案」で「改定案を作り直す」を押してください（判断が変わったため）。" if work.get("draft") \
+            else "「3. 改定案」で「採用した指摘から改定案を作る」を押してください。"
+    elif current == "board":
+        text = ("「4. 理事会での検討」で「理事会の検討資料を作る」を押してください。" if not (bstate and work.get("board"))
+                else "「4. 理事会での検討」で" + (bstate.get("reason") or "議題ごとの判断を記録してください。"))
+    elif current == "explain":
+        text = "「5. 住民向けの説明」で「住民向けの説明を作る」を押してください。"
+    else:
+        text = "すべての段階が済みました。新旧対照表・検討資料・説明資料を、総会の準備に使えます。"
+    for st in steps:
+        st["state"] = "now" if st["key"] == current else ("done" if done[st["key"]] else "todo")
+    return {"steps": steps, "current": current, "next": text}
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {"works": store.list_works(), "supported": sorted(SUPPORTED), "samples": SAMPLES})
@@ -278,6 +317,8 @@ def show_work(request: Request, work_id: str):
         "board_state": board_state(work) if work.get("draft") else None,
         "hist_line": __import__("core.history", fromlist=["line"]).line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
+        "journey": journey(work, board_state(work) if work.get("draft") else None),
+        "done": request.query_params.get("done", ""),
     })
 
 

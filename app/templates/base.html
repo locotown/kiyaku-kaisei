@@ -121,6 +121,16 @@ input.reason { margin-top:8px; max-width:none; }
 @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(18,183,106,.6); } 70% { box-shadow:0 0 0 8px rgba(18,183,106,0); } 100% { box-shadow:0 0 0 0 rgba(18,183,106,0); } }
 .pcounts { background:#f9fafb; border-radius:8px; padding:8px 12px; font-size:.92rem; }
 .plog { margin-top:10px; } .plog summary { cursor:pointer; color:var(--muted); font-size:.9rem; }
+.journey { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:8px 0 12px; }
+.journey ol { list-style:none; display:flex; gap:6px; padding:0; margin:0 0 8px; flex-wrap:wrap; }
+.journey li { flex:1; min-width:120px; }
+.journey li a { display:block; text-align:center; border-radius:8px; padding:6px 8px; font-size:.9rem; text-decoration:none; border:1px solid var(--line); color:var(--muted); background:#fff; }
+.journey .j-done a { color:#067647; border-color:#abefc6; background:#ecfdf3; }
+.journey .j-now a { color:#fff; background:var(--accent); border-color:var(--accent); font-weight:700; }
+.j-next { font-size:.95rem; }
+.justdone { background:#ecfdf3; border:1px solid #abefc6; color:#05603a; border-radius:8px; padding:10px 14px; margin:0 0 12px; font-weight:700; }
+.fold > summary { cursor:pointer; color:var(--accent); font-weight:700; margin:6px 0; }
+.card[id] { scroll-margin-top:8px; }
 footer { text-align:center; color:var(--muted); font-size:.85rem; padding:20px; }
 </style>
 </head>

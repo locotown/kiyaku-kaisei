@@ -46,3 +46,16 @@ def test_status_progress():
         assert c.get(f"/works/{wid}/status").json()["progress"] is None
     finally:
         shutil.rmtree(d)
+
+
+def test_journey_and_done_banner():
+    from app.main import journey
+
+    j = journey({"status": "点検済み", "findings": [{}]}, None)
+    assert [st["state"] for st in j["steps"]] == ["done", "now", "todo", "todo", "todo"] and "判断" in j["next"]
+    j = journey({"status": "改定案あり", "findings": [{}], "draft": {"amendments": []}, "draft_stale": True}, None)
+    assert j["current"] == "draft" and "作り直す" in j["next"]
+    j = journey({"status": "改定案作成中", "findings": [{}]}, None)
+    assert j["current"] == "draft" and "AI が作業" in j["next"]
+    j = journey({"status": "説明文あり", "findings": [{}], "draft": {"amendments": []}, "explain": {"items": []}}, {"ready": True})
+    assert j["current"] == "" and all(st["state"] == "done" for st in j["steps"])
