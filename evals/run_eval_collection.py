@@ -60,7 +60,7 @@ def main() -> None:
     def progress(kind: str, text: str) -> None:
         if kind == "session":
             print(f"セッション開始: {text}", flush=True)
-        elif kind == "tool" and text in ("record_findings", "list_rules", "get_rule_articles"):
+        elif kind == "tool" and text.split("：", 1)[0] in ("record_findings", "list_rules", "get_rule_articles"):
             print(f"  [ツール] {text}", flush=True)
         elif kind == "error":
             print(f"  [エラー] {text}", file=sys.stderr, flush=True)

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import time
 import secrets
 import threading
 from datetime import datetime
@@ -37,6 +38,7 @@ def load(work_id: str) -> dict:
 def save(work_id: str, data: dict) -> None:
     d = path(work_id)
     d.mkdir(parents=True, exist_ok=True)
+    data.setdefault("status_since", time.time())
     with _lock:
         tmp = d / "work.json.tmp"
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -46,6 +48,8 @@ def save(work_id: str, data: dict) -> None:
 def update(work_id: str, **changes) -> dict:
     with _lock:
         data = json.loads((path(work_id) / "work.json").read_text(encoding="utf-8"))
+        if "status" in changes and changes["status"] != data.get("status"):
+            data["status_since"] = time.time()  # 処理の経過時間を示すため
         data.update(changes)
         tmp = path(work_id) / "work.json.tmp"
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -57,7 +61,7 @@ def append_log(work_id: str, kind: str, text: str) -> None:
     with _lock:
         p = path(work_id) / "work.json"
         data = json.loads(p.read_text(encoding="utf-8"))
-        data.setdefault("log", []).append({"t": datetime.now(JST).strftime("%H:%M:%S"), "kind": kind, "text": text})
+        data.setdefault("log", []).append({"t": datetime.now(JST).strftime("%H:%M:%S"), "ts": time.time(), "kind": kind, "text": text})
         tmp = path(work_id) / "work.json.tmp"
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(p)

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from core.config import ROOT, client
 from core.findings import Finding
 from core.model import Kiyaku
+from core.progress import describe_builtin, describe_tool
 from core.tools import ToolHandler
 
 STATE = ROOT / "agents/state.json"
@@ -123,10 +124,14 @@ def run_review(
                         texts.append(block.text)
                         notify("message", block.text)
             elif etype == "agent.custom_tool_use":
-                notify("tool", event.name)
+                notify("tool", describe_tool(event.name, dict(event.input or {})))
+                before = len(getattr(handler, "findings", []) or [])
                 try:
                     result = handler.run(event.name, dict(event.input or {}))
                     is_error = False
+                    if event.name == "record_findings":
+                        total = len(handler.findings)
+                        notify("found", f"指摘を{total - before}件受け付け（合計{total}件）")
                 except Exception as e:  # ツールの失敗はエージェントに返して直させる
                     result, is_error = f"ツールの実行に失敗しました: {e}", True
                 c.beta.sessions.events.send(
@@ -139,7 +144,7 @@ def run_review(
                     }],
                 )
             elif etype == "agent.tool_use":
-                notify("builtin", getattr(event, "name", ""))
+                notify("builtin", describe_builtin(getattr(event, "name", "")))
                 if getattr(event, "evaluated_permission", None) == "ask":
                     # 読み取り以外のツールは無効にしてある。念のため、確認を求められたら拒否する
                     c.beta.sessions.events.send(

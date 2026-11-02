@@ -277,13 +277,40 @@ def show_work(request: Request, work_id: str):
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
         "hist_line": __import__("core.history", fromlist=["line"]).line,
+        "progress": progress_view(work) if work["status"] in BUSY else None,
     })
+
+
+def progress_view(work: dict) -> dict:
+    """処理中の進み具合（段階・件数・経過時間・最後に動きがあってからの秒数・日本語の作業の記録）。"""
+    import time
+
+    from core.progress import summarize
+
+    now = time.time()
+    since = work.get("status_since") or now
+    log = work.get("log", [])
+    current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
+    label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
+             "error": "エラー", "tool": "作業", "builtin": "作業"}
+    lines = []
+    for e in current[-40:]:
+        text = str(e.get("text", ""))
+        if e.get("kind") in ("tool", "builtin"):
+            text = text.split("：", 1)[-1]
+        elif e.get("kind") == "session" and text.startswith("sesn_"):
+            text = "AI の作業を始めました"
+        lines.append({"t": e.get("t", ""), "kind": label.get(e.get("kind"), e.get("kind")), "text": text[:300]})
+    last = current[-1]["ts"] if current else since
+    return {"elapsed": int(now - since), "last_age": int(now - last), "lines": lines,
+            "current": lines[-1]["text"] if lines else "準備しています", **summarize(work.get("status", ""), current)}
 
 
 @app.get("/works/{work_id}/status")
 def work_status(work_id: str):
     work = store.load(work_id)
-    return JSONResponse({"status": work["status"], "log": work.get("log", [])[-30:], "findings": len(work.get("findings", []))})
+    return JSONResponse({"status": work["status"], "findings": len(work.get("findings", [])),
+                         "progress": progress_view(work) if work["status"] in BUSY else None})
 
 
 @app.post("/works/{work_id}/decisions")

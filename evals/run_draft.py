@@ -85,7 +85,7 @@ def main() -> None:
     def progress(kind: str, text: str) -> None:
         if kind in ("session", "grading", "graded", "error"):
             print(f"  [{kind}] {text}", flush=True)
-        elif kind == "tool" and text == "check_draft":
+        elif kind == "tool" and text.startswith("check_draft"):
             print("  [tool] check_draft", flush=True)
 
     result = run_draft(kiyaku, findings, info, on_event=progress, title=f"評価：改定案の作成（{input_path.name}）",

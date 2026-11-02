@@ -17,6 +17,7 @@ from core.config import ROOT, client
 from core.draft import DRAFT_SCHEMA, Draft, check
 from core.findings import Finding
 from core.model import Kiyaku
+from core.progress import describe_builtin, describe_tool
 from core.review import BUDGET_CENTS, DEADLINE_SEC, ENFORCED, JST
 from core.tools import TOOL_DEFS, ToolHandler
 
@@ -166,7 +167,7 @@ def run_draft(
                 break
             etype = event.type
             if etype == "agent.custom_tool_use":
-                notify("tool", event.name)
+                notify("tool", describe_tool(event.name, dict(event.input or {})))
                 try:
                     result, is_error = handler.run(event.name, dict(event.input or {})), False
                 except Exception as e:
@@ -177,7 +178,7 @@ def run_draft(
                              "content": [{"type": "text", "text": result}], "is_error": is_error}],
                 )
             elif etype == "agent.tool_use":
-                notify("builtin", getattr(event, "name", ""))
+                notify("builtin", describe_builtin(getattr(event, "name", "")))
                 if getattr(event, "evaluated_permission", None) == "ask":
                     c.beta.sessions.events.send(
                         session_id=session.id,
