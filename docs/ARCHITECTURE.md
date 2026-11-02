@@ -1,6 +1,6 @@
-# 技術構成（ARCHITECTURE）— 案
+# 技術構成（ARCHITECTURE）
 
-11/2 に、Anthropic 公式ドキュメント（Claude API / Managed Agents）をもとに作成した案。**承認後に確定**とする。
+11/2 に、Anthropic 公式ドキュメント（Claude API / Managed Agents）をもとに作成し、同日承認された。
 当初は 11/3 の公式セッションを見てから決める予定だったが、ドキュメントで確認できたため前倒しした。
 
 ## 結論
@@ -53,7 +53,8 @@
 ## 開発環境
 - 言語：Python 3.13（docx・PDF の処理と評価に向く）、パッケージ管理は uv
 - SDK：`anthropic`（公式）
-- APIキー：`.env` の `ANTHROPIC_API_KEY`（コミットしない）。クラウド開発環境では環境のシークレットに設定する
+- APIキー：手元のPCでは `.env` の `ANTHROPIC_API_KEY`（コミットしない）。Claude Code のクラウド環境では環境変数 `KIYAKU_ANTHROPIC_API_KEY`（`ANTHROPIC_API_KEY` という名前は Claude Code 自身の認証用に扱われ、セッションに渡らないため）。読み込みは core/config.py
+- 11/2 に、この構成のキーで Messages API の呼び出しと Managed Agents（ベータ）の利用ができることを確認済み
 
 ## ディレクトリ構成（予定）
 ```
