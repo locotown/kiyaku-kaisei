@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}管理規約 改正対応ツール{% endblock %}</title>
+<style>
+:root { --fg:#1f2328; --muted:#5b636e; --line:#d6dbe1; --bg:#f7f8fa; --card:#fff; --accent:#1f5fae;
+        --must:#b42318; --rec:#b54708; --ref:#475467; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; color:var(--fg); background:var(--bg); line-height:1.7; }
+header { background:#fff; border-bottom:1px solid var(--line); padding:12px 20px; display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+header a { color:var(--fg); text-decoration:none; font-weight:700; }
+header small { color:var(--muted); }
+main { max-width:1080px; margin:0 auto; padding:20px 16px 60px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:16px 0; }
+h1 { font-size:1.4rem; margin:.2em 0 .6em; } h2 { font-size:1.15rem; margin:.2em 0 .6em; }
+label { display:block; font-weight:600; margin:.8em 0 .2em; }
+input[type=text], select, textarea { width:100%; max-width:480px; padding:8px; border:1px solid var(--line); border-radius:6px; font-size:1rem; }
+button, .btn { display:inline-block; background:var(--accent); color:#fff; border:0; border-radius:6px; padding:9px 16px; font-size:1rem; cursor:pointer; text-decoration:none; }
+button.secondary, .btn.secondary { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+.note { background:#fff6e0; border-left:4px solid #e0a000; padding:8px 12px; border-radius:4px; }
+.muted { color:var(--muted); font-size:.9rem; }
+.badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:.8rem; font-weight:700; color:#fff; }
+.b-必須 { background:var(--must); } .b-推奨 { background:var(--rec); } .b-参考 { background:var(--ref); }
+table { border-collapse:collapse; width:100%; }
+th, td { border-bottom:1px solid var(--line); padding:8px 6px; text-align:left; vertical-align:top; font-size:.93rem; }
+.log { font-family: ui-monospace, monospace; font-size:.82rem; background:#0f172a; color:#e2e8f0; border-radius:8px; padding:10px 12px; max-height:260px; overflow:auto; }
+.finding { border-top:1px solid var(--line); padding:14px 0; }
+.finding .head { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.quote { background:#f3f4f6; border-radius:6px; padding:6px 10px; font-size:.9rem; white-space:pre-wrap; }
+.grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+footer { text-align:center; color:var(--muted); font-size:.85rem; padding:20px; }
+</style>
+</head>
+<body>
+<header><a href="/">管理規約 改正対応ツール</a><small>改正区分所有法（2026年4月施行）・標準管理規約（2025年10月改正）対応</small></header>
+<main>{% block content %}{% endblock %}</main>
+<footer>このツールの出力は「総会提案の下書き」であり、法的助言ではありません。最終的な判断は、必要に応じて専門家に確認してください。</footer>
+</body>
+</html>

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ work.name }}｜管理規約 改正対応ツール{% endblock %}
+{% block content %}
+<h1>{{ work.name }}</h1>
+<p class="muted">型：{{ work.info["型"] }}／読み込んだ条：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
+
+{% if work.status in ("点検中", "改定案作成中") %}
+<div class="card">
+  <h2>{{ "点検しています" if work.status == "点検中" else "改定案を作っています" }}</h2>
+  <p class="muted">AI が規約の条文、標準管理規約、区分所有法を一つずつ取り寄せて照らし合わせています。数分かかります。</p>
+  <div class="log" id="log">{% for l in work.log %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div>
+</div>
+<script>
+const KIND = {tool:"条文を確認", message:"メモ", session:"開始", grading:"採点", graded:"採点結果", builtin:"資料を読む", error:"エラー"};
+async function poll() {
+  const r = await fetch("/works/{{ id }}/status"); const s = await r.json();
+  document.getElementById("status").textContent = s.status;
+  const log = document.getElementById("log");
+  log.innerHTML = s.log.map(l => `<div>${l.t} [${KIND[l.kind]||l.kind}] ${String(l.text).replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])).slice(0,300)}</div>`).join("");
+  log.scrollTop = log.scrollHeight;
+  if (s.status === "点検中" || s.status === "改定案作成中") setTimeout(poll, 2000); else location.reload();
+}
+setTimeout(poll, 2000);
+</script>
+{% endif %}
+
+{% if work.status in ("エラー", "改定案エラー") %}
+<div class="card note"><strong>うまくいきませんでした。</strong>
+  {% if work.draft_errors %}<ul>{% for e in work.draft_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+  <pre class="muted">{{ work.error }}</pre></div>
+{% endif %}
+
+{% if work.findings %}
+<div class="card" id="findings">
+  <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
+  <p class="note">「必須」は改正法に抵触するおそれがある箇所で、改定案に必ず入れます。「推奨」「参考」は、採用するかを委員会で判断して選んでください。</p>
+  <form action="/works/{{ id }}/decisions" method="post">
+  {% for i, f in rows %}
+  {% set d = decisions[i|string] %}
+  <div class="finding">
+    <div class="head">
+      <span class="badge b-{{ f.category }}">{{ f.category }}</span>
+      <strong>{{ f.article }}</strong>
+      <span class="muted">論点 {{ f.topic_id }}{% if f.needs_confirmation %}（要確認）{% endif %}／{{ f.where }}</span>
+    </div>
+    <p>{{ f.issue }}</p>
+    {% if f.current_excerpt %}<div class="quote">現行：{{ f.current_excerpt }}</div>{% endif %}
+    <p class="muted">改定の方向：{{ f.proposal }}<br>
+      根拠：{% for b in f.law_basis %}区分所有法{{ b }}{% if not loop.last %}、{% endif %}{% endfor %}{% if f.law_basis and f.standard_basis %}／{% endif %}{% for b in f.standard_basis %}標準管理規約{{ b }}{% if not loop.last %}、{% endif %}{% endfor %}
+      {% if f.choice_needed %}<br>〔選択が必要〕{{ f.choice_note }}{% endif %}</p>
+    {% if f.category == "必須" %}
+      <span class="muted">判断：採用（必須）</span>
+    {% else %}
+      <select name="decision_{{ i }}">{% for c in choices %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+      <input type="text" name="reason_{{ i }}" value="{{ d.reason }}" placeholder="判断の理由（任意。議事録や引き継ぎに残ります）" style="max-width:560px">
+    {% endif %}
+  </div>
+  {% endfor %}
+  <p><button type="submit">判断を保存する</button></p>
+  </form>
+</div>
+
+<div class="card">
+  <h2>3. 改定案と新旧対照表</h2>
+  {% if work.draft %}
+    <p>改定 {{ work.draft.amendments|length }}条。採点役の結果：{% for e in work.draft_evaluations %}{{ loop.index }}回目 {{ e.result }}{% if not loop.last %} → {% endif %}{% endfor %}</p>
+    <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>
+       <a class="btn secondary" href="/works/{{ id }}/taisho.md">Markdownで保存</a></p>
+  {% endif %}
+  <form action="/works/{{ id }}/draft" method="post">
+    <button type="submit" {% if work.status in ("点検中", "改定案作成中") %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "採用した指摘から改定案を作る" }}</button>
+    <span class="muted">（判断を保存してから押してください）</span>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
