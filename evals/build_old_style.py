@@ -58,6 +58,26 @@ REQUIRED_CAPTIONS = {
 
 LAW_BEFORE = re.compile(r"(法|律|[)）]|号)$")
 REF = re.compile(r"第([0-9]+)条((?:の[0-9]+)?)")
+# 「区分所有法第58条第1項、第59条第1項又は第60条第1項」のように、法律の条が並ぶときの続きの部分
+LIST_RUN = re.compile(r"[第0-9条項号の、又は及び並びに]*$")
+
+
+def is_law_ref(text: str, start: int) -> bool:
+    """start の位置の「第○条」が法律の条を指しているか（規約の条でないか）。"""
+    head = text[:start]
+    run = LIST_RUN.search(head)
+    before = head[: run.start()] if run else head
+    return bool(LAW_BEFORE.search(head[-1:] if head else "")) or bool(
+        run and run.group(0) and re.search(r"第[0-9]+条", run.group(0)) and LAW_BEFORE.search(before[-1:] if before else "")
+    )
+
+
+def refs_removed(text: str) -> bool:
+    """削除した条を参照しているか（法律の条は除く）。"""
+    for m in REF.finditer(text):
+        if (m.group(1) + m.group(2)) in REMOVE and not is_law_ref(text, m.start()):
+            return True
+    return False
 
 
 def _clean(text: str) -> str:
@@ -75,6 +95,10 @@ def transform(k: Kiyaku) -> list[Article]:
             continue  # 選択式は（ア）の案（書面のみ／住宅宿泊事業の項は下で除く）だけ残す
         a = Article(number=a.number, caption=a.caption, chapter=a.chapter,
                     paragraphs=[Paragraph(p.num, _clean(p.text), [_clean(i) for i in p.items]) for p in a.paragraphs])
+        # 削除した条を参照する項・号は除く（例：第49条の2 の準用、第67条の2 の探索）
+        a.paragraphs = [p for p in a.paragraphs if not refs_removed(p.text)]
+        for p in a.paragraphs:
+            p.items = [x for x in p.items if not refs_removed(x)]
         # 電磁的方法だけを定める項は除き、「書面又は電磁的方法」は「書面」にする
         a.paragraphs = [p for p in a.paragraphs if not re.search(r"代えて、電磁的方法によって", p.text)]
         for i, p in enumerate(a.paragraphs, 1):
@@ -102,9 +126,8 @@ def renumber(articles: list[Article]) -> dict[str, str]:
 
     def fix(text: str) -> str:
         def repl(m: re.Match) -> str:
-            start = m.start()
-            if LAW_BEFORE.search(text[max(0, start - 1):start]):
-                return m.group(0)  # 「区分所有法第31条」など、法律の条は直さない
+            if is_law_ref(text, m.start()):
+                return m.group(0)  # 「区分所有法第58条第1項、第59条第1項」など、法律の条は直さない
             old = m.group(1) + m.group(2)
             return f"第{mapping[old]}条" if old in mapping else m.group(0)
         return REF.sub(repl, text)
@@ -152,7 +175,12 @@ def main() -> None:
         "mapping_from_standard": mapping,
     }
     (DATA / "old_style_gold.json").write_text(json.dumps(gold, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"試験用の規約：{len(check.articles)}条（元 {len(before.articles)}条）")
+    numbers = {a.number for a in check.articles}
+    dangling = [(a.label, m.group(0)) for a in check.articles for m in REF.finditer(a.text())
+                if not is_law_ref(a.text(), m.start()) and (m.group(1) + m.group(2)) not in numbers]
+    if dangling:
+        raise SystemExit(f"存在しない条への参照があります：{dangling}")
+    print(f"試験用の規約：{len(check.articles)}条（元 {len(before.articles)}条）。存在しない条への参照：なし")
     for t, g in gold["required"].items():
         print(f"  必須 {t}: {'、'.join(g['articles'])}（{'、'.join(g['captions'])}）")
 
