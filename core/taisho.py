@@ -102,10 +102,46 @@ def _notes_html(notes: str) -> str:
     )
 
 
+REQUIRED_LABEL = "法律の改正に合わせるための変更"
+OPTIONAL_LABEL = "組合で選べる変更"
+GUIDE = (f"「{REQUIRED_LABEL}」は、改正区分所有法に抵触して効力を失うおそれがある、または国が必ず盛り込むよう求めている変更です。"
+         f"「{OPTIONAL_LABEL}」は、法律上は必須ではなく、採用するか・どう書くかを組合で決められます（変更しない、内容を変える、条文を削ることもできます）。")
+
+
+def classify(a) -> dict:
+    """改定を「法律の改正に合わせるための変更」と「組合で選べる変更」に分ける（改定案の論点IDから機械的に決める）。"""
+    from core.topics import REQUIRED_TOPIC_IDS, TOPIC_BY_ID
+
+    def name(t):
+        topic = TOPIC_BY_ID.get(t)
+        if not topic:
+            return "その他の整理"
+        return topic["topic"] + ("（法に抵触するか確認中）" if topic["category"] == "要確認" else "")
+
+    required = [name(t) for t in a.finding_refs if t in REQUIRED_TOPIC_IDS]
+    optional = [name(t) for t in a.finding_refs if t not in REQUIRED_TOPIC_IDS]
+    if not a.finding_refs:
+        optional = ["その他の整理"]
+    return {"required": required, "optional": list(dict.fromkeys(optional)), "is_required": bool(required)}
+
+
+def _class_html(c: dict) -> str:
+    out = []
+    if c["required"]:
+        out.append(f'<span class="tag must">{REQUIRED_LABEL}</span><div class="topics">{html.escape("、".join(dict.fromkeys(c["required"])))}</div>')
+    if c["optional"]:
+        lead = "この条には、組合で選べる変更も含まれます：" if c["required"] else ""
+        out.append(f'<span class="tag opt">{OPTIONAL_LABEL}</span><div class="topics">{lead}{html.escape("、".join(c["optional"]))}</div>')
+    return "".join(out)
+
+
 def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
     body = []
-    for r in rows(draft, kiyaku):
+    all_rows = rows(draft, kiyaku)
+    n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
+    for r in all_rows:
         a = r["amendment"]
+        c = classify(a)
         caption = f"（{html.escape(a.caption)}）<br>" if a.caption else ""
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
         choices = "".join(
@@ -113,10 +149,10 @@ def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対�
             f"{('（' + html.escape(c['note']) + '）') if c.get('note') else ''}</li>" for c in a.choices
         )
         body.append(
-            "<tr>"
+            f'<tr class="{"row-must" if c["is_required"] else "row-opt"}">'
             f"<td>{caption}{_html_parts(r['new'], 'new')}</td>"
             f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
-            f"<td><b>{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
+            f"<td>{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
@@ -133,13 +169,22 @@ th, td {{ border: 1px solid #888; padding: 8px; vertical-align: top; font-size: 
 th {{ background: #f0f0f0; }}
 td:nth-child(3) {{ font-family: sans-serif; font-size: 0.85rem; }}
 mark {{ background: #fff1a8; padding: 0 1px; }}
+.tag {{ display: inline-block; font-family: sans-serif; font-size: .78rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin: 2px 0; }}
+.tag.must {{ background: #fde8e7; color: #b42318; }}
+.tag.opt {{ background: #e8eef7; color: #1f5fae; }}
+.topics {{ font-size: .8rem; color: #444; margin-bottom: 6px; }}
+tr.row-must td:first-child {{ border-left: 5px solid #b42318; }}
+tr.row-opt td:first-child {{ border-left: 5px solid #9db5d6; }}
+.summary {{ font-family: sans-serif; }}
 del {{ color: #b42318; text-decoration-color: #b42318; text-decoration-thickness: 1.5px; }}
 .legend {{ font-family: sans-serif; font-size: .9rem; }}
 </style></head><body>
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>
-<table><thead><tr><th>改定案</th><th>現行</th><th>変更の理由・根拠</th></tr></thead>
+<p class="legend">{GUIDE}</p>
+<p class="summary">改定 {len(all_rows)}条のうち、<span class="tag must">{REQUIRED_LABEL}</span>を含む条 {n_required}条、<span class="tag opt">{OPTIONAL_LABEL}</span>だけの条 {len(all_rows) - n_required}条</p>
+<table><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>
 <tbody>{''.join(body)}</tbody></table>
 <h2>申し送り</h2>{_notes_html(draft.notes)}
 </body></html>
@@ -150,11 +195,13 @@ def to_markdown(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧�
     def md(parts, side):
         return "".join(f"{side}{t.strip()}{side}" if c and t.strip() else t for t, c in parts).replace("\n", "<br>")
 
-    lines = [f"# {title}", "", f"> {DISCLAIMER}", "", LEGEND_MD, "", "| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
+    lines = [f"# {title}", "", f"> {DISCLAIMER}", "", LEGEND_MD, "", GUIDE, "", "| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
     for r in rows(draft, kiyaku):
         a = r["amendment"]
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
-        lines.append(f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | **{a.kind}** {a.reason}<br>根拠：{basis} |")
+        c = classify(a)
+        label = (f"【{REQUIRED_LABEL}】" if c["is_required"] else "") + (f"【{OPTIONAL_LABEL}】" if c["optional"] else "")
+        lines.append(f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | {label}<br>**{a.kind}** {a.reason}<br>根拠：{basis} |")
     lines += ["", "## 申し送り", ""]
     for h, body in notes_sections(draft.notes):
         lines += ([f"### {h}", ""] if h else []) + [body, ""]

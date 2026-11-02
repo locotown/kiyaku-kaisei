@@ -96,3 +96,17 @@ def test_readability():
     assert m["文の数"] == 2
     assert "特別決議" not in m["説明なしの専門用語"]
     assert "定足数" in m["説明なしの専門用語"]
+
+
+def test_classify_required_and_optional():
+    from core.draft import Amendment
+    from core.taisho import classify
+
+    a = Amendment(kind="改正", article="第47条", before_article="第47条", caption="", text="第47条　…", reason="",
+                  finding_refs=["1-1", "1-3"], law_basis=[], standard_basis=["第47条"])
+    c = classify(a)
+    assert c["is_required"] and c["required"] == ["特別決議を出席者の多数決に"]
+    assert c["optional"] == ["普通決議の定足数"]
+    b = Amendment(kind="改正", article="第20条", before_article="第20条", caption="", text="第20条　…", reason="",
+                  finding_refs=["10"], law_basis=[], standard_basis=["第20条"])
+    assert not classify(b)["is_required"]
