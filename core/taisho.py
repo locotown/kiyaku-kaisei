@@ -14,7 +14,9 @@ from core.draft import Draft
 from core.model import Kiyaku
 from core.sources import normalize_article_ref
 
-DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。"
+DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。"
+LEGEND = "改定案の列の<mark>黄色のマーカー</mark>は追加・変更した語句、現行の列の<del>赤の取り消し線</del>は削除・変更前の語句です。"
+LEGEND_MD = "改定案の列の **太字** は追加・変更した語句、現行の列の ~~取り消し線~~ は削除・変更前の語句です。"
 
 
 def _current_text(kiyaku: Kiyaku, ref: str | None) -> str:
@@ -71,9 +73,11 @@ def rows(draft: Draft, kiyaku: Kiyaku) -> list[dict]:
     return out
 
 
-def _html_parts(parts) -> str:
+def _html_parts(parts, side: str) -> str:
+    """side が "new" なら追加・変更をマーカー、"old" なら削除・変更前を取り消し線で示す。"""
+    tag = "mark" if side == "new" else "del"
     return "".join(
-        f"<u>{html.escape(t)}</u>" if changed and t.strip() else html.escape(t) for t, changed in parts
+        f"<{tag}>{html.escape(t)}</{tag}>" if changed and t.strip() else html.escape(t) for t, changed in parts
     ).replace("\n", "<br>")
 
 
@@ -89,8 +93,8 @@ def to_html(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対�
         )
         body.append(
             "<tr>"
-            f"<td>{caption}{_html_parts(r['new'])}</td>"
-            f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'])}</td>"
+            f"<td>{caption}{_html_parts(r['new'], 'new')}</td>"
+            f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td><b>{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
@@ -107,10 +111,13 @@ table {{ border-collapse: collapse; width: 100%; table-layout: fixed; }}
 th, td {{ border: 1px solid #888; padding: 8px; vertical-align: top; font-size: 0.92rem; word-break: break-all; }}
 th {{ background: #f0f0f0; }}
 td:nth-child(3) {{ font-family: sans-serif; font-size: 0.85rem; }}
-u {{ text-decoration-thickness: 2px; text-underline-offset: 3px; }}
+mark {{ background: #fff1a8; padding: 0 1px; }}
+del {{ color: #b42318; text-decoration-color: #b42318; text-decoration-thickness: 1.5px; }}
+.legend {{ font-family: sans-serif; font-size: .9rem; }}
 </style></head><body>
 <h1>{html.escape(title)}</h1>
-<p class="note">{DISCLAIMER}（下線部分が変更箇所）</p>
+<p class="note">{DISCLAIMER}</p>
+<p class="legend">{LEGEND}</p>
 <table><thead><tr><th>改定案</th><th>現行</th><th>変更の理由・根拠</th></tr></thead>
 <tbody>{''.join(body)}</tbody></table>
 <h2>申し送り</h2><p>{html.escape(draft.notes).replace(chr(10), '<br>')}</p>
@@ -119,13 +126,13 @@ u {{ text-decoration-thickness: 2px; text-underline-offset: 3px; }}
 
 
 def to_markdown(draft: Draft, kiyaku: Kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
-    def md(parts):
-        return "".join(f"<u>{t}</u>" if c and t.strip() else t for t, c in parts).replace("\n", "<br>")
+    def md(parts, side):
+        return "".join(f"{side}{t.strip()}{side}" if c and t.strip() else t for t, c in parts).replace("\n", "<br>")
 
-    lines = [f"# {title}", "", f"> {DISCLAIMER}（下線部分が変更箇所）", "", "| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
+    lines = [f"# {title}", "", f"> {DISCLAIMER}", "", LEGEND_MD, "", "| 改定案 | 現行 | 理由・根拠 |", "| --- | --- | --- |"]
     for r in rows(draft, kiyaku):
         a = r["amendment"]
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
-        lines.append(f"| （{a.caption}）<br>{md(r['new'])} | {md(r['old'])} | **{a.kind}** {a.reason}<br>根拠：{basis} |")
+        lines.append(f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | **{a.kind}** {a.reason}<br>根拠：{basis} |")
     lines += ["", "## 申し送り", "", draft.notes]
     return "\n".join(lines) + "\n"

@@ -75,5 +75,5 @@ def test_taisho_marks_only_changes(kiyaku, findings):
     assert "総会を招集するには" not in changed_new  # 変えていない部分に下線を引かない
     assert r[1]["old"] == [("（新設）", False)]
     html = to_html(draft, kiyaku)
-    assert "<u>1週間</u>" in html and "法的助言ではありません" in html
+    assert "<mark>1週間</mark>" in html and "<del>5日間</del>" in html and "法的助言ではありません" in html
     assert "（新設）" in to_markdown(draft, kiyaku)
