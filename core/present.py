@@ -67,6 +67,28 @@ def current_caption(corpus, finding: dict) -> str:
     return found[0].caption if found else ""
 
 
+def resolution(finding: dict) -> dict:
+    """この指摘の改定に必要な総会の決議。
+
+    規約の変更は特別決議（区分所有法第31条第1項）、細則の変更は普通決議（標準管理規約第48条）。
+    条文の内容ではなく、どの文書を変えるかで決まる。
+    """
+    doc = finding.get("document") or "規約"
+    if doc != "規約":
+        return {"kind": "普通", "label": "細則の変更 → 総会の普通決議"}
+    if finding.get("where") == "細則で対応可":
+        return {"kind": "普通", "label": "細則で対応できる → 総会の普通決議"}
+    return {"kind": "特別", "label": "規約の変更 → 総会の特別決議"}
+
+
+def chapter(corpus, finding: dict) -> str:
+    """対象の条がある章（例：「第6章 管理組合」）。"""
+    if corpus is None or finding.get("article") in ("", "規定なし"):
+        return ""
+    found = corpus.find(finding.get("document"), normalize_article_ref(finding["article"]))
+    return " ".join(found[0].chapter.split()) if found and found[0].chapter else ""
+
+
 def target(corpus, finding: dict) -> str:
     """「規約 第47条（総会の会議及び議事）」のような対象の表示。"""
     doc = finding.get("document") or "規約"
@@ -122,6 +144,8 @@ def view(finding: dict, corpus=None) -> dict:
     return {
         "title": _title(finding, corpus),
         "target": target(corpus, finding),
+        "chapter": chapter(corpus, finding),
+        "resolution": resolution(finding),
         "proposal": annotate(finding.get("proposal", ""), finding, corpus),
         "issue": annotate(finding.get("issue", ""), finding, corpus),
         "basis": basis(finding),

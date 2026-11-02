@@ -55,6 +55,11 @@ setTimeout(poll, 2000);
     <div><span class="tag">法律上必要かは確認中</span> 法律が見直しを求めているかを、国の資料でまだ確かめきれていない箇所です。いまは「推奨」として扱っています。</div>
     <div class="muted">「推奨」「参考」は、採用するかを委員会で判断して選んでください。</div>
   </div>
+  {% set nres = {"特別": 0, "普通": 0} %}{% for i, f in rows %}{% set _ = nres.update({views[i].resolution.kind: nres[views[i].resolution.kind] + 1}) %}{% endfor %}
+  <div class="resnote"><b>改定に必要な決議</b>　内容ではなく、どの文書を変えるかで決まります。
+    <span class="res res-特別">規約の変更 → 総会の特別決議</span>（区分所有法第31条第1項）
+    <span class="res res-普通">細則の変更 → 総会の普通決議</span>（標準管理規約第48条）
+    <div class="muted">この一覧では、特別決議 {{ nres["特別"] }}件・普通決議 {{ nres["普通"] }}件です。{% if not nres["普通"] %}細則への指摘がないため、すべて規約の変更（特別決議）になっています。{% endif %}</div></div>
   {% set must = rows|selectattr("1.category", "equalto", "必須")|list %}
   <p class="tally">必須 <b>{{ summary.must }}件</b>（自動で採用）／推奨・参考 <b>{{ rows|length - summary.must }}件</b>：
     {% for c in choice_help %}<span class="t-{{ c }}">{{ c }} <span data-tally="{{ c }}">{{ tally[c] }}</span>件</span>{% if not loop.last %}・{% endif %}{% endfor %}
@@ -81,8 +86,8 @@ setTimeout(poll, 2000);
       <h3 class="ftitle">{{ v.title }}</h3>
       {% if f.needs_confirmation %}<span class="tag">法律上必要かは確認中</span>{% endif %}
     </div>
-    <div class="target">対象：<b>{{ v.target }}</b>
-      <span class="muted">・{{ "規約の変更（総会の特別決議）" if f.where == "規約" else "細則で対応できる（総会の普通決議）" }}</span></div>
+    <div class="target">対象：<b>{{ v.target }}</b>{% if v.chapter %}<span class="muted">　{{ v.chapter }}</span>{% endif %}
+      <span class="res res-{{ v.resolution.kind }}">{{ v.resolution.label }}</span></div>
 
     <div class="sec"><div class="lbl">何が問題か</div><div>{{ v.issue }}</div></div>
     <div class="sec"><div class="lbl">今の規定</div>

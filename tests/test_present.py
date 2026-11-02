@@ -61,3 +61,11 @@ def test_save_shows_next_step():
         assert r.status_code == 303
     finally:
         shutil.rmtree(d)
+
+
+def test_resolution():
+    from core.present import resolution
+
+    assert resolution(FINDING)["kind"] == "特別"
+    assert resolution({**FINDING, "document": "○○マンション駐車場使用細則", "where": "細則で対応可"})["label"].startswith("細則の変更")
+    assert resolution({**FINDING, "where": "細則で対応可"})["kind"] == "普通"
