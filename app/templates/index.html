@@ -13,28 +13,39 @@
   <input type="file" id="file" name="file" accept="{{ supported|join(',') }}">
   <div class="muted">対応形式：Word（.docx。Google ドキュメントは「ダウンロード → Microsoft Word」で保存）、文字を選択できるPDF、テキスト。紙をスキャンしたPDFはまだ使えません。紙の規約しかない場合は、文字に起こして Word などで保存してから読み込み、点検の前に「現行」の文を原本と見比べてください（数字と条番号は特に）。</div>
 
-  <div class="grid">
-    <div>
-      <label for="kind">マンションの型</label>
-      <select id="kind" name="kind">
-        <option value="単棟型">単棟型</option>
-        <option value="団地型" disabled>団地型（準備中）</option>
-        <option value="複合用途型" disabled>複合用途型（準備中）</option>
-      </select>
-    </div>
-    <div>
-      <label for="units">戸数（任意）</label>
-      <input type="text" id="units" name="units" placeholder="例：48">
-    </div>
-  </div>
+  <label for="kind">マンションの型</label>
+  <select id="kind" name="kind">
+    <option value="単棟型">単棟型（1棟だけのマンション）</option>
+    <option value="団地型" disabled>団地型（準備中）</option>
+    <option value="複合用途型" disabled>複合用途型（準備中）</option>
+  </select>
+  <div class="help">国の標準管理規約は、建物の形に合わせて3種類あります。お使いの規約がどれをもとにしているかで選びます。
+    <ul>
+      <li><b>単棟型</b>：住宅だけの建物が1棟のマンション。多くのマンションはこれです。</li>
+      <li><b>団地型</b>：同じ敷地に複数の棟があり、敷地や集会所を共有しているもの。規約に「団地総会」「棟総会」などの言葉があれば団地型です。</li>
+      <li><b>複合用途型</b>：1階が店舗・事務所などで、上が住宅のもの。規約に「店舗部分」「住宅部会」などの言葉があれば複合用途型です。</li>
+    </ul>このツールは今のところ単棟型だけに対応しています。</div>
+
+  <label for="units">戸数（任意）</label>
+  <input type="text" id="units" name="units" placeholder="例：48" style="max-width:200px">
+  <div class="help">マンションの住戸の数です。分からなければ空欄でかまいません。AI が説明や申し送りを書くときの参考（総会の出席者数の見込みなど）にだけ使います。</div>
+
   <label for="electronic">メールやWebでの届出・議決権行使（電磁的方法）</label>
   <select id="electronic" name="electronic">
-    <option value="未定">未定（選択が必要な箇所は案として示す）</option>
-    <option value="利用する">利用する</option>
-    <option value="利用しない">利用しない</option>
+    <option value="未定">未定・分からない（両方の案を示し、理事会で選ぶ）</option>
+    <option value="利用する">利用する（メールやWebも使える規約にする）</option>
+    <option value="利用しない">利用しない（紙の書面だけの規約にする）</option>
   </select>
+  <div class="help">「電磁的方法」とは、紙の代わりにメールやWebを使うことです。例えば次のようなことを、規約で認めるかどうかを決めます。
+    <ul>
+      <li>総会の招集通知を、紙の配布ではなくメールで送る</li>
+      <li>議決権行使書や委任状を、紙ではなくメールやWebのフォームで出す</li>
+      <li>総会に Web 会議（Zoom など）で参加できるようにする</li>
+    </ul>
+    国の標準管理規約には、「利用する場合」と「利用しない場合」の2つの条文案があります。ここで選んだ方針で改定案を作ります。
+    <b>迷ったら「未定・分からない」を選んでください。</b>両方の案を示し、理事会で決められるようにします。</div>
   <p style="margin-top:1.2em"><button type="submit">点検を始める</button></p>
-  <p class="muted">読み込んだ規約と判断の記録は、このパソコン（private/ フォルダ）に保存されます。点検では、必要な条だけを AI に渡します。</p>
+  <p class="muted">読み込んだ規約と判断の記録は、このツールを動かしている環境の private/ フォルダに保存され、GitHub にはコミットされません（Codespaces で動かしている場合は、GitHub 上のあなた専用の作業環境の中です）。点検では、必要な条だけを AI に渡します。</p>
 </form>
 </div>
 
