@@ -1,0 +1,88 @@
+{
+ "script": "docs/demo/DEMO_B.md",
+ "vis": [
+  "img:05_danchi",
+  "montage:c3_findings@3,c7_taisho@2,c10_explain@3,c12_final@2",
+  "img:06_soukai",
+  "img:01_japan",
+  "img:02_kiyaku",
+  "img:booklet",
+  "clip:c1_upload",
+  "clip:c2_review_busy",
+  "clip:c3_findings",
+  "clip:c4_basis_bulk",
+  "clip:c5_draft_busy",
+  "clip:c7_taisho",
+  "clip:c8_questions",
+  "clip:c10_explain",
+  "clip:c11_meeting",
+  "clip:c12_final",
+  "img:03_architecture",
+  "img:04_eval",
+  "img:09_end"
+ ],
+ "extra": {
+  "0": [
+   [
+    "title_b",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "5": [
+   [
+    "booklet",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "7": [
+   [
+    "ff_review",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "10": [
+   [
+    "ff_draft",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "14": [
+   [
+    "07s_stamp_kaketsu",
+    "stamp",
+    2.5,
+    1330,
+    300
+   ]
+  ]
+ },
+ "sfx": {
+  "stamp": [
+   [
+    14,
+    2.5
+   ]
+  ],
+  "whoosh": [
+   2,
+   6,
+   16,
+   18
+  ],
+  "chime": 18
+ },
+ "dense_until": 15,
+ "dense_after": 165
+}

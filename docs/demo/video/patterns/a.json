@@ -1,0 +1,97 @@
+{
+ "script": "docs/DEMO.md",
+ "vis": [
+  "img:05_danchi",
+  "img:06_soukai",
+  "img:01_japan",
+  "img:07_law",
+  "img:02_kiyaku",
+  "img:08_shuuzen",
+  "img:booklet",
+  "clip:c1_upload",
+  "clip:c2_review_busy",
+  "clip:c3_findings",
+  "clip:c4_basis_bulk",
+  "clip:c5_draft_busy",
+  "clip:c6_quality",
+  "clip:c7_taisho",
+  "clip:c8_questions",
+  "clip:c9_board_done",
+  "clip:c10_explain",
+  "clip:c11_meeting",
+  "clip:c12_final",
+  "img:03_architecture",
+  "img:04_eval",
+  "img:09_end"
+ ],
+ "extra": {
+  "3": [
+   [
+    "07s_stamp_shikou",
+    "stamp",
+    1.4,
+    1300,
+    470
+   ]
+  ],
+  "6": [
+   [
+    "booklet",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "8": [
+   [
+    "ff_review",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "11": [
+   [
+    "ff_draft",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "17": [
+   [
+    "07s_stamp_kaketsu",
+    "stamp",
+    2.5,
+    1330,
+    300
+   ]
+  ]
+ },
+ "sfx": {
+  "stamp": [
+   [
+    3,
+    1.4
+   ],
+   [
+    17,
+    2.5
+   ]
+  ],
+  "whoosh": [
+   4,
+   7,
+   11,
+   14,
+   17,
+   19
+  ],
+  "chime": 21
+ },
+ "dense_until": 52,
+ "dense_after": 152
+}

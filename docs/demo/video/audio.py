@@ -3,11 +3,14 @@
 import json, wave
 import numpy as np
 from pathlib import Path
+import os
+P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 H = Path(__file__).parent
 SR, TOTAL = 48000, 180.0
 N = int(SR * TOTAL)
 rng = np.random.default_rng(7)
-rows = json.load(open(H / 'rows.json'))
+rows = json.load(open(H / f'rows_{P}.json'))
+PAT = json.load(open(H / 'patterns' / f'{P}.json'))
 
 def read_wav(p):
     with wave.open(str(p)) as w:
@@ -47,7 +50,7 @@ def add(buf, x, at, gain=1.0):
 # --- ナレーション
 voice = np.zeros(N)
 for i, r in enumerate(rows):
-    add(voice, read_wav(H / 'voice_out' / f'{i:02d}.wav'), r['voice_at'], 1.0)
+    add(voice, read_wav(H / f'voice_out_{P}' / f'{i:02d}.wav'), r['voice_at'], 1.0)
 
 voice *= 0.85 / np.abs(voice).max()  # ナレーションを主役の音量に
 
@@ -65,7 +68,7 @@ while t < TOTAL:
     names, _ = CHORDS[k % 4]
     add(bgm, pad([NOTE[n] for n in names], bar + 2.5), t, 0.18)
     # ① 日本のマンション・⑧締めは琴の旋律を多めに、アプリの場面は控えめに
-    dense = t < 52 or t > 152
+    dense = t < PAT['dense_until'] or t > PAT['dense_after']
     for j, n in enumerate(PHRASES[k % 4]):
         if n and (dense or j % 2 == 0):
             add(bgm, pluck(NOTE[n], bright=0.35), t + j * beat, 0.22 if dense else 0.14)
@@ -108,16 +111,16 @@ def chime():
     return a[:m] + b[:m]
 
 sfx = np.zeros(N)
-add(sfx, stamp(), rows[3]['start'] + 1.4 + 0.25, 0.7)    # 2026.4.1 施行
-add(sfx, stamp(), rows[17]['start'] + 2.5 + 0.25, 0.7)   # 総会 可決
-for i in (4, 7, 11, 14, 17, 19):                          # 章の変わり目
+for i, t in PAT['sfx']['stamp']:                          # 判子（施行・可決）
+    add(sfx, stamp(), rows[i]['start'] + t + 0.25, 0.7)
+for i in PAT['sfx']['whoosh']:                            # 章の変わり目
     add(sfx, whoosh(), rows[i]['start'] - 0.35, 0.18)
-add(sfx, chime(), rows[21]['start'] + 0.2, 0.35)          # 締め
+add(sfx, chime(), rows[PAT['sfx']['chime']]['start'] + 0.2, 0.35)          # 締め
 
 mix = voice * 1.0 + bgm + sfx
 mix = np.tanh(mix * 1.1) * 0.9  # はみ出しを丸める
 pcm = (np.clip(mix, -1, 1) * 32767).astype(np.int16)
-with wave.open(str(H / 'audio_mix.wav'), 'w') as w:
+with wave.open(str(H / f'audio_mix_{P}.wav'), 'w') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
 for name, x in (('bgm', bgm), ('voice', voice), ('sfx', sfx)):
     print(name, 'ピーク', round(float(np.abs(x).max()), 2), 'RMS', round(float(np.sqrt((x ** 2).mean())), 3))

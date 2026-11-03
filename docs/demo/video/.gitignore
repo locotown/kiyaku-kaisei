@@ -14,3 +14,9 @@ voice_out/
 mei.zip
 *.wav
 voice.json
+rows_*.json
+voice_*.json
+voice_out_*/
+subs_*/
+seg_*/
+edit_*.log

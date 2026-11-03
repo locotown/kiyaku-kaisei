@@ -1,5 +1,9 @@
 # 仮のデモ動画の作り方
 
+構成は2パターン。環境変数 `PATTERN` で切り替える（各スクリプトの出力も rows_a.json／rows_b.json のように分かれる）。
+- `PATTERN=a`：初期版（docs/DEMO.md）。日本のマンション事情から入る
+- `PATTERN=b`：何を作ったかを先に見せる（docs/demo/DEMO_B.md）。素材の割り当ては patterns/b.json
+
 台本（docs/DEMO.md の「場面ごとの台本」の表）どおりに、図・イラスト・画面の録画をつなぎ、ナレーションを字幕（日本語＋英語）として焼き込む。
 仮のナレーションは音声合成（Open JTalk、声は HTS Voice "Mei"）。BGM と効果音は audio.py で合成した自作の音。できた動画は大きいのでコミットしない。
 
