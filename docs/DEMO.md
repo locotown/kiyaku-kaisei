@@ -32,13 +32,13 @@
 | --- | --- | --- | --- |
 | 0:00 | 日本の団地・マンションが並ぶ景色（自分で撮った写真か、利用条件を確認した素材） | 日本では、およそ1,600万人、10人に1人が分譲マンションに住んでいます。 | About 16 million people — 1 in 10 in Japan — live in condominiums. |
 | 0:05 | 集会室で住民が総会を開くイラスト | 管理するのは会社ではなく、住民自身です。ルールは「管理規約」として、住民の総会で決めます。 | They are run not by companies, but by the residents themselves. The rules are voted on at residents' general meetings. |
-| 0:12 | 数字が順に出る：世帯主の4人に1人が70歳以上／築40年を超える建物は20年で約3倍に | 住民は高齢になり、建物は古くなっています。 | 1 in 4 households is headed by someone over 70. Buildings over 40 years old will triple in 20 years. |
+| 0:12 | 図 01_japan.png（数字を順に出す）：世帯主の4人に1人が70歳以上／築40年を超える建物は20年で約3倍に | 住民は高齢になり、建物は古くなっています。 | 1 in 4 households is headed by someone over 70. Buildings over 40 years old will triple in 20 years. |
 | 0:17 | 法律の条文が「2026.4.1」の判とともに切り替わる | だから国は、2026年4月、法律を変えました。 | So in April 2026, Japan changed the law. |
 
 ### ② 課題（0:22–0:45）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:22 | 円グラフ：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国の標準の最新版に沿った規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
+| 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国の標準の最新版に沿った規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
 | 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場 | 古い規約のまま総会を開くと、決議があとから争われるかもしれません。何千万円もの大規模修繕を決めたあとで、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
 | 0:39 | 作り手の手元（顔は出さない）と規約の冊子 | 私も規約の見直しを担当しています。だから、自分たちで直せる道具を作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
 
@@ -73,8 +73,8 @@
 ### ⑦ 信頼できる理由（2:30–2:50）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:30 | 構成図1枚：点検役（Managed Agents＋改正知識のスキル＋条を取り寄せるツール）→ 改定案（Outcomes の採点役）→ 決まった処理（新旧対照表・最新規約） | 判断が要るところは Claude のエージェントに、毎回同じであるべきところはプログラムに任せました。 | Judgment goes to Claude's Managed Agents. Anything that must be exact is handled by plain code. |
-| 2:39 | 評価の表：国の新旧対照表を正解にして、必須の検出 5/5、根拠の正しさ 96.3%。条番号の違う古い規約・細則入りの規約集でも必須 5/5 | 国が公表した新旧対照表を正解にして測りました。法律上必須の箇所は、3種類の規約すべてで見落としなし。 | Measured against the government's official revision: every legally required change found, across all three test rulebooks. |
+| 2:30 | 図 03_architecture.png：点検役（Managed Agents＋改正知識のスキル＋条を取り寄せるツール）→ 改定案（Outcomes の採点役）→ 決まった処理（新旧対照表・最新規約） | 判断が要るところは Claude のエージェントに、毎回同じであるべきところはプログラムに任せました。 | Judgment goes to Claude's Managed Agents. Anything that must be exact is handled by plain code. |
+| 2:39 | 図 04_eval.png：国の新旧対照表を正解にして、必須の検出 5/5、根拠の正しさ 96.3%。条番号の違う古い規約・細則入りの規約集でも必須 5/5 | 国が公表した新旧対照表を正解にして測りました。法律上必須の箇所は、3種類の規約すべてで見落としなし。 | Measured against the government's official revision: every legally required change found, across all three test rulebooks. |
 
 ### ⑧ 締め（2:50–3:00）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
@@ -86,13 +86,13 @@
 - **マンション名**：「さくら台マンション管理組合（架空）」。作業の名前は資料に出ない
 - **撮り方**：場面ごとに別々に録る。点検・改定案は実際に動かし、待ち時間は早送り（実時間を表示）。1080p 以上、ブラウザは全画面、通知オフ、ブックマークバーを隠す
 - **前もって作っておくもの**：点検済み・改定案あり・理事会の判断済み・総会の結果ありの作業を1つずつ（撮り直しに備える。同じサンプルから作る）
-- **作るもの（画面の外）**：①の写真・イラスト、②の円グラフ、⑦の構成図と評価の表。図はすべて自作（参考資料のグラフや写真は使わない）
+- **図**：①の数字・②のグラフ・⑦の構成図と評価は docs/demo/figures/ に作った（簡素な版。11/3）。残りは①の写真・イラスト（自分で撮るか、利用条件を確認した素材）。参考資料のグラフや写真は使わない
 - **デザインの見直しとの関係**：判子・回覧板などの日本らしい見た目（docs/DESIGN_IDEAS.md）を入れられたら、⑤⑥で映す。間に合わなければ今の画面で撮る
 
 ## 撮影前に確かめること
 - 付録Aの数字は 11/3 に国交省の一次資料で確認済み。撮影の直前に、国交省が新しい年の数字を出していないか見る（ストック数は毎年更新される）
 - ②で「半数が法改正に対応できていない」とは言わない。「約半数は古い版のまま」と言う（付録B）
-- ⑦の評価の数字を、11/6 に確定した評価で差し替える（今は evals/results の 11/2〜11/3 の結果：標準管理規約で必須 5/5・指摘の正確さ 96.3%・根拠の正しさ 96.3%、古い規約・規約集でも必須 5/5、細則に仕込んだ問題 3/3）
+- ⑦の評価の数字（図 04_eval.png）を、11/6 に確定した評価で差し替える（今は evals/results の 11/2〜11/3 の結果：標準管理規約で必須 5/5・指摘の正確さ 96.3%・根拠の正しさ 96.3%、古い規約・規約集でも必須 5/5、細則に仕込んだ問題 3/3）
 - 画面に実在のマンション名・住民名・部屋番号が映っていないか、書き出した動画を1コマずつ確認する
 
 ## 付録：数字の裏付けと言い方の注意

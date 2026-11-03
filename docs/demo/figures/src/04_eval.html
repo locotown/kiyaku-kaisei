@@ -1,0 +1,35 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><link rel="stylesheet" href="common.css">
+<style>
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; margin-top: 64px; }
+.tile { border-top: 6px solid var(--blue); padding-top: 22px; }
+.label { font-size: 30px; font-weight: 700; color: var(--ink2); }
+.value { font-size: 108px; font-weight: 900; line-height: 1.1; margin-top: 10px; }
+.value small { font-size: 46px; font-weight: 700; margin-left: 6px; }
+.note { font-size: 24px; color: var(--ink2); margin-top: 8px; line-height: 1.5; }
+.note i { font-style: normal; color: var(--muted); display: block; font-size: 21px; }
+table { border-collapse: collapse; margin-top: 46px; width: 100%; font-size: 23px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink2); font-weight: 700; font-size: 20px; }
+td.n { font-variant-numeric: tabular-nums; font-weight: 700; }
+</style></head><body>
+<h1>国が公表した改正内容を正解にして、測った</h1>
+<div class="en">Measured against the government's official revision of the model bylaws.</div>
+<div class="tiles">
+  <div class="tile"><div class="label">法律上必須の箇所の見落とし</div>
+    <div class="value">0<small>件</small></div>
+    <div class="note">3種類の規約すべてで、5か所を検出<i>No required change missed in 3 test rulebooks</i></div></div>
+  <div class="tile"><div class="label">根拠の条文の正しさ</div>
+    <div class="value">96.3<small>%</small></div>
+    <div class="note">指摘ごとの区分所有法・標準管理規約の条<i>Legal citations correct</i></div></div>
+  <div class="tile"><div class="label">細則に仕込んだ問題</div>
+    <div class="value">3<small>/3</small></div>
+    <div class="note">問題のない細則への誤った指摘は 0件<i>Planted issues in sub-rules found</i></div></div>
+</div>
+<table>
+  <tr><th>試した規約</th><th>必須の検出</th><th>指摘の正確さ</th><th>根拠の正しさ</th></tr>
+  <tr><td>改正前の標準管理規約（87条）／正解：国土交通省の新旧対照表</td><td class="n">5/5</td><td class="n">96.3%</td><td class="n">96.3%</td></tr>
+  <tr><td>長く改正していない古い規約（架空・74条。条番号が標準と違う）</td><td class="n">5/5</td><td>—</td><td>—</td></tr>
+  <tr><td>細則を含む規約集（架空・規約74条＋細則3種）</td><td class="n">5/5</td><td>—</td><td>—</td></tr>
+</table>
+<div class="source">評価：evals/results（2026年11月2〜3日）。架空の規約は、正解の箇所を決めて作った検証用のデータ。—：その規約では測っていない項目</div>
+</body></html>
