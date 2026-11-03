@@ -80,11 +80,16 @@ def test_allows_missing_provision(kiyaku):
     assert finding is not None
 
 
-def test_category_follows_topic_table(kiyaku):
+def test_category_follows_topic_table(kiyaku, monkeypatch):
     finding, warnings = validate(base(category="推奨"), kiyaku)
     assert finding.category == "必須"
     assert warnings
-    # 「要確認」の論点は推奨として扱い、要確認の印を付ける
+    # 1-4〜1-6 は 11/3 に必須へ（docs/DOMAIN.md）
+    finding, _ = validate(base(topic_id="1-6", category="推奨"), kiyaku)
+    assert finding.category == "必須" and not finding.needs_confirmation
+    # 「要確認」の論点は推奨として扱い、要確認の印を付ける（いまは該当がないので、論点表を一時的に書き換えて確かめる）
+    from core.topics import TOPIC_BY_ID
+    monkeypatch.setitem(TOPIC_BY_ID, "1-4", {**TOPIC_BY_ID["1-4"], "category": "要確認"})
     finding, _ = validate(base(topic_id="1-4", category="必須"), kiyaku)
     assert finding.category == "推奨" and finding.needs_confirmation
 

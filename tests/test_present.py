@@ -69,3 +69,13 @@ def test_resolution():
     assert resolution(FINDING)["kind"] == "特別"
     assert resolution({**FINDING, "document": "○○マンション駐車場使用細則", "where": "細則で対応可"})["label"].startswith("細則の変更")
     assert resolution({**FINDING, "where": "細則で対応可"})["kind"] == "普通"
+
+
+def test_reading_note_only_for_required():
+    from core.present import view
+
+    f = {"topic_id": "1-6", "category": "必須", "article": "第47条", "document": "規約", "proposal": "", "issue": "",
+         "law_basis": ["第61条第5項"], "standard_basis": ["第47条第4項"]}
+    assert "第61条第5項" in view(f)["note"]
+    assert view({**f, "category": "推奨"})["note"] == ""  # 11/3 より前の点検の指摘
+    assert view({**f, "topic_id": "2-2"})["note"] == ""

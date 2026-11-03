@@ -200,7 +200,8 @@
       <div><ul class="basis">{% for b in v.basis %}
         <li><details><summary><span class="src src-{{ b.kind }}">{{ b.source }}</span> {{ b.ref }}{% if b.caption %} <span class="cap">{{ b.caption }}</span>{% endif %}</summary>
           {% if b.text %}<div class="btext">{{ b.text }}</div>{% else %}<div class="muted">本文を表示できませんでした。</div>{% endif %}</details></li>
-      {% endfor %}</ul><div class="muted small">見出しを押すと、条文の本文が開きます。</div></div></div>
+      {% endfor %}</ul><div class="muted small">見出しを押すと、条文の本文が開きます。</div>
+      {% if v.note %}<div class="readnote">{{ v.note }}</div>{% endif %}</div></div>
 
     <div class="sec decide"><div class="lbl">委員会の判断<div class="cardsave" id="cs-{{ i }}"></div></div>
       {% if f.category == "必須" %}

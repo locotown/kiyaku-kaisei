@@ -149,4 +149,7 @@ def view(finding: dict, corpus=None) -> dict:
         "proposal": annotate(finding.get("proposal", ""), finding, corpus),
         "issue": annotate(finding.get("issue", ""), finding, corpus),
         "basis": basis(finding),
+        # 条文の読みから必須とした論点の注記（11/3 より前の点検で「推奨」として保存された指摘には出さない）
+        "note": (__import__("core.topics", fromlist=["TOPIC_BY_ID"]).TOPIC_BY_ID.get(finding.get("topic_id", ""), {}).get("note", "")
+                 if finding.get("category") == "必須" else ""),
     }
