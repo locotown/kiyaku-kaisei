@@ -157,6 +157,85 @@ def scaffold() -> str:
     return HEAD.format(css="") + "".join(svg) + KARI + "</body></html>"
 
 
+def keijiban() -> str:
+    """マンションのエントランスの掲示板。規約の見直しのお知らせが貼られている（パターンC の冒頭）。"""
+    def paper(x, y, w, h, title, lines, rot=0, color="#ffffff", pin="#c8102e", big=False):
+        body = "".join(f'<div class="ln" style="width:{l}%"></div>' for l in lines)
+        return (f'<div class="pp{" big" if big else ""}" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px;transform:rotate({rot}deg);background:{color}">'
+                f'<i style="background:{pin}"></i><b>{title}</b>{body}</div>')
+    css = (".wall{position:absolute;inset:0;background:#e9e3d6}.board{position:absolute;left:170px;top:90px;width:1580px;height:800px;"
+           "background:#c49a6c;border:22px solid #7a5a3a;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.25)}"
+           ".board::before{content:'掲示板';position:absolute;left:50%;top:-58px;transform:translateX(-50%);background:#7a5a3a;color:#fff;"
+           "font-weight:900;font-size:34px;padding:4px 40px;border-radius:8px 8px 0 0;letter-spacing:.3em}"
+           ".pp{position:absolute;padding:30px 26px 20px;box-shadow:0 6px 14px rgba(0,0,0,.2)}.pp i{position:absolute;left:50%;top:10px;width:18px;height:18px;border-radius:50%}"
+           ".pp b{display:block;font-size:24px;font-weight:900;margin-bottom:16px;color:#2b2a27}.pp .ln{height:9px;background:#d9d4c7;border-radius:3px;margin:12px 0}"
+           ".pp.big b{font-size:40px;line-height:1.35;margin-bottom:22px}.pp.big .ln{height:12px;margin:18px 0}"
+           ".note{position:absolute;left:40px;top:30px;font-size:22px;color:#52514e}")
+    body = ('<div class="wall"></div><div class="board">'
+            + paper(70, 70, 330, 300, "ごみ出しのルール", [90, 80, 85, 60, 75], -3, "#fff8e1", "#2a78d6")
+            + paper(80, 420, 320, 280, "夏祭りのお知らせ", [85, 70, 90, 55], 2, "#ffe9e0", "#1baf7a")
+            + paper(480, 60, 640, 640, "お知らせ<br>区分所有法の改正に伴う<br>管理規約の見直しについて", [92, 88, 95, 70, 90, 84, 60], 0, "#ffffff", "#c8102e", True)
+            + paper(1190, 80, 300, 320, "消防設備点検のお知らせ", [88, 75, 82, 60], 3, "#eef4fb", "#eda100")
+            + paper(1200, 450, 290, 250, "駐輪場の整理", [80, 85, 60], -2, "#ffffff", "#2a78d6")
+            + '</div><div class="note">※ 登場する人物・マンションは架空です</div>')
+    return HEAD.format(css=css) + body + "</body></html>"
+
+
+def rijicho() -> str:
+    """食卓で、分厚い規約集と法律の条文を前に悩む理事長（後ろ姿。パターンC）。"""
+    svg = ['<svg width="1920" height="1080" viewBox="0 0 1920 1080">',
+           '<rect width="1920" height="1080" fill="#f3ede1"/>',
+           '<rect x="1240" y="110" width="480" height="380" fill="#d9e8f5" stroke="#c4b49a" stroke-width="14"/>',  # 窓
+           '<line x1="1480" y1="110" x2="1480" y2="490" stroke="#c4b49a" stroke-width="10"/>',
+           '<circle cx="1610" cy="200" r="40" fill="#fff6d8"/>',
+           '<rect x="0" y="620" width="1920" height="460" fill="#d8c3a0"/>',  # 床
+           '<path d="M260,560 L1660,560 L1760,700 L160,700 Z" fill="#a9825a"/>',  # 食卓
+           '<rect x="160" y="700" width="1600" height="26" fill="#8a6a4a"/>',
+           '<rect x="230" y="726" width="26" height="300" fill="#7a5a3a"/><rect x="1664" y="726" width="26" height="300" fill="#7a5a3a"/>',
+           # 分厚い規約集（ファイル）
+           '<g transform="translate(640,430) rotate(-6)"><rect width="300" height="150" rx="6" fill="#2a5d9f"/><rect x="0" y="0" width="34" height="150" fill="#1f4778"/>'
+           '<rect x="80" y="40" width="180" height="60" fill="#ffffff"/><text x="170" y="80" font-size="30" font-weight="900" text-anchor="middle" fill="#1f4778">管理規約集</text></g>',
+           # 法律の条文の紙
+           '<g transform="translate(1000,470) rotate(5)"><rect width="300" height="200" fill="#fffdf7" stroke="#d9d4c7"/>'
+           '<text x="150" y="44" font-size="24" font-weight="900" text-anchor="middle" fill="#2b2a27">区分所有法</text>'
+           + ''.join(f'<rect x="28" y="{70 + k * 22}" width="{244 - (k % 3) * 30}" height="8" fill="#d9d4c7"/>' for k in range(6)) + '</g>',
+           # 湯呑み
+           '<path d="M1380,520 L1440,520 L1432,590 L1388,590 Z" fill="#7aa38a"/><ellipse cx="1410" cy="520" rx="30" ry="8" fill="#5e8a70"/>',
+           # 理事長（後ろ姿）と椅子
+           '<rect x="820" y="760" width="280" height="40" rx="8" fill="#8a6a4a"/><rect x="840" y="800" width="20" height="230" fill="#7a5a3a"/><rect x="1060" y="800" width="20" height="230" fill="#7a5a3a"/>',
+           '<path d="M800,780 Q800,600 960,600 Q1120,600 1120,780 Z" fill="#5b7fa6"/>',
+           '<circle cx="960" cy="545" r="78" fill="#3b3a36"/>',
+           '<path d="M1080,640 Q1150,560 1060,520" stroke="#5b7fa6" stroke-width="44" fill="none" stroke-linecap="round"/>',  # 頭に手をやる
+           '<circle cx="1050" cy="515" r="26" fill="#f0c9a8"/>',
+           # 困った気持ち（汗と「？」）
+           '<text x="1120" y="420" font-size="90" font-weight="900" fill="#c8102e" opacity=".8">？</text>',
+           '</svg>']
+    return HEAD.format(css="") + "".join(svg) + "</body></html>"
+
+
+def kairanban() -> str:
+    """回覧板。住民への説明を回し、読んだ家が押印する（パターンC）。部屋番号は架空。"""
+    rooms = ["101", "102", "103", "201", "202", "203", "301", "302"]
+    seals = "".join(f'<div class="cell"><div class="rm">{r}</div>{"<div class=hk>済</div>" if k < 5 else ""}</div>' for k, r in enumerate(rooms))
+    css = (".bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,#e7dcc7,#cdbb9b)}"
+           ".board{position:absolute;left:470px;top:70px;width:980px;height:820px;background:#4f7a5a;border-radius:18px;box-shadow:0 18px 40px rgba(0,0,0,.3)}"
+           ".clip{position:absolute;left:390px;top:-18px;width:200px;height:70px;background:#9aa3ab;border-radius:10px;border:6px solid #7b848c}"
+           ".hd{position:absolute;left:0;right:0;top:64px;text-align:center;color:#fff;font-size:46px;font-weight:900;letter-spacing:.5em}"
+           ".doc{position:absolute;left:70px;top:150px;width:840px;height:430px;background:#fffdf7;padding:34px 40px}"
+           ".doc b{display:block;font-size:34px;font-weight:900;color:#2b2a27}.doc span{display:block;font-size:22px;color:#52514e;margin:8px 0 18px}"
+           ".doc .ln{height:11px;background:#e2ddd0;border-radius:3px;margin:16px 0}"
+           ".seals{position:absolute;left:70px;top:610px;width:840px;display:grid;grid-template-columns:repeat(8,1fr);gap:8px}"
+           ".cell{background:#fffdf7;height:150px;position:relative;text-align:center}.rm{font-size:20px;font-weight:700;color:#52514e;border-bottom:2px solid #e2ddd0;padding:6px 0}"
+           ".hk{position:absolute;left:50%;top:70px;transform:translateX(-50%) rotate(-10deg);width:62px;height:62px;border:4px solid #c8102e;border-radius:50%;"
+           "color:#c8102e;font-size:30px;font-weight:900;line-height:54px}"
+           "")
+    body = ('<div class="bg"></div><div class="board"><div class="clip"></div><div class="hd">回覧</div>'
+            '<div class="doc"><b>管理規約の改定について</b><span>住民の皆さまへ　さくら台マンション管理組合 理事会（架空）</span>'
+            + "".join(f'<div class="ln" style="width:{w}%"></div>' for w in (96, 90, 94, 70, 88, 92, 60)) + '</div>'
+            f'<div class="seals">{seals}</div></div>')
+    return HEAD.format(css=css) + body + "</body></html>"
+
+
 FILES = {
     "05_danchi.html": landscape(),  # 0:00・2:50 の景色（撮影した動画に差し替える）
     "06_soukai.html": meeting(),  # 0:05 集会室での総会
@@ -164,6 +243,9 @@ FILES = {
     "07s_stamp_shikou.html": stamp("2026.4.1", "施行"),
     "07s_stamp_kaketsu.html": stamp("第25期総会", "可決"),
     "08_shuuzen.html": scaffold(),  # 0:31 大規模修繕の足場（素材集の写真か撮影に差し替える）
+    "10_keijiban.html": keijiban(),  # パターンC 冒頭：掲示板のお知らせ
+    "11_rijicho.html": rijicho(),  # パターンC：悩む理事長
+    "12_kairanban.html": kairanban(),  # パターンC：回覧板
 }
 for name, html in FILES.items():
     (SRC / name).write_text(html, encoding="utf-8")

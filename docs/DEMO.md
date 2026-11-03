@@ -30,37 +30,37 @@
 ### ① 日本のマンション（0:00–0:22）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:00 | 日本の団地・マンションが並ぶ景色（撮影した動画。それまでは 05_danchi.png〔仮〕） | 日本では、およそ1,600万人、10人に1人が分譲マンションに住んでいます。 | About 16 million people — 1 in 10 in Japan — live in condominiums. |
-| 0:05 | 06_soukai.png：集会室で住民が総会を開くイラスト | 管理するのは会社ではなく、住民自身です。ルールは「管理規約」として、住民の総会で決めます。 | They are run not by companies, but by the residents themselves. The rules are voted on at residents' general meetings. |
+| 0:00 | 日本の団地・マンションが並ぶ景色（撮影した動画。それまでは 05_danchi.png〔仮〕） | 日本では、およそ1,600万人が分譲マンションに住んでいます。10人に1人です。 | About 16 million people in Japan live in condominiums — 1 in 10. |
+| 0:05 | 06_soukai.png：集会室で住民が総会を開くイラスト | 管理の責任を持つのは、住民がつくる管理組合です。暮らしのルールである「管理規約」も、住民の総会で決めます。 | Each building is governed by an association of its own residents, who vote on the bylaws at general meetings. |
 | 0:12 | 図 01_japan.png（数字を順に出す）：世帯主の4人に1人が70歳以上／築40年を超える建物は20年で約3倍に | 住民は高齢になり、建物は古くなっています。 | 1 in 4 households is headed by someone over 70. Buildings over 40 years old will triple in 20 years. |
-| 0:17 | 07_law.png に判子 07s_stamp_shikou.png を押す動き | だから国は、2026年4月、法律を変えました。 | So in April 2026, Japan changed the law. |
+| 0:17 | 07_law.png に判子 07s_stamp_shikou.png を押す動き | こうした変化に合わせて、2026年4月、法律が改正されました。 | In April 2026, the law was revised to keep up. |
 
 ### ② 課題（0:22–0:45）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国の標準の最新版に沿った規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
-| 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場（08_shuuzen.png〔仮〕） | 古い規約のまま総会を開くと、決議があとから争われるかもしれません。何千万円もの大規模修繕を決めたあとで、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
-| 0:39 | 作り手の手元（顔は出さない）と規約の冊子（docs/demo/booklet/ の PDF を印刷） | 私も規約の見直しを担当しています。だから、自分たちで直せる道具を作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
+| 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国が示す標準の、最新の版に沿っている規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
+| 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場（08_shuuzen.png〔仮〕） | 古い規約のまま総会を開くと、決議があとから争われるおそれがあります。何千万円もかかる大規模修繕の決議でも、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
+| 0:39 | 作り手の手元（顔は出さない）と規約の冊子（docs/demo/booklet/ の PDF を印刷） | 私自身も、規約の見直しを担当しています。だから、自分たちの手で直せるツールを作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
 
 ### ③ 点検（0:45–1:15）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:45 | トップ画面。Word の規約集を読み込む。マンション名を入れる | 今の規約を Word のまま読み込みます。規約と細則を分けて読み取ります。 | Upload the current rules as a Word file. It separates the bylaws from the detailed rules. |
-| 0:52 | 進み具合の欄（早送り。「実時間 4分」）。「確認した規約の条」「標準管理規約との照合」の数が増える | AI は条を一つずつ取り寄せ、国の標準管理規約と、改正された法律に照らし合わせます。 | Claude pulls each article and checks it against the national standard and the amended law. |
-| 1:00 | 指摘の一覧。必須・推奨・参考の切り替え。必須のカードを1枚拡大 | 法律に合わず効力を失うおそれがある箇所は「必須」。必ず根拠の条文を付けます。 | "Required" items conflict with the new law. Every finding cites the exact legal article. |
-| 1:08 | 根拠の見出しを押すと、区分所有法の条文が開く。推奨を「まとめて判断」で採用 | 根拠は押すと本文が開きます。どこまで直すかは、委員会が決めます。 | Tap to read the law itself. The committee decides what to adopt. |
+| 0:45 | トップ画面。Word の規約集を読み込む。マンション名を入れる | 今の規約を、Word のまま読み込みます。規約と細則は、分けて読み取ります。 | Upload the current rules as a Word file. It separates the bylaws from the detailed rules. |
+| 0:52 | 進み具合の欄（早送り。「実時間 4分」）。「確認した規約の条」「標準管理規約との照合」の数が増える | AI が条文を一つずつ読み、国の標準管理規約と、改正後の法律に照らし合わせます。 | Claude pulls each article and checks it against the national standard and the amended law. |
+| 1:00 | 指摘の一覧。必須・推奨・参考の切り替え。必須のカードを1枚拡大 | 新しい法律と食い違い、効力を失うおそれがある箇所は「必須」として示し、必ず根拠の条文を添えます。 | "Required" items conflict with the new law. Every finding cites the exact legal article. |
+| 1:08 | 根拠の見出しを押すと、区分所有法の条文が開く。推奨を「まとめて判断」で採用 | 根拠を押すと、法律の条文そのものを読めます。どこまで直すかは、委員会が決めます。 | Tap to read the law itself. The committee decides what to adopt. |
 
 ### ④ 改定案と採点役（1:15–1:45）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 1:15 | 「改定案を作る」。進み具合に「改定案を自分で点検」「採点役が確認しています（1回目）」（早送り。実時間を表示） | 改定案は、書く AI と、確かめる別の AI に分けました。 | One AI drafts the amendments. A separate AI grades them. |
-| 1:23 | 確認の結果：「1回目 直しが必要 → 2回目 合格」。11項目のチェックリスト | 採点役は11の基準で確かめ、合格するまで書き直させます。法律の数字、条番号の参照、変えてはいけない文言まで。 | The grader checks 11 criteria — legal thresholds, cross-references, untouched wording — and sends it back until it passes. |
-| 1:34 | 新旧対照表。変更箇所に色。「規約＝特別決議」「細則＝普通決議」 | できあがるのは、総会資料の形の新旧対照表です。規約と細則で、必要な決議の種類も分けます。 | The output is a side-by-side comparison table, ready for the meeting, split by the type of vote required. |
+| 1:15 | 「改定案を作る」。進み具合に「改定案を自分で点検」「採点役が確認しています（1回目）」（早送り。実時間を表示） | 改定案づくりは、書く AI と、それを確かめる別の AI に分けました。 | One AI drafts the amendments. A separate AI grades them. |
+| 1:23 | 確認の結果：「1回目 直しが必要 → 2回目 合格」。11項目のチェックリスト | 確かめる側の AI は、法律の数字や条番号の参照、余計な書き換えがないかなど、11の基準で確認し、合格するまで書き直させます。 | The grader checks 11 criteria — legal thresholds, cross-references, untouched wording — and sends it back until it passes. |
+| 1:34 | 新旧対照表。変更箇所に色。「規約＝特別決議」「細則＝普通決議」 | できあがるのは、総会資料の形の新旧対照表です。規約と細則では総会での決め方が違うので、分けて出します。 | The output is a side-by-side comparison table, ready for the meeting, split by the type of vote required. |
 
 ### ⑤ 理事会と住民（1:45–2:15）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 1:45 | 理事会の欄。①理解する ②判断する ③確認する。「組合が選ぶ点（4問）」で「Web 会議を使うか」を選ぶ | 住民に出す前に、理事会で検討します。メールや Web 会議を使うかのように、組合が選ぶ点は AI が勝手に決めません。 | Before residents see it, the board reviews it. Choices like allowing online meetings are left to the association — not the AI. |
+| 1:45 | 理事会の欄。①理解する ②判断する ③確認する。「組合が選ぶ点（4問）」で「Web 会議を使うか」を選ぶ | 住民に出す前に、理事会で検討します。メールや Web 会議を使うかどうかなど、組合が決めるべき点は、AI が勝手に決めません。 | Before residents see it, the board reviews it. Choices like allowing online meetings are left to the association — not the AI. |
 | 1:57 | 選んだ案で改定案を作り直し、〔選択〕の印が消える | 選んだ案で、改定案を作り直します。 | The draft is rewritten with the board's choices. |
 | 2:03 | 住民向けの説明（回覧板の体裁にできればここで見せる）。「何が変わるのか」「なぜ」「暮らしへの影響」 | 住民には、法律の言葉ではなく、暮らしの言葉で説明します。 | For residents, it explains the changes in everyday words, not legal jargon. |
 
@@ -68,18 +68,18 @@
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
 | 2:15 | 総会の結果を記録（規約：可決、細則：修正して可決）。判子 07s_stamp_kaketsu.png を押す動き | 総会で可決したら、結果を記録します。 | After the general meeting, record the results. |
-| 2:21 | 最新の規約を Word で開く。附則「この規約の改正は、令和8年…から施行する。」 | 改正を反映した最新の規約が、附則付きで Word で出てきます。ここは AI を使わず、正確に組み立てます。 | It produces the updated rulebook in Word — assembled deterministically, without AI. |
+| 2:21 | 最新の規約を Word で開く。附則「この規約の改正は、令和8年…から施行する。」 | 改正を反映した最新の規約を、附則まで付けて Word で出力します。ここは AI を使わず、プログラムで正確に組み立てます。 | It produces the updated rulebook in Word — assembled deterministically, without AI. |
 
 ### ⑦ 信頼できる理由（2:30–2:50）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:30 | 図 03_architecture.png：点検役（Managed Agents＋改正知識のスキル＋条を取り寄せるツール）→ 改定案（Outcomes の採点役）→ 決まった処理（新旧対照表・最新規約） | 判断が要るところは Claude のエージェントに、毎回同じであるべきところはプログラムに任せました。 | Judgment goes to Claude's Managed Agents. Anything that must be exact is handled by plain code. |
-| 2:39 | 図 04_eval.png：国の新旧対照表を正解にして、必須の検出 8/8、根拠の正しさ 100%。条番号の違う古い規約・細則入りの規約集でも必須 8/8 | 国が公表した新旧対照表を正解にして測りました。法律上必須の箇所は、3種類の規約すべてで見落としなし。 | Measured against the government's official revision: every legally required change found, across all three test rulebooks. |
+| 2:30 | 図 03_architecture.png：点検役（Managed Agents＋改正知識のスキル＋条を取り寄せるツール）→ 改定案（Outcomes の採点役）→ 決まった処理（新旧対照表・最新規約） | 判断が要るところは Claude のエージェントに、毎回同じ結果でなければならないところはプログラムに任せました。 | Judgment goes to Claude's Managed Agents. Anything that must be exact is handled by plain code. |
+| 2:39 | 図 04_eval.png：国の新旧対照表を正解にして、必須の検出 8/8、根拠の正しさ 100%。条番号の違う古い規約・細則入りの規約集でも必須 8/8 | 国が公表した改正内容を正解にして測ったところ、法律上必須の箇所は、3種類の規約すべてで見落としがありませんでした。 | Measured against the government's official revision: every legally required change found, across all three test rulebooks. |
 
 ### ⑧ 締め（2:50–3:00）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:50 | マンションの景色に戻る（0:00 と同じ素材）。ツール名、リポジトリの URL。「総会提案の下書きであり、法的助言ではありません」 | 専門家に頼めない組合でも、自分たちの手で、規約を法律に合わせられるように。 | So that every association — even without experts — can keep its own rules up to date. |
+| 2:50 | マンションの景色に戻る（0:00 と同じ素材）。ツール名、リポジトリの URL。「総会提案の下書きであり、法的助言ではありません」 | 専門家に頼めない管理組合でも、自分たちの手で、規約を新しい法律に合わせられるように。 | So that every association — even without experts — can keep its own rules up to date. |
 
 ## 撮影の準備
 - **使うデータ**：サンプル「Word の規約集（架空）」（規約74条＋細則3種。〔選択〕が出て、細則の改定もある）。電磁的方法は「未定」にして、理事会で選ぶ場面を作る
