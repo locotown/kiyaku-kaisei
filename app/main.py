@@ -23,7 +23,7 @@ from core.findings import Finding
 from core.ingest import SUPPORTED, UnsupportedFormat, load_kiyaku
 from core.taisho import to_html, to_markdown
 
-app = FastAPI(title="管理規約 改正対応ツール")
+app = FastAPI(title="ととのう規約")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 # 画面で選べるサンプル（すべて公開資料か架空のデータ）

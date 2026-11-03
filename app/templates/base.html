@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}管理規約 改正対応ツール{% endblock %}</title>
+<title>{% block title %}ととのう規約｜管理規約を、改正法に合わせる{% endblock %}</title>
 <style>
 :root { --fg:#1f2328; --muted:#5b636e; --line:#d6dbe1; --bg:#f7f8fa; --card:#fff; --accent:#1f5fae;
         --must:#b42318; --rec:#6941c6; --ref:#667085; --hold:#b54708; }
@@ -11,6 +11,8 @@
 body { margin:0; font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; color:var(--fg); background:var(--bg); line-height:1.7; }
 header { background:#fff; border-bottom:1px solid var(--line); padding:12px 20px; display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
 header a { color:var(--fg); text-decoration:none; font-weight:700; }
+header a.brand { font-size:1.25rem; font-weight:900; letter-spacing:.04em; }
+header .tagline { font-weight:700; color:var(--fg); font-size:.95rem; }
 header small { color:var(--muted); }
 main { max-width:1080px; margin:0 auto; padding:20px 16px 60px; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:16px 0; }
@@ -175,7 +177,7 @@ footer { text-align:center; color:var(--muted); font-size:.85rem; padding:20px; 
 </style>
 </head>
 <body>
-<header><a href="/">管理規約 改正対応ツール</a><small>改正区分所有法（2026年4月施行）・標準管理規約（2025年10月改正）対応</small></header>
+<header><a href="/" class="brand">ととのう規約</a><span class="tagline">管理規約を、改正法に合わせる</span><small>改正区分所有法（2026年4月施行）・標準管理規約（2025年10月改正）対応</small></header>
 <main>{% block content %}{% endblock %}</main>
 <footer>このツールの出力は「総会提案の下書き」であり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。</footer>
 </body>

@@ -1,12 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ work.name }}｜管理規約 改正対応ツール<script>
-(function () {
-  function openFold(id) { if (id === 'findings') { var d = document.getElementById('findings-fold'); if (d) d.open = true; } }
-  document.querySelectorAll('.journey a').forEach(function (a) { a.addEventListener('click', function () { openFold(a.dataset.open); }); });
-  openFold(location.hash.slice(1));
-})();
-</script>
-{% endblock %}
+{% block title %}{{ work.name }}｜ととのう規約{% endblock %}
 {% block content %}
 <h1>{{ work.name }}</h1>
 <p class="muted">型：{{ work.info["型"] }}／規約本体：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
