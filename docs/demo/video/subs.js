@@ -11,7 +11,7 @@ fs.mkdirSync(path.join(__dirname, 'subs'), { recursive: true });
     await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face{font-family:N;font-weight:700;src:url(${F}700-normal.woff2)}@font-face{font-family:N;font-weight:400;src:url(${F}400-normal.woff2)}
 html,body{margin:0;background:transparent;width:1920px;height:1080px}
-.box{position:absolute;left:50%;transform:translateX(-50%);bottom:36px;max-width:1800px;background:rgba(11,11,11,.72);border-radius:10px;padding:14px 30px 16px;text-align:center;font-family:N}
+.box{position:absolute;left:0;right:0;margin:0 auto;width:fit-content;bottom:36px;max-width:1720px;background:rgba(11,11,11,.72);border-radius:10px;padding:14px 30px 16px;text-align:center;font-family:N}
 .jp{color:#fff;font-size:38px;font-weight:700;line-height:1.45}.en{color:#d7d6cf;font-size:24px;font-weight:400;line-height:1.35;margin-top:6px}
 </style></head><body><div class="box"><div class="jp">${esc(r.jp)}</div><div class="en">${esc(r.en)}</div></div></body></html>`);
     await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(150);
