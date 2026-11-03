@@ -158,6 +158,7 @@ def draft_quality(work: dict) -> dict:
         "stopped": stop == "timeout" or bool(stop and stop != "end_turn"),
         "elapsed_min": round(work["draft_elapsed"] / 60, 1) if work.get("draft_elapsed") else None,
         "costs": cost_lines(work),
+        "precedent": work.get("draft_precedent") or {},
     }
 
 

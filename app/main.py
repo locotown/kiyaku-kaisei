@@ -167,6 +167,7 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
                      draft_errors=result.errors, draft_evaluations=result.evaluations,
                      draft_session=result.session_id, draft_cost=result.usage.get("list_cost"),
                      draft_stop=result.stop, draft_elapsed=round(result.elapsed_sec),
+                     draft_precedent=result.precedent, draft_checks=result.checks,
                      draft_plan=draft_plan(len(adopted)),
                      costs=store.load(work_id).get("costs", []) + [_cost_entry(step, result.usage.get("list_cost"))])
     except Exception as e:
@@ -552,7 +553,7 @@ def progress_view(work: dict) -> dict:
     log = work.get("log", [])
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
-             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限"}
+             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"

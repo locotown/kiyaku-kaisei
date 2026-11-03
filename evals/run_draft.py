@@ -106,6 +106,9 @@ def main() -> None:
         "費用": result.usage.get("list_cost"),
         "終了理由": result.stop,
         "セッション": result.session_id,
+        "国の改正文を下書きにした条": result.precedent.get("count", 0),
+        "自己点検の回数": len(result.checks),
+        "自己点検でエラーが出た回数": sum(1 for c in result.checks if c["errors"]),
     }
     if result.draft:
         covered = {t for a in result.draft.amendments for t in a.finding_refs}

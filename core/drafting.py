@@ -110,6 +110,8 @@ class DraftResult:
     usage: dict = field(default_factory=dict)
     elapsed_sec: float = 0.0
     stop: str = ""
+    precedent: dict = field(default_factory=dict)  # 検証ループ L1：国の改正文を下書きにした条
+    checks: list[dict] = field(default_factory=list)  # 検証ループ L2：自己点検（check_draft）のエラー・注意の記録
 
     def to_dict(self) -> dict:
         return {
@@ -123,6 +125,8 @@ class DraftResult:
             "usage": self.usage,
             "elapsed_sec": round(self.elapsed_sec, 1),
             "stop": self.stop,
+            "precedent": self.precedent,
+            "checks": self.checks,
         }
 
 
@@ -131,6 +135,7 @@ class DraftToolHandler(ToolHandler):
         super().__init__(kiyaku, rules)
         self.adopted = findings
         self.targets = set(target_keys(self.corpus, findings))
+        self.check_log: list[dict] = []  # 自己点検のたびのエラー・注意（検証ループ L2 の材料）
         self.client = None
         self.session_id = ""
         self.notify = lambda kind, text: None
@@ -173,6 +178,7 @@ class DraftToolHandler(ToolHandler):
 
     def _check_draft(self, draft: dict) -> str:
         result, errors, warnings = check(draft, self.corpus, self.adopted)
+        self.check_log.append({"errors": list(errors), "warnings": list(warnings)})
         if result is not None:
             try:
                 n = self.share_references(result.amendments)
@@ -237,6 +243,11 @@ def run_draft(
     plan = draft_plan(len(findings))  # 採用が多いほど、時間と費用の上限を広げる
     deadline = plan["deadline_min"] * 60
 
+    from core.precedent import standard_drafts, to_prompt
+
+    pre = standard_drafts(handler.corpus.main, findings)  # 検証ループ L1
+    description = build_description(findings, info, board) + ("\n\n" + to_prompt(pre) if pre["drafts"] else "")
+
     session = c.beta.sessions.create(
         agent={"type": "agent", "id": state["drafter_id"], "version": state["drafter_version"]},
         environment_id=state["environment_id"],
@@ -244,6 +255,8 @@ def run_draft(
         budget={"type": "limit", "max_list_cost": {"amount": str(plan["budget_usd"] * 100), "currency": "USD"}},
     )
     notify("session", session.id)
+    if pre["drafts"]:
+        notify("precedent", f"標準どおりの条 {len(pre['drafts'])}条は、国の改正文を下書きに使います（{'、'.join(d['article'] for d in pre['drafts'][:6])}{' ほか' if len(pre['drafts']) > 6 else ''}）")
     handler.attach(c, session.id, notify)
 
     with c.beta.sessions.events.stream(session_id=session.id) as stream:
@@ -251,7 +264,7 @@ def run_draft(
             session_id=session.id,
             events=[{
                 "type": "user.define_outcome",
-                "description": build_description(findings, info, board),
+                "description": description,
                 "rubric": {"type": "text", "content": RUBRIC + current_texts(handler.corpus, findings)},
                 "max_iterations": MAX_ITERATIONS,
             }],
@@ -311,6 +324,8 @@ def run_draft(
         session_id=session.id, draft=draft, raw=data if raw else None, errors=errors, warnings=warnings,
         evaluations=evaluations, tool_calls=handler.calls, usage=usage,
         elapsed_sec=time.monotonic() - started, stop=stop,
+        precedent={"count": len(pre["drafts"]), "articles": [d["article"] for d in pre["drafts"]], "ratio": pre["ratio"]},
+        checks=handler.check_log,
     )
 
 

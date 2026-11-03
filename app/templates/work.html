@@ -372,6 +372,7 @@
               <div class="muted small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
             {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
         </ul>
+        {% if q.precedent.count %}<div class="muted small">標準どおりの条 <b>{{ q.precedent.count }}条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
         {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
           <ul>{% for c in q.costs.lines %}<li>{{ c.step }}：約${{ "%.2f"|format(c.usd) }}{% if c.at %} <span class="muted">（{{ c.at }}）</span>{% endif %}</li>{% endfor %}</ul>
           <div class="muted small">公開価格での概算です。住民向け説明と検討資料の費用（1回 数セント〜数十セント）は含みません。</div></details>{% endif %}
