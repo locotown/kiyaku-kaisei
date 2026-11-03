@@ -431,6 +431,58 @@
     <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") or not (board_state and board_state.ready) %}disabled{% endif %}>{{ "説明文を作り直す" if work.explain else "住民向けの説明を作る" }}</button>
   </form>
 </div>
+
+<div class="card" id="meeting">
+  <h2>6. 総会の結果と最新の規約</h2>
+  {% if done == "meeting" %}<div class="justdone">✓ 総会の結果を保存しました。{% if finals %}下から最新の規約をダウンロードできます。{% endif %}</div>{% endif %}
+  <p class="muted">総会のあとに使います。議案ごとの結果を記録すると、可決した改定を反映した<b>最新の規約・細則の全文</b>を作ります（AI は使わず、今の規約に改定を重ねて組み立てます）。</p>
+  <form action="/works/{{ id }}/meeting" method="post">
+    <div class="grid">
+      <div><label for="m_name">総会の名前</label><input type="text" id="m_name" name="m_name" value="{{ meeting.name }}" placeholder="例：第25期定期総会"></div>
+      <div><label for="m_date">総会の日</label><input type="date" id="m_date" name="m_date" value="{{ meeting.date }}"></div>
+    </div>
+    <label for="m_effective">施行日（空欄なら総会の日）</label>
+    <input type="date" id="m_effective" name="m_effective" value="{{ meeting.effective }}" style="max-width:220px">
+    <div class="help">改正した規約がいつから効力を持つかです。附則に「この規約の改正は、令和○年○月○日から施行する。」と入ります。</div>
+    {% for doc, ams in meeting_groups.items() %}{% set gi = loop.index0 %}
+      <div class="mtg">
+        <div><b>議案：{{ doc if doc != "規約" else "管理規約" }}の改定</b>
+          <span class="res res-{{ '特別' if doc == '規約' else '普通' }}">{{ "総会の特別決議" if doc == "規約" else "総会の普通決議" }}</span>
+          <span class="muted">改定 {{ ams|length }}条</span></div>
+        <select name="m_result_{{ gi }}" style="max-width:260px">
+          <option value="">（未記録）</option>
+          {% for r in meeting_results %}<option value="{{ r }}" {% if (meeting.results or {}).get(doc) == r %}selected{% endif %}>{{ r }}</option>{% endfor %}
+        </select>
+        <details class="fold"><summary>総会で文言を修正した場合（「修正して可決」のとき）は、ここで条の文を直す</summary>
+          {% for a in ams %}{% set ek = (a.document or "規約") ~ "|" ~ a.article %}
+            <label for="m_edit_{{ gi }}_{{ loop.index0 }}">{{ a.article }}（{{ a.caption }}）{% if a.kind == "削除" %}— 削除{% endif %}</label>
+            <textarea id="m_edit_{{ gi }}_{{ loop.index0 }}" name="m_edit_{{ gi }}_{{ loop.index0 }}" rows="4" style="max-width:none">{{ (meeting.edits or {}).get(ek, a.text) }}</textarea>
+          {% endfor %}
+        </details>
+      </div>
+    {% endfor %}
+    <p><button type="submit">総会の結果を保存する</button></p>
+  </form>
+  {% if finals %}
+    <h3>最新の規約・細則</h3>
+    {% for f in finals %}
+      <div class="final">
+        <b>{{ f.title }}</b> <span class="muted">（改正 {{ f.count }}条）</span>
+        {% if f.left %}
+          <p class="note">改定案に〔選択〕が残っています（{{ f.left|join("、") }}）。理事会で案を選び、改定案を作り直してから作ってください。</p>
+        {% else %}
+          <p><a class="btn" href="/works/{{ id }}/final/{{ f.n }}.docx">Word でダウンロード</a>
+             <a class="btn secondary" href="/works/{{ id }}/final/{{ f.n }}/view" target="_blank">画面で確認（変更した条に色）</a></p>
+          <div class="muted small">規約集の改正履歴に足す一行：<b>{{ f.history }}</b></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+    <div class="srcnote src-電子データ"><b>使う前に確認すること：</b>文字は今の規約と改定案から正確に組み立てますが、元の規約集の書式（字下げ、表、別表のレイアウト）や、条番号の書き方（漢数字など）までは引き継ぎません。
+      体裁は元の規約集に合わせて整え、総会の議事録の文言と照らし合わせてから、規約原本と一緒に保管してください。</div>
+  {% elif meeting.results %}
+    <p class="muted">可決した議案がないため、最新の規約は作りません。</p>
+  {% endif %}
+</div>
 {% endif %}
 {% endif %}
 <script>

@@ -12,7 +12,7 @@ import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app import store
@@ -213,10 +213,12 @@ def journey(work: dict, bstate: dict | None) -> dict:
              {"key": "decide", "label": "指摘の判断", "anchor": "findings"},
              {"key": "draft", "label": "改定案", "anchor": "next"},
              {"key": "board", "label": "理事会での検討", "anchor": "board"},
-             {"key": "explain", "label": "住民向けの説明", "anchor": "explain"}]
+             {"key": "explain", "label": "住民向けの説明", "anchor": "explain"},
+             {"key": "meeting", "label": "総会後の最新規約", "anchor": "meeting"}]
     draft_ok = bool(work.get("draft")) and not work.get("draft_stale")
     done = {"review": bool(work.get("findings")), "decide": bool(work.get("draft")), "draft": draft_ok,
-            "board": draft_ok and bool(bstate and bstate.get("ready")), "explain": bool(work.get("explain"))}
+            "board": draft_ok and bool(bstate and bstate.get("ready")), "explain": bool(work.get("explain")),
+            "meeting": any(r in ("可決", "修正して可決") for r in ((work.get("meeting") or {}).get("results") or {}).values())}
     status = work.get("status", "")
     current = STEP_OF_BUSY.get(status) or STEP_OF_ERROR.get(status) or next(
         (st["key"] for st in steps if not done[st["key"]]), "")
@@ -234,12 +236,90 @@ def journey(work: dict, bstate: dict | None) -> dict:
                 else "「4. 理事会での検討」で" + (bstate.get("reason") or "議題ごとの判断を記録してください。"))
     elif current == "explain":
         text = "「5. 住民向けの説明」で「住民向けの説明を作る」を押してください。"
+    elif current == "meeting":
+        text = "総会が終わったら、「6. 総会の結果と最新の規約」に結果を記録すると、最新の規約を作れます。"
     else:
-        text = "すべての段階が済みました。新旧対照表・検討資料・説明資料を、総会の準備に使えます。"
+        text = "すべての段階が済みました。最新の規約を元の規約集の体裁に整え、規約原本と一緒に保管してください。"
     for st in steps:
         st["state"] = "now" if st["key"] == current else ("done" if done[st["key"]] else "todo")
     return {"steps": steps, "current": current, "next": text}
 
+
+
+MEETING_RESULTS = ("可決", "修正して可決", "否決", "提案しなかった")
+
+
+def _doc_title(work: dict, doc: str) -> str:
+    if doc != "規約":
+        return doc
+    titles = [d["title"] for d in work.get("documents", []) if d.get("kind") == "規約"]
+    return titles[0] if titles else "管理規約"
+
+
+def final_amendments(work: dict) -> dict[str, list]:
+    """総会に出す改定（理事会で見送ったものを除く）を、文書ごとに分ける。規約が先、細則はその後。"""
+    from core.board import apply_to_draft
+
+    draft = _draft(work)
+    if draft is None:
+        return {}
+    paper = _board(work)
+    if paper:
+        draft = apply_to_draft(draft, paper, work.get("board_decisions", {}))
+    out: dict[str, list] = {}
+    for a in draft.amendments:
+        out.setdefault(a.document or "規約", []).append(a)
+    return dict(sorted(out.items(), key=lambda kv: (kv[0] != "規約", kv[0])))
+
+
+def _edit_key(a) -> str:
+    return f"{a.document or '規約'}|{a.article}"
+
+
+def adopted_by_meeting(work: dict) -> dict[str, list]:
+    """総会で可決した改定（修正して可決なら、総会で直した文に差し替える）。"""
+    import dataclasses
+
+    meeting = work.get("meeting") or {}
+    results, edits = meeting.get("results", {}), meeting.get("edits", {})
+    out = {}
+    for doc, ams in final_amendments(work).items():
+        r = results.get(doc, "")
+        if r not in ("可決", "修正して可決"):
+            continue
+        if r == "修正して可決":
+            ams = [dataclasses.replace(a, text=edits[_edit_key(a)]) if edits.get(_edit_key(a), "").strip() else a for a in ams]
+        out[doc] = ams
+    return out
+
+
+def final_documents(work_id: str, work: dict) -> list[dict]:
+    """最新の規約・細則（総会で可決したもの）。〔選択〕が残っていれば作らない。"""
+    from datetime import date
+
+    from core.consolidate import consolidate, wareki
+    from core.draft import CHOICE_MARK
+    from core.explain import ref_name
+
+    meeting = work.get("meeting") or {}
+    adopted = adopted_by_meeting(work)
+    if not adopted:
+        return []
+    corpus = _corpus(work_id)
+    held = date.fromisoformat(meeting["date"]) if meeting.get("date") else None
+    effective = date.fromisoformat(meeting["effective"]) if meeting.get("effective") else held
+    docs = []
+    for n, (doc, ams) in enumerate(adopted.items()):
+        left = [ref_name(a) for a in ams if CHOICE_MARK in a.text]
+        title = _doc_title(work, doc)
+        kiyaku = corpus.get(doc)
+        blocks = consolidate(kiyaku, ams, title, effective, meeting.get("name", "")) if kiyaku and not left else []
+        changed = "・".join(a.article for a in ams)
+        history = (f"{meeting.get('name', '総会')}（{wareki(held) if held else '日付未入力'}）"
+                   f"{'特別決議' if doc == '規約' else '普通決議'}により改正（{changed}）")
+        docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
+                     "history": history})
+    return docs
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
@@ -361,6 +441,10 @@ def show_work(request: Request, work_id: str):
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
         "board_points": _points(work) if work.get("board") and work.get("draft") else {},
+        "meeting_groups": final_amendments(work) if work.get("draft") else {},
+        "meeting": work.get("meeting") or {},
+        "meeting_results": MEETING_RESULTS,
+        "finals": final_documents(work_id, work) if work.get("meeting") else [],
         "hist_line": __import__("core.history", fromlist=["line"]).line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
@@ -482,6 +566,56 @@ def start_draft(work_id: str):
     threading.Thread(target=_run_draft, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
+
+
+@app.post("/works/{work_id}/meeting")
+async def save_meeting(request: Request, work_id: str):
+    """総会の結果（議案ごとの可決・否決、総会の日、施行日、総会で修正した条の文）を保存する。"""
+    form = await request.form()
+    work = store.load(work_id)
+    groups = final_amendments(work)
+    results, edits = {}, {}
+    for i, (doc, ams) in enumerate(groups.items()):
+        r = str(form.get(f"m_result_{i}", ""))
+        results[doc] = r if r in MEETING_RESULTS else ""
+        for j, a in enumerate(ams):
+            text = str(form.get(f"m_edit_{i}_{j}", "")).replace("\r\n", "\n").strip()
+            if text and text != a.text.strip():
+                edits[_edit_key(a)] = text
+    meeting = {"name": str(form.get("m_name", "")).strip(), "date": str(form.get("m_date", "")).strip(),
+               "effective": str(form.get("m_effective", "")).strip(), "results": results, "edits": edits,
+               "saved_at": _now()}
+    store.update(work_id, meeting=meeting)
+    return RedirectResponse(f"/works/{work_id}?done=meeting#meeting", status_code=303)
+
+
+def _final(work_id: str, n: int) -> dict:
+    work = store.load(work_id)
+    docs = final_documents(work_id, work)
+    if not 0 <= n < len(docs) or not docs[n]["blocks"]:
+        raise HTTPException(404, "最新の規約を作れません（総会の結果を保存し、〔選択〕が残っていないか確認してください）")
+    return docs[n]
+
+
+@app.get("/works/{work_id}/final/{n}/view", response_class=HTMLResponse)
+def final_html(work_id: str, n: int):
+    from core.consolidate import to_html as final_to_html
+
+    d = _final(work_id, n)
+    return HTMLResponse(final_to_html(d["blocks"], "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
+                                                   "書式は元の規約集に合わせて整えてください。"))
+
+
+@app.get("/works/{work_id}/final/{n}.docx")
+def final_docx(work_id: str, n: int):
+    from urllib.parse import quote
+
+    from core.consolidate import to_docx
+
+    d = _final(work_id, n)
+    name = quote(f"{d['title']}（最新）.docx")
+    return Response(to_docx(d["blocks"]), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
 @app.get("/works/{work_id}/taisho", response_class=HTMLResponse)
 def taisho(work_id: str):
