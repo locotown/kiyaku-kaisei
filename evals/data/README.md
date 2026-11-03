@@ -13,3 +13,7 @@ https://www.mlit.go.jp/jutakukentiku/house/content/001995687.docx を加工し�
 （公共データ利用規約 第1.0版 に基づく。国が作成したものではない）
 
 「その他」は、論点表にない変更（電磁的方法の整理などの「その他所要の改正」）。区分は docs/DOMAIN.md の「要確認」で確定させる。
+
+## 検証ループ（11/3 追加）
+- `r7_tantou_before.txt` は評価の入力だけでなく、改定案づくりの L1（core/precedent.py：標準どおりの条は国の改正文を下書きにする）でも使う
+- `uv run python -m evals.lessons` で、採点役の差し戻し理由を集計する（報告は private/lessons/。コミットしない）
