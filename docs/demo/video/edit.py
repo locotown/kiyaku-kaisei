@@ -15,7 +15,7 @@ assert len(VIS) == len(rows)
 (H / 'seg').mkdir(exist_ok=True)
 parts = []
 for i, (r, v) in enumerate(zip(rows, VIS)):
-    d = r['end'] - r['start']
+    d = round(r['end'] - r['start'], 2)
     kind, name = v.split(':')
     inputs, chains = [], []
     if kind == 'img':
@@ -47,6 +47,7 @@ for i, (r, v) in enumerate(zip(rows, VIS)):
     print(i, v, d, '秒')
 (H / 'list.txt').write_text(''.join(f"file '{p}'\n" for p in parts))
 subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', str(H / 'list.txt'),
-                '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart',
+                '-i', str(H / 'audio_final.wav'), '-map', '0:v', '-map', '1:a', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                '-ac', '2', '-movflags', '+faststart',
                 str(H / 'demo_kari.mp4')], check=True)
 print('完成', H / 'demo_kari.mp4')

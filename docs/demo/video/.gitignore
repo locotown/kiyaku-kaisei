@@ -9,3 +9,8 @@ rows.json
 list.txt
 edit.log
 *.mp4
+voice/
+voice_out/
+mei.zip
+*.wav
+voice.json

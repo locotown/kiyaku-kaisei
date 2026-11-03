@@ -16,6 +16,8 @@
 | 規約の冊子（docs/demo/booklet/） | サンプル evals/data/old_collection.txt（架空）をマンション名だけ変えて組んだ | — | 確定。印刷して手元の撮影に使う |
 | 字体 | Noto Sans JP（@fontsource 経由） | SIL Open Font License 1.1 | 確定 |
 | 統計の数字 | 国土交通省（出典は各図と docs/DEMO.md 付録） | 出典を示して引用 | 確定 |
+| 仮のナレーションの声 | Open JTalk ＋ HTS Voice "Mei"（© Nagoya Institute of Technology） | CC BY 3.0。動画の締めにクレジットを表示 | 仮（本番は人の声で録音） |
+| BGM・効果音 | 自作（docs/demo/video/audio.py で合成） | — | 仮（本番で見直す） |
 
 ## 差し替える予定
 | 場面 | 今 | 差し替え先 |
