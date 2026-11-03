@@ -170,7 +170,7 @@ def keijiban() -> str:
            ".pp{position:absolute;padding:30px 26px 20px;box-shadow:0 6px 14px rgba(0,0,0,.2)}.pp i{position:absolute;left:50%;top:10px;width:18px;height:18px;border-radius:50%}"
            ".pp b{display:block;font-size:24px;font-weight:900;margin-bottom:16px;color:#2b2a27}.pp .ln{height:9px;background:#d9d4c7;border-radius:3px;margin:12px 0}"
            ".pp.big b{font-size:40px;line-height:1.35;margin-bottom:22px}.pp.big .ln{height:12px;margin:18px 0}"
-           ".note{position:absolute;left:40px;top:30px;font-size:22px;color:#52514e}")
+           ".note{position:absolute;right:40px;top:30px;font-size:22px;color:#52514e}")
     body = ('<div class="wall"></div><div class="board">'
             + paper(70, 70, 330, 300, "ごみ出しのルール", [90, 80, 85, 60, 75], -3, "#fff8e1", "#2a78d6")
             + paper(80, 420, 320, 280, "夏祭りのお知らせ", [85, 70, 90, 55], 2, "#ffe9e0", "#1baf7a")
