@@ -36,3 +36,6 @@ python3 docs/demo/video/edit.py         # 組み立て → demo_kari.mp4
 - 本番では、ナレーションを人の声で録音して差し替える予定（docs/DEMO.md）
 
 - 男性の声の版は、女性の版の映像に音だけ差し替えて作る（尺は両方の声が収まるように配分してある）：`ffmpeg -i demo_kari_b.mp4 -i audio_final_b_m001.wav -map 0:v -map 1:a -c:v copy -c:a aac demo_kari_b_otoko.mp4`
+
+## 現在の版（11/3 夜）
+- ver2：パターンB と C（女性の声 Mei を採用）。保留中。ファイルは demo_ver2_b.mp4・demo_ver2_c.mp4（コミットしない）
