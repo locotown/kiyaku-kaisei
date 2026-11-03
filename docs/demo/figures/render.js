@@ -11,9 +11,12 @@ const SRC = path.join(__dirname, 'src');
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
     const overflow = await page.evaluate(() => [...document.querySelectorAll('body *')]
-      .filter(e => { const r = e.getBoundingClientRect(); return r.right > 1920 || r.bottom > 1080; }).map(e => e.className || e.tagName));
+      .filter(e => !e.closest('svg') && !e.className.includes?.('kari')).filter(e => { const r = e.getBoundingClientRect(); return r.right > 1920 || r.bottom > 1080; }).map(e => e.className || e.tagName));
     if (overflow.length) console.log(f, 'はみ出し:', overflow.join(', '));
-    await page.screenshot({ path: path.join(__dirname, f.replace('.html', '.png')) });
+    // 判子（07s_*）は背景を透明にして、判子の部分だけ書き出す（動画の編集で重ねる）
+    const stamp = f.includes('_stamp_');
+    await page.screenshot({ path: path.join(__dirname, f.replace('.html', '.png')), omitBackground: stamp,
+                            clip: stamp ? { x: 0, y: 0, width: 520, height: 520 } : undefined });
     console.log('書き出し', f);
   }
   await browser.close();

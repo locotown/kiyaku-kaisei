@@ -30,17 +30,17 @@
 ### ① 日本のマンション（0:00–0:22）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:00 | 日本の団地・マンションが並ぶ景色（自分で撮った写真か、利用条件を確認した素材） | 日本では、およそ1,600万人、10人に1人が分譲マンションに住んでいます。 | About 16 million people — 1 in 10 in Japan — live in condominiums. |
-| 0:05 | 集会室で住民が総会を開くイラスト | 管理するのは会社ではなく、住民自身です。ルールは「管理規約」として、住民の総会で決めます。 | They are run not by companies, but by the residents themselves. The rules are voted on at residents' general meetings. |
+| 0:00 | 日本の団地・マンションが並ぶ景色（撮影した動画。それまでは 05_danchi.png〔仮〕） | 日本では、およそ1,600万人、10人に1人が分譲マンションに住んでいます。 | About 16 million people — 1 in 10 in Japan — live in condominiums. |
+| 0:05 | 06_soukai.png：集会室で住民が総会を開くイラスト | 管理するのは会社ではなく、住民自身です。ルールは「管理規約」として、住民の総会で決めます。 | They are run not by companies, but by the residents themselves. The rules are voted on at residents' general meetings. |
 | 0:12 | 図 01_japan.png（数字を順に出す）：世帯主の4人に1人が70歳以上／築40年を超える建物は20年で約3倍に | 住民は高齢になり、建物は古くなっています。 | 1 in 4 households is headed by someone over 70. Buildings over 40 years old will triple in 20 years. |
-| 0:17 | 法律の条文が「2026.4.1」の判とともに切り替わる | だから国は、2026年4月、法律を変えました。 | So in April 2026, Japan changed the law. |
+| 0:17 | 07_law.png に判子 07s_stamp_shikou.png を押す動き | だから国は、2026年4月、法律を変えました。 | So in April 2026, Japan changed the law. |
 
 ### ② 課題（0:22–0:45）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
 | 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国の標準の最新版に沿った規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
-| 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場 | 古い規約のまま総会を開くと、決議があとから争われるかもしれません。何千万円もの大規模修繕を決めたあとで、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
-| 0:39 | 作り手の手元（顔は出さない）と規約の冊子 | 私も規約の見直しを担当しています。だから、自分たちで直せる道具を作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
+| 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場（08_shuuzen.png〔仮〕） | 古い規約のまま総会を開くと、決議があとから争われるかもしれません。何千万円もの大規模修繕を決めたあとで、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
+| 0:39 | 作り手の手元（顔は出さない）と規約の冊子（docs/demo/booklet/ の PDF を印刷） | 私も規約の見直しを担当しています。だから、自分たちで直せる道具を作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
 
 ### ③ 点検（0:45–1:15）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
@@ -67,7 +67,7 @@
 ### ⑥ 総会のあと（2:15–2:30）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:15 | 総会の結果を記録（規約：可決、細則：修正して可決）。可決の判（デザインの見直しで入れる場合） | 総会で可決したら、結果を記録します。 | After the general meeting, record the results. |
+| 2:15 | 総会の結果を記録（規約：可決、細則：修正して可決）。判子 07s_stamp_kaketsu.png を押す動き | 総会で可決したら、結果を記録します。 | After the general meeting, record the results. |
 | 2:21 | 最新の規約を Word で開く。附則「この規約の改正は、令和8年…から施行する。」 | 改正を反映した最新の規約が、附則付きで Word で出てきます。ここは AI を使わず、正確に組み立てます。 | It produces the updated rulebook in Word — assembled deterministically, without AI. |
 
 ### ⑦ 信頼できる理由（2:30–2:50）
@@ -79,14 +79,14 @@
 ### ⑧ 締め（2:50–3:00）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:50 | マンションの景色に戻る。ツール名、リポジトリの URL。「総会提案の下書きであり、法的助言ではありません」 | 専門家に頼めない組合でも、自分たちの手で、規約を法律に合わせられるように。 | So that every association — even without experts — can keep its own rules up to date. |
+| 2:50 | マンションの景色に戻る（0:00 と同じ素材）。ツール名、リポジトリの URL。「総会提案の下書きであり、法的助言ではありません」 | 専門家に頼めない組合でも、自分たちの手で、規約を法律に合わせられるように。 | So that every association — even without experts — can keep its own rules up to date. |
 
 ## 撮影の準備
 - **使うデータ**：サンプル「Word の規約集（架空）」（規約74条＋細則3種。〔選択〕が出て、細則の改定もある）。電磁的方法は「未定」にして、理事会で選ぶ場面を作る
 - **マンション名**：「さくら台マンション管理組合（架空）」。作業の名前は資料に出ない
 - **撮り方**：場面ごとに別々に録る。点検・改定案は実際に動かし、待ち時間は早送り（実時間を表示）。1080p 以上、ブラウザは全画面、通知オフ、ブックマークバーを隠す
 - **前もって作っておくもの**：点検済み・改定案あり・理事会の判断済み・総会の結果ありの作業を1つずつ（撮り直しに備える。同じサンプルから作る）
-- **図**：①の数字・②のグラフ・⑦の構成図と評価は docs/demo/figures/ に作った（簡素な版。11/3）。残りは①の写真・イラスト（自分で撮るか、利用条件を確認した素材）。参考資料のグラフや写真は使わない
+- **図とイラスト**：docs/demo/figures/ にすべての場面の分を作った（11/3）。景色（05）と足場（08）は仮で、撮影・素材集の写真に差し替える。素材の出どころと差し替えの予定は docs/demo/ASSETS.md
 - **デザインの見直しとの関係**：判子・回覧板などの日本らしい見た目（docs/DESIGN_IDEAS.md）を入れられたら、⑤⑥で映す。間に合わなければ今の画面で撮る
 
 ## 撮影前に確かめること
