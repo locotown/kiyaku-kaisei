@@ -18,9 +18,10 @@ node -e "..."                           # booklet.html を booklet.png に書き
 node docs/demo/video/subs.js            # 字幕の画像（subs/）
 # 音声合成の準備（1回だけ）：apt-get install open-jtalk open-jtalk-mecab-naist-jdic hts-voice-nitech-jp-atr503-m001
 #   声「Mei」は MMDAgent_Example-1.8.zip（sourceforge.net/projects/mmdagent）の Voice/mei を docs/demo/video/voice/ に展開
-python3 docs/demo/video/tts.py 1.1      # ナレーションを読み上げ（voice_out/）。引数は話す速さ
-python3 docs/demo/video/timing.py       # 声の長さに合わせて場面の長さを配分し直す（合計 180 秒）
-python3 docs/demo/video/audio.py        # ナレーション＋BGM＋効果音を混ぜる → audio_mix.wav
+VOICE=mei python3 docs/demo/video/tts.py 1.1    # ナレーションを読み上げ（女性の声 Mei）。引数は話す速さ
+VOICE=m001 python3 docs/demo/video/tts.py 1.1   # 男性の声（NIT ATR503 M001。apt の hts-voice-nitech-jp-atr503-m001）
+python3 docs/demo/video/timing.py       # 声の長さに合わせて場面の長さを配分し直す（合計 180 秒。女性・男性の長いほうに合わせる）
+VOICE=mei python3 docs/demo/video/audio.py   # ナレーション＋BGM＋効果音を混ぜる（男性の版は VOICE=m001）
 ffmpeg -i docs/demo/video/audio_mix.wav -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 48000 docs/demo/video/audio_final.wav
 python3 docs/demo/video/edit.py         # 組み立て → demo_kari.mp4
 ```
@@ -33,3 +34,5 @@ python3 docs/demo/video/edit.py         # 組み立て → demo_kari.mp4
 - 効果音：判子を押す「トン」（施行・可決）、章の変わり目の風の音、締めの鈴のような音
 - 読み上げで誤読しやすい語は tts.py の READ で読みを指定する
 - 本番では、ナレーションを人の声で録音して差し替える予定（docs/DEMO.md）
+
+- 男性の声の版は、女性の版の映像に音だけ差し替えて作る（尺は両方の声が収まるように配分してある）：`ffmpeg -i demo_kari_b.mp4 -i audio_final_b_m001.wav -map 0:v -map 1:a -c:v copy -c:a aac demo_kari_b_otoko.mp4`

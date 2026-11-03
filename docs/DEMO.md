@@ -38,7 +38,7 @@
 ### ② 課題（0:22–0:45）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。国が示す標準の、最新の版に沿っている規約は4割ほど。約半数は古い版のままです。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
+| 0:22 | 図 02_kiyaku.png：最新の標準に沿う規約 42.3%／古い版 49.8%（出典を画面の下に） | でも、規約は追いついていません。2023年の国の調査では、最新の標準に沿う規約は4割ほど。約半数は古い版のままでした。 | But the rules haven't kept up. Only about 4 in 10 follow the latest national standard. About half still follow an old version. |
 | 0:31 | 古い規約の「5日前に招集」に赤線 → 総会の決議 → 工事の足場（08_shuuzen.png〔仮〕） | 古い規約のまま総会を開くと、決議があとから争われるおそれがあります。何千万円もかかる大規模修繕の決議でも、です。 | Under outdated rules, a decision could be challenged later — even after a multi-million-dollar renovation is approved. |
 | 0:39 | 作り手の手元（顔は出さない）と規約の冊子（docs/demo/booklet/ の PDF を印刷） | 私自身も、規約の見直しを担当しています。だから、自分たちの手で直せるツールを作りました。 | I'm on my own building's rules committee. So I built a tool to do this ourselves. |
 

@@ -6,7 +6,9 @@
   "img:06_soukai",
   "img:01_japan",
   "img:02_kiyaku",
+  "img:08_shuuzen",
   "img:11_rijicho",
+  "img:booklet",
   "clip:c1_upload",
   "clip:c2_review_busy",
   "clip:c3_findings",
@@ -34,6 +36,15 @@
   ],
   "7": [
    [
+    "booklet",
+    "badge",
+    0,
+    0,
+    0
+   ]
+  ],
+  "9": [
+   [
     "ff_review",
     "badge",
     0,
@@ -41,7 +52,7 @@
     0
    ]
   ],
-  "10": [
+  "12": [
    [
     "ff_draft",
     "badge",
@@ -50,7 +61,7 @@
     0
    ]
   ],
-  "14": [
+  "16": [
    [
     "07s_stamp_kaketsu",
     "stamp",
@@ -63,17 +74,17 @@
  "sfx": {
   "stamp": [
    [
-    14,
+    16,
     2.0
    ]
   ],
   "whoosh": [
    2,
-   6,
-   16,
-   19
+   8,
+   18,
+   21
   ],
-  "chime": 19
+  "chime": 21
  },
  "dense_until": 16,
  "dense_after": 168

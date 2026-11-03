@@ -21,8 +21,8 @@
 | 0:00–0:26 | ① 困りごと | 法律が変わり、規約の見直しを求められた。でも、どこを直せばいいか分からない。古いままでは決議が争われるおそれ |
 | 0:26–0:38 | ② 出会い | 「ととのう規約」で、直す箇所・改定案・住民への説明の下書きまで作れる |
 | 0:38–2:05 | ③ 山本さんが使う | 読み込み → 点検 → 指摘と根拠 → 理事会で相談 → 改定案と採点役 → 新旧対照表 → 選ぶ点 → 住民向け説明（回覧板） → 総会で可決 → 最新の規約 |
-| 2:05–2:21 | ④ 山本さんだけではない | 約1,600万人。最新の標準に沿った規約は4割ほど |
-| 2:21–2:50 | ⑤ 信頼できる理由 | 判断は Claude、正確さはプログラム、決めるのは人。国の改正内容で測った |
+| 2:05–2:26 | ④ 山本さんだけではない | 約1,600万人。2023年の調査で最新の標準に沿う規約は4割ほど。作った私も担当者 |
+| 2:26–2:50 | ⑤ 信頼できる理由 | 判断は Claude、正確さはプログラム、決めるのは人。国の改正内容で測った |
 | 2:50–3:00 | ⑥ 締め | 専門家に頼めない組合でも、自分たちの手で |
 
 ## 場面ごとの台本
@@ -57,17 +57,18 @@
 | 1:49 | 総会（06_soukai）に「可決」の判子 | そして総会。規約の改定は、可決されました。 | Then, the general meeting. The amendment passes. |
 | 1:56 | 最新の規約（Word） | 最新の規約も、附則まで付けて、プログラムで正確に組み立てます。 | The updated rulebook is assembled exactly by code. |
 
-### ④ 山本さんだけではない（2:05–2:21）
+### ④ 山本さんだけではない（2:05–2:26）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
 | 2:05 | 数字（01_japan） | これは、山本さんだけの話ではありません。分譲マンションに住む人は、約1,600万人。 | Yamamoto isn't alone. About 16 million people in Japan live in condominiums. |
-| 2:13 | 規約の準拠状況（02_kiyaku） | 国が示す標準の最新版に沿っている規約は、4割ほどにとどまります。 | Only about 4 in 10 bylaws follow the latest national standard. |
+| 2:12 | 規約の準拠状況（02_kiyaku） | 2023年の国の調査では、最新の標準に沿っている規約は4割ほどでした。 | A 2023 government survey found only about 4 in 10 bylaws followed the latest standard. |
+| 2:19 | 規約の冊子と手元 | 作った私も、マンションで規約の見直しを担当しています。 | I built this as a member of my own building's bylaw review committee. |
 
-### ⑤ 信頼できる理由（2:21–2:50）
+### ⑤ 信頼できる理由（2:26–2:50）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:21 | 構成図（03_architecture） | 判断は Claude に、正確さが要るところはプログラムに。決めるのは人です。 | Judgment goes to Claude, exactness to code — and people make the decisions. |
-| 2:34 | 評価（04_eval） | 国が公表した改正内容で測ったところ、法律上必須の箇所に見落としはありませんでした。 | Measured against the government's revision: no legally required change was missed. |
+| 2:26 | 構成図（03_architecture） | 判断は Claude に、正確さが要るところはプログラムに。決めるのは人です。 | Judgment goes to Claude, exactness to code — and people make the decisions. |
+| 2:38 | 評価（04_eval） | 国が公表した改正内容で測ったところ、法律上必須の箇所に見落としはありませんでした。 | Measured against the government's revision: no legally required change was missed. |
 
 ### ⑥ 締め（2:50–3:00）
 | 時間 | 画面 | ナレーション | 英語の字幕 |

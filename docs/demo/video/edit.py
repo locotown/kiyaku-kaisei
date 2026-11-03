@@ -54,7 +54,7 @@ for i, (r, v) in enumerate(zip(rows, VIS)):
     print(i, v, d, '秒')
 (H / 'list.txt').write_text(''.join(f"file '{p}'\n" for p in parts))
 subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', str(H / 'list.txt'),
-                '-i', str(H / f'audio_final_{P}.wav'), '-map', '0:v', '-map', '1:a', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+                '-i', str(H / f'audio_final_{P}_mei.wav'), '-map', '0:v', '-map', '1:a', '-shortest', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
                 '-ac', '2', '-movflags', '+faststart',
                 str(H / f'demo_kari_{P}.mp4')], check=True)
 print('完成', H / f'demo_kari_{P}.mp4')

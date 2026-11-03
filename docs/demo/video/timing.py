@@ -5,7 +5,11 @@ import os
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 H = Path(__file__).parent
 rows = json.load(open(H / f'rows_{P}.json'))
-voice = {v['i']: v['voice'] for v in json.load(open(H / f'voice_{P}.json'))}
+# 女性・男性の両方の声が収まるよう、長いほうに合わせる（映像は1回だけ組み立て、音だけ差し替える）
+voice = {}
+for vf in H.glob(f'voice_{P}_*.json'):
+    for v in json.load(open(vf)):
+        voice[v['i']] = max(voice.get(v['i'], 0), v['voice'])
 TOTAL, LEAD, TAIL = 180.0, 0.3, 0.6
 need = [voice[i] + LEAD + TAIL for i in range(len(rows))]
 slot = [r['end'] - r['start'] for r in rows]

@@ -19,6 +19,7 @@
   "clip:c12_final",
   "img:01_japan",
   "img:02_kiyaku",
+  "img:booklet",
   "img:03_architecture",
   "img:04_eval",
   "img:09_end"
@@ -59,6 +60,15 @@
     1330,
     300
    ]
+  ],
+  "18": [
+   [
+    "booklet",
+    "badge",
+    0,
+    0,
+    0
+   ]
   ]
  },
  "sfx": {
@@ -72,10 +82,10 @@
    3,
    5,
    16,
-   18,
-   20
+   19,
+   21
   ],
-  "chime": 20
+  "chime": 21
  },
  "dense_until": 38,
  "dense_after": 168

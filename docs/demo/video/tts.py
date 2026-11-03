@@ -3,8 +3,9 @@ import json, re, subprocess, sys
 from pathlib import Path
 import os
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
+VOICES = {'mei': 'voice/MMDAgent_Example-1.8/Voice/mei/mei_normal.htsvoice', 'm001': '/usr/share/hts-voice/nitech-jp-atr503-m001/nitech_jp_atr503_m001.htsvoice'}
+V = os.environ.get('VOICE', 'mei')  # 声（mei：女性、m001：男性）
 H = Path(__file__).parent
-V = H / 'voice/MMDAgent_Example-1.8/Voice/mei/mei_normal.htsvoice'
 RATE = float(sys.argv[1]) if len(sys.argv) > 1 else 1.1
 READ = [  # 読み上げで誤読しやすい語の読み
     ('ととのう規約', 'ととのうきやく'), ('二段構え', 'にだんがまえ'), ('山本', 'やまもと'),
@@ -14,19 +15,19 @@ READ = [  # 読み上げで誤読しやすい語の読み
     ('附則', 'ふそく'), ('規約', 'きやく'), ('細則', 'さいそく'),
 ]
 rows = json.load(open(H / f'rows_{P}.json'))
-(H / f'voice_out_{P}').mkdir(exist_ok=True)
+(H / f'voice_out_{P}_{V}').mkdir(exist_ok=True)
 out = []
 for i, r in enumerate(rows):
     t = r['jp']
     for a, b in READ:
         t = t.replace(a, b)
-    wav = H / f'voice_out_{P}' / f'{i:02d}.wav'
-    subprocess.run(['open_jtalk', '-x', '/var/lib/mecab/dic/open-jtalk/naist-jdic', '-m', str(V), '-r', str(RATE), '-fm', '0', '-a', '0.55',
+    wav = H / f'voice_out_{P}_{V}' / f'{i:02d}.wav'
+    subprocess.run(['open_jtalk', '-x', '/var/lib/mecab/dic/open-jtalk/naist-jdic', '-m', str(H / VOICES[V]) if not VOICES[V].startswith('/') else VOICES[V], '-r', str(RATE), '-fm', '0', '-a', '0.55',
                     '-ow', str(wav)], input=t.encode(), check=True)
     d = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(wav)],
                              capture_output=True, text=True).stdout)
     out.append({'i': i, 'slot': r['end'] - r['start'], 'voice': round(d, 2)})
-json.dump(out, open(H / f'voice_{P}.json', 'w'), indent=1)
+json.dump(out, open(H / f'voice_{P}_{V}.json', 'w'), indent=1)
 tot = sum(x['voice'] for x in out)
 for x in out:
     flag = '  ← はみ出す' if x['voice'] + 0.4 > x['slot'] else ''

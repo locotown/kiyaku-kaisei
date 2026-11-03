@@ -11,6 +11,7 @@ N = int(SR * TOTAL)
 rng = np.random.default_rng(7)
 rows = json.load(open(H / f'rows_{P}.json'))
 PAT = json.load(open(H / 'patterns' / f'{P}.json'))
+V = os.environ.get('VOICE', 'mei')
 
 def read_wav(p):
     with wave.open(str(p)) as w:
@@ -50,7 +51,7 @@ def add(buf, x, at, gain=1.0):
 # --- ナレーション
 voice = np.zeros(N)
 for i, r in enumerate(rows):
-    add(voice, read_wav(H / f'voice_out_{P}' / f'{i:02d}.wav'), r['voice_at'], 1.0)
+    add(voice, read_wav(H / f'voice_out_{P}_{V}' / f'{i:02d}.wav'), r['voice_at'], 1.0)
 
 voice *= 0.85 / np.abs(voice).max()  # ナレーションを主役の音量に
 
@@ -120,7 +121,7 @@ add(sfx, chime(), rows[PAT['sfx']['chime']]['start'] + 0.2, 0.35)          # 締
 mix = voice * 1.0 + bgm + sfx
 mix = np.tanh(mix * 1.1) * 0.9  # はみ出しを丸める
 pcm = (np.clip(mix, -1, 1) * 32767).astype(np.int16)
-with wave.open(str(H / f'audio_mix_{P}.wav'), 'w') as w:
+with wave.open(str(H / f'audio_mix_{P}_{V}.wav'), 'w') as w:
     w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
 for name, x in (('bgm', bgm), ('voice', voice), ('sfx', sfx)):
     print(name, 'ピーク', round(float(np.abs(x).max()), 2), 'RMS', round(float(np.sqrt((x ** 2).mean())), 3))
