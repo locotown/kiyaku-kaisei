@@ -128,6 +128,15 @@ def draft_quality(work: dict) -> dict:
     else:
         level = "warn"
         head = f"採点役の確認で、満たしていない項目が残った可能性があります（結果：{RESULT_JA.get(last, last)}）。下のコメントを読み、必要なら作り直してください"
+    stop, plan = work.get("draft_stop", ""), work.get("draft_plan") or {}
+    if stop == "timeout":  # 時間切れは、採点役の結果より先に知らせる（合否が出ないまま止まっている）
+        level = "warn"
+        head = (f"時間の上限（{plan.get('deadline_min', 30)}分）に達したため、途中で止まりました。"
+                f"採点役の確認は{len(evals)}回目までで、直しきれていない点が残っている可能性があります。"
+                "下のコメントを読み、作り直すか、採用する指摘を絞って作り直してください")
+    elif stop and stop != "end_turn":
+        level = "warn"
+        head = f"AI の作業が途中で止まりました（費用の上限など。理由：{stop}）。新旧対照表を特に丁寧に確認し、必要なら作り直してください"
     by_doc: dict[str, int] = {}
     for a in amendments:
         by_doc[a.get("document") or "規約"] = by_doc.get(a.get("document") or "規約", 0) + 1
@@ -146,7 +155,27 @@ def draft_quality(work: dict) -> dict:
         "level": level, "head": head, "rounds": rounds, "checklist": checklist, "limits": final["limits"],
         "checks_ok": not work.get("draft_errors"), "checks": CHECKS_PLAIN, "rubric": RUBRIC_PLAIN,
         "count": len(amendments), "by_doc": by_doc, "choices": choices, "extra": extra,
+        "stopped": stop == "timeout" or bool(stop and stop != "end_turn"),
+        "elapsed_min": round(work["draft_elapsed"] / 60, 1) if work.get("draft_elapsed") else None,
+        "costs": cost_lines(work),
     }
+
+
+def _usd(cost) -> float | None:
+    try:
+        return int((cost or {}).get("amount")) / 100
+    except (TypeError, ValueError):
+        return None
+
+
+def cost_lines(work: dict) -> dict:
+    """これまでにかかった AI の費用（公開価格での概算）。作り直しても前の記録を残す。"""
+    entries = list(work.get("costs") or [])
+    if not entries:  # 記録を残す前の作業は、最後の値だけ
+        entries = [{"step": s, "cost": work.get(k)} for s, k in (("点検", "review_cost"), ("改定案", "draft_cost")) if work.get(k)]
+    lines = [{"step": e["step"], "usd": _usd(e.get("cost")), "at": e.get("at", "")} for e in entries]
+    lines = [x for x in lines if x["usd"] is not None]
+    return {"lines": lines, "total": round(sum(x["usd"] for x in lines), 2)}
 
 
 # 読み込んだ元のファイルの種類ごとの、「現行」欄の正確さと人が確認すること

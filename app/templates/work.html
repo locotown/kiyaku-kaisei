@@ -10,31 +10,18 @@
 {% block content %}
 <h1>{{ work.name }}</h1>
 <p class="muted">型：{{ work.info["型"] }}／規約本体：{{ work.articles }}条／状態：<strong id="status">{{ work.status }}</strong></p>
+<details class="orgedit" {% if done == "org" %}open{% endif %}><summary>マンション名・管理組合名：<b>{{ work.org or "（未入力）" }}</b>{% if done == "org" %} <span class="ok">✓ 保存しました</span>{% endif %}</summary>
+  <form action="/works/{{ id }}/org" method="post">
+    <input type="text" name="org" value="{{ work.org or '' }}" placeholder="例：〇〇マンション管理組合">
+    <button type="submit" class="secondary">保存する</button>
+    <div class="help">住民向けの説明・理事会の検討資料・新旧対照表の題名に入ります（作業の名前「{{ work.name }}」は資料に出ません）。保存すると、作ってある資料も書き直します。</div>
+  </form></details>
 
 <nav class="journey" aria-label="進め方">
   <ol>{% for st in journey.steps %}
     <li class="j-{{ st.state }}"><a href="#{{ st.anchor }}" data-open="{{ st.anchor }}">{{ "✓ " if st.state == "done" else "" }}{{ loop.index }}. {{ st.label }}</a></li>{% endfor %}</ol>
   <div class="j-next"><b>次にすること：</b>{{ journey.next }}</div>
 </nav>
-
-{% if work.documents and work.documents|length > 1 %}
-<div class="card">
-  <h2>1. 読み込んだ文書</h2>
-  {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>{{ source_note.label }}から読み込みました。</b>{{ source_note.text }}</div>{% endif %}
-  {% set docs = work.documents|selectattr("kind", "in", ["規約", "細則"])|list %}
-  <details class="fold" {% if not work.findings %}open{% endif %}><summary>{{ "文書の一覧" if not work.findings else "全" ~ work.documents|length ~ "件（規約・細則 " ~ docs|length ~ "件、その他 " ~ (work.documents|length - docs|length) ~ "件）。開いて確認" }}</summary>
-  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
-  <table>
-    <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
-    {% for d in work.documents %}
-    <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
-        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "条" }}{% else %}—{% endif %}</td>
-        <td>{{ d.annotations }}件</td></tr>
-    {% endfor %}
-  </table>
-  </details>
-</div>
-{% endif %}
 
 {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") and progress %}
 {% set what = {"点検中": "AI が規約の条文を一つずつ取り寄せ、標準管理規約・区分所有法と照らし合わせています。",
@@ -105,11 +92,30 @@
   <pre class="muted">{{ work.error }}</pre></div>
 {% endif %}
 
+{% if work.documents and work.documents|length > 1 %}
+<div class="card">
+  <h2>1. 読み込んだ文書</h2>
+  {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>{{ source_note.label }}から読み込みました。</b>{{ source_note.text }}</div>{% endif %}
+  {% set docs = work.documents|selectattr("kind", "in", ["規約", "細則"])|list %}
+  <details class="fold" {% if not work.findings %}open{% endif %}><summary>{{ "文書の一覧" if not work.findings else "全" ~ work.documents|length ~ "件（規約・細則 " ~ docs|length ~ "件、その他 " ~ (work.documents|length - docs|length) ~ "件）。開いて確認" }}</summary>
+  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
+  <table>
+    <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
+    {% for d in work.documents %}
+    <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
+        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "条" }}{% else %}—{% endif %}</td>
+        <td>{{ d.annotations }}件</td></tr>
+    {% endfor %}
+  </table>
+  </details>
+</div>
+{% endif %}
+
 {% if work.findings %}
 <div class="card" id="findings">
   <h2>2. 対応が必要な箇所（{{ work.findings|length }}件）</h2>
   {% if done == "点検中" %}<div class="justdone">✓ 点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、採用するか判断してください。</div>{% endif %}
-  {% set folded = work.draft and done != "点検中" %}
+  {% set folded = work.draft and done != "点検中" and not bulk %}
   {% if folded %}<p class="muted">判断は済んでいます（改定案に入れた指摘 {{ summary.total }}件）。判断を見直すときは、下を開いてください。</p>{% endif %}
   <details class="fold" id="findings-fold" {% if not folded %}open{% endif %}><summary>{{ "指摘の一覧と判断を開く" if folded else "指摘の一覧と判断" }}</summary>
   <div class="note legend">
@@ -130,11 +136,41 @@
     <br><span class="muted">判断を選び、理由を書いて「確定する」を押すと保存されます（ページは移動しません）。判断を変えるたびに履歴が残ります。</span></p>
   {% set cats = {"必須": "改定案に必ず入れる箇所", "推奨": "法改正に関係し、見直しを勧められている箇所", "参考": "標準管理規約と違う箇所"} %}
   {% set counts = {} %}{% for c in cats %}{% set _ = counts.update({c: rows|selectattr("1.category", "equalto", c)|list|length}) %}{% endfor %}
+  {% if rows|length > summary.must %}
+  <div class="bulk" id="bulk">
+    <b>まとめて判断：</b>
+    <select id="bk-scope" aria-label="範囲">{% for sc in ("推奨", "参考", "推奨・参考") %}{% set n = rows|selectattr("1.category", "in", sc.split("・"))|list|length %}{% if n %}<option value="{{ sc }}" data-n="{{ n }}">{{ sc }}の指摘すべて（{{ n }}件）</option>{% endif %}{% endfor %}</select>
+    を
+    <select id="bk-dec" aria-label="判断">{% for c in choice_help %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+    に
+    <input type="text" id="bk-reason" placeholder="理由（任意）" class="reason">
+    <button type="button" id="bk-go" class="secondary">まとめて確定する</button>
+    <div class="muted small">委員会でまとめて決めたときに使います。そのあと1件ずつ変えることもできます（判断を変えた指摘には履歴が残ります）。</div>
+  </div>
+  <script>
+  (function () {
+    var go = document.getElementById('bk-go'); if (!go) return;
+    go.addEventListener('click', function () {
+      var sc = document.getElementById('bk-scope'), dec = document.getElementById('bk-dec').value;
+      var n = sc.selectedOptions[0].dataset.n;
+      if (!window.confirm(sc.value + 'の指摘 ' + n + '件を、すべて「' + dec + '」にします。よろしいですか？')) return;
+      var data = new FormData();
+      data.append('scope', sc.value); data.append('decision', dec); data.append('reason', document.getElementById('bk-reason').value);
+      go.disabled = true; go.textContent = '保存中…';
+      fetch('/works/{{ id }}/decisions/bulk', { method: 'POST', body: data })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (sum) { location.href = '/works/{{ id }}?bulk=' + sum.changed + '#findings'; })
+        .catch(function () { go.disabled = false; go.textContent = 'まとめて確定する'; alert('保存できませんでした。もう一度押してください。'); });
+    });
+  })();
+  </script>
+  {% endif %}
   <div class="filters" id="filters">
     <button type="button" class="fbtn on" data-filter="all">すべて <span>{{ rows|length }}</span></button>
     {% for c in cats %}<button type="button" class="fbtn f-{{ c }}" data-filter="{{ c }}">{{ c }} <span>{{ counts[c] }}</span></button>{% endfor %}
     <button type="button" class="fbtn f-保留" data-filter="保留" title="推奨・参考のうち、まだ「保留」のもの">保留中 <span data-tally="保留">{{ tally["保留"] }}</span></button>
   </div>
+  {% if bulk %}<div class="justdone">✓ まとめて判断しました（判断が変わった指摘 {{ bulk }}件）。</div>{% endif %}
   <div id="flist-top"></div>
   <p class="muted fempty" id="fempty" hidden>この区分の指摘はありません。</p>
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
@@ -309,7 +345,10 @@
 
 <div class="card" id="next">
   <h2>3. 改定案と新旧対照表</h2>
-  {% if done == "改定案作成中" and work.draft %}<div class="justdone">✓ 改定案ができました（改定 {{ work.draft.amendments|length }}条）。「新旧対照表を開く」で中身を確認し、次は「4. 理事会での検討」で検討資料を作ってください。</div>{% endif %}
+  {% if done == "改定案作成中" and work.draft %}
+    {% if quality and quality.level == "ok" %}<div class="justdone">✓ 改定案ができました（改定 {{ work.draft.amendments|length }}条）。「新旧対照表を開く」で中身を確認し、次は「4. 理事会での検討」で検討資料を作ってください。</div>
+    {% else %}<div class="justdone warn">！ 改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}条）。下の「！」の説明を読んでから進んでください。</div>{% endif %}
+  {% endif %}
   <div class="done{{ ' stale' if work.draft_stale else '' }}">
     <div class="done-head">指摘の判断のまとめ{% if summary.saved_at %}<span class="muted">（最後に保存：<span data-sum="saved_at">{{ summary.saved_at }}</span>）</span>{% endif %}</div>
     <div>改定案に入れる指摘：<b><span data-sum="total">{{ summary.total }}</span>件</b>（必須 {{ summary.must }}件＋採用 <span data-tally="採用">{{ tally["採用"] }}</span>件）。
@@ -322,7 +361,7 @@
     <div class="quality q-{{ q.level }}">
       <div class="q-head">{{ "✓" if q.level == "ok" else "！" }} {{ q.head }}</div>
       <div class="q-body">
-        <div>改定 <b>{{ q.count }}条</b>（{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}）</div>
+        <div>改定 <b>{{ q.count }}条</b>{% if q.elapsed_min %}<span class="muted">（作成 {{ q.elapsed_min }}分）</span>{% endif %}（{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}）</div>
         <ul class="q-list">
           <li>{{ "✓" if q.checks_ok else "！" }} <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
             <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
@@ -333,6 +372,9 @@
               <div class="muted small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
             {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
         </ul>
+        {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
+          <ul>{% for c in q.costs.lines %}<li>{{ c.step }}：約${{ "%.2f"|format(c.usd) }}{% if c.at %} <span class="muted">（{{ c.at }}）</span>{% endif %}</li>{% endfor %}</ul>
+          <div class="muted small">公開価格での概算です。住民向け説明と検討資料の費用（1回 数セント〜数十セント）は含みません。</div></details>{% endif %}
         <div class="q-human"><b>人が確認すること：</b>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。
           {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}{% if q.choices %}特に、組合が選ぶ点（{{ q.choices }}か所、〔選択〕の印）は、理事会で決めてください。{% endif %}
           {% if q.extra %}<div class="extra">指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div>{% endif %}</div>
@@ -357,6 +399,24 @@
     <p><a class="btn" href="/works/{{ id }}/board" target="_blank">検討資料を開く（印刷用）</a>
        <a class="btn secondary" href="/works/{{ id }}/taisho" target="_blank">新旧対照表</a></p>
     <form action="/works/{{ id }}/board/decisions" method="post">
+    {% if questions %}
+      <div class="choose-ui" id="questions">
+        <div class="cu-head">組合が選ぶ点（{{ questions|length }}問）</div>
+        <p class="muted small">改定案の〔選択〕の箇所です。同じ点が複数の議題に出てくる場合も、ここで1回選べば、関係するすべての議題に使います。
+          選んで保存すると、選んだ案で改定案を作り直します（〔選択〕の印を外します）。</p>
+        {% for q in questions %}{% set k = loop.index0 %}
+          <div class="cu-point" id="q-{{ k }}"><b>問{{ k + 1 }}　{{ q.ref }}（{{ q.caption }}）：{{ q.point }}</b>
+            <div class="muted small">関係する議題：{% for u in q.uses %}{{ u[0] + 1 }}. {{ board["items"][u[0]].title }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
+            {% if q.options %}
+              {% for o in q.options %}<label class="cu-opt"><input type="radio" name="b_q_{{ k }}" value="{{ o }}" {% if answers[k] == o %}checked{% endif %}> {{ o }}</label>{% endfor %}
+            {% else %}
+              <input type="text" name="b_q_{{ k }}" value="{{ answers[k] }}" placeholder="選んだ案" style="max-width:560px">
+            {% endif %}
+            {% if q.note %}<div class="muted small">{{ q.note }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
     {% set ns = namespace(tier="") %}
     {% for it in board["items"] %}
       {% set i = loop.index0 %}{% set d = board_decisions.get(i|string, {}) %}
@@ -375,19 +435,10 @@
         </select>
         {% set pts = board_points.get(i, []) %}
         {% if pts %}
-          <div class="choose-ui">
-            <div class="cu-head">選ぶ必要があります（〔選択〕）{% if it.tier == "法律の改正に合わせる変更" %}<span class="muted">　法律に合わせる変更ですが、書き方は組合が選びます</span>{% endif %}</div>
-            {% for p in pts %}{% set j = loop.index0 %}{% set cur = (d.picked or {}).get(j|string, "") %}
-              <div class="cu-point"><b>{{ p.ref }}（{{ p.caption }}）：{{ p.point }}</b>
-                {% if p.options %}
-                  {% for o in p.options %}<label class="cu-opt"><input type="radio" name="b_pick_{{ i }}_{{ j }}" value="{{ o }}" {% if cur == o %}checked{% endif %}> {{ o }}</label>{% endfor %}
-                {% else %}
-                  <input type="text" name="b_pick_{{ i }}_{{ j }}" value="{{ cur }}" placeholder="選んだ案" style="max-width:560px">
-                {% endif %}
-                {% if p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}
-              </div>
-            {% endfor %}
-            <div class="muted small">案を選んで保存すると、選んだ案で改定案を作り直します（〔選択〕の印を外します）。{% if it.tier != "法律の改正に合わせる変更" %}「見送り」にした場合は選ばなくてかまいません。{% endif %}</div>
+          <div class="choose-ref">
+            <b>選ぶ点（〔選択〕）：</b>{% for p in pts %}{% set k = qindex[point_key(p)] %}
+              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}{% if not loop.last %}／{% endif %}{% endfor %}
+            <div class="muted small">案は上の「組合が選ぶ点」で選びます。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
           </div>
         {% endif %}
         <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}" style="max-width:560px">

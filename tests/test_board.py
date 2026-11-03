@@ -163,12 +163,12 @@ def test_board_state_requires_choice_and_redraft(monkeypatch):
     monkeypatch.setattr(M, "_run_explain", lambda wid: None)
     try:
         c = TestClient(M.app)
-        assert "選ぶ必要があります" in c.get(f"/works/{wid}").text
+        assert "組合が選ぶ点" in c.get(f"/works/{wid}").text
         form = {"b_decision_0": "理解した", "b_decision_1": "採用", "b_decision_2": "採用", "b_decision_3": "確認した"}
         c.post(f"/works/{wid}/board/decisions", data=form)
         st = M.board_state(store.load(wid))
         assert not st["ready"] and "案を選んでください" in st["reason"]
-        c.post(f"/works/{wid}/board/decisions", data={**form, "b_pick_0_0": "（イ）書面又は電磁的方法"})
+        c.post(f"/works/{wid}/board/decisions", data={**form, "b_q_0": "（イ）書面又は電磁的方法"})
         w = store.load(wid)
         assert w["board_decisions"]["0"]["choice"] == "第47条 届出の方法：（イ）書面又は電磁的方法"
         st = M.board_state(w)
@@ -186,3 +186,18 @@ def test_board_state_requires_choice_and_redraft(monkeypatch):
         assert M.board_state(store.load(wid))["ready"]
     finally:
         shutil.rmtree(d)
+
+
+def test_choice_questions_group_same_point_across_items():
+    from core.board import choice_questions, current_answers
+
+    p45 = {"ref": "第45条", "caption": "招集手続", "point": "WEB会議の括弧書きを入れるか", "options": ["入れる", "入れない"], "note": ""}
+    p48 = {"ref": "第48条", "caption": "議決権", "point": "電磁的方法を設けるか", "options": ["設ける", "設けない"], "note": ""}
+    points = {1: [p45], 3: [dict(p48), dict(p45)], 4: [dict(p45)]}
+    qs = choice_questions(points)
+    assert [q["ref"] for q in qs] == ["第45条", "第48条"]
+    assert qs[0]["uses"] == [(1, 0), (3, 1), (4, 0)]
+    assert qs[1]["uses"] == [(3, 0)]
+    # どれかの議題で選ばれていれば、その答えを使う
+    decisions = {"3": {"picked": {"0": "設けない", "1": "入れない"}}}
+    assert current_answers(qs, decisions) == ["入れない", "設けない"]

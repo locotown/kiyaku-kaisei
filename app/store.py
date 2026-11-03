@@ -20,18 +20,24 @@ WORK = ROOT / "private/work"
 _lock = threading.Lock()
 
 
+class WorkNotFound(LookupError):
+    """作業がない（または作業IDの形が正しくない）。"""
+
+
 def new_id() -> str:
     return datetime.now(JST).strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
 
 
 def path(work_id: str) -> Path:
     if not work_id.replace("-", "").isalnum():
-        raise ValueError("作業IDが不正です")
+        raise WorkNotFound(work_id)
     return WORK / work_id
 
 
 def load(work_id: str) -> dict:
     p = path(work_id) / "work.json"
+    if not p.exists():
+        raise WorkNotFound(work_id)
     return json.loads(p.read_text(encoding="utf-8"))
 
 

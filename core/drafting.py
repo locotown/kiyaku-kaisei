@@ -17,9 +17,9 @@ from core.config import ROOT, client
 from core.draft import DRAFT_SCHEMA, Draft, check
 from core.findings import Finding
 from core.model import Kiyaku
-from core.progress import describe_builtin, describe_tool
+from core.progress import describe_builtin, describe_tool, draft_plan
 from core.quality import RESULT_JA
-from core.review import BUDGET_CENTS, DEADLINE_SEC, ENFORCED, JST
+from core.review import ENFORCED, JST
 from core.tools import TOOL_DEFS, ToolHandler
 
 STATE = ROOT / "agents/state.json"
@@ -232,12 +232,14 @@ def run_draft(
     evaluations: list[dict] = []
     started = time.monotonic()
     stop = ""
+    plan = draft_plan(len(findings))  # 採用が多いほど、時間と費用の上限を広げる
+    deadline = plan["deadline_min"] * 60
 
     session = c.beta.sessions.create(
         agent={"type": "agent", "id": state["drafter_id"], "version": state["drafter_version"]},
         environment_id=state["environment_id"],
         title=title,
-        budget={"type": "limit", "max_list_cost": {"amount": BUDGET_CENTS, "currency": "USD"}},
+        budget={"type": "limit", "max_list_cost": {"amount": str(plan["budget_usd"] * 100), "currency": "USD"}},
     )
     notify("session", session.id)
     handler.attach(c, session.id, notify)
@@ -253,8 +255,9 @@ def run_draft(
             }],
         )
         for event in stream:
-            if time.monotonic() - started > DEADLINE_SEC:
+            if time.monotonic() - started > deadline:
                 stop = "timeout"
+                notify("stopped", f"時間の上限（{plan['deadline_min']}分）に達したため、AI の作業を止めました")
                 c.beta.sessions.events.send(session_id=session.id, events=[{"type": "user.interrupt"}])
                 break
             etype = event.type

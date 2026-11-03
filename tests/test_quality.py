@@ -93,3 +93,23 @@ def test_source_notes(monkeypatch):
         assert "Wordから読み込みました" in page and "最新版か" in page
     finally:
         shutil.rmtree(d)
+
+
+def test_timeout_is_shown_before_grader_result():
+    from core.quality import draft_quality
+
+    work = {"draft": {"amendments": []}, "draft_stop": "timeout", "draft_plan": {"deadline_min": 30},
+            "draft_evaluations": [{"result": "satisfied", "explanation": ""}]}
+    q = draft_quality(work)
+    assert q["level"] == "warn" and q["stopped"] and "時間の上限（30分）" in q["head"]
+
+
+def test_cost_history_keeps_redraft():
+    from core.quality import cost_lines
+
+    work = {"costs": [{"step": "点検", "cost": {"amount": "77"}}, {"step": "改定案", "cost": {"amount": "537"}},
+                      {"step": "改定案の作り直し", "cost": {"amount": "340"}}]}
+    c = cost_lines(work)
+    assert [x["step"] for x in c["lines"]] == ["点検", "改定案", "改定案の作り直し"] and c["total"] == 9.54
+    # 記録を残す前の作業は、最後の値だけ
+    assert cost_lines({"review_cost": {"amount": "100"}, "draft_cost": {"amount": "250"}})["total"] == 3.5

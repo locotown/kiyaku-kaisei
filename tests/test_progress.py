@@ -62,3 +62,11 @@ def test_journey_and_done_banner():
     j = journey({"status": "説明文あり", "findings": [{}], "draft": {"amendments": []}, "explain": {"items": []},
                  "meeting": {"results": {"規約": "可決"}}}, {"ready": True})
     assert j["current"] == "" and all(st["state"] == "done" for st in j["steps"])
+
+
+def test_draft_plan_scales_with_adopted():
+    from core.progress import draft_plan, summarize
+
+    assert draft_plan(7)["deadline_min"] == 30 and not draft_plan(7)["large"]
+    assert draft_plan(21)["deadline_min"] > 30 and draft_plan(21)["budget_usd"] > 5 and draft_plan(21)["large"]
+    assert summarize("改定案作成中", [], adopted=21)["estimate"] == draft_plan(21)["estimate"]

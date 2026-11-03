@@ -185,6 +185,42 @@ def choice_points(paper: BoardPaper, draft: Draft | None) -> dict[int, list[dict
     return out
 
 
+def point_key(p: dict) -> str:
+    return f"{p['ref']}|{p['point']}"
+
+
+def choice_questions(points: dict[int, list[dict]]) -> list[dict]:
+    """組合が選ぶ点を、問いごとにまとめる。
+
+    同じ条の同じ選ぶ点が、議題をまたいで何度も出る（例：第45条のWEB会議の括弧書きが3つの議題に出る）。
+    1つの問いとして1回だけ選んでもらい、その答えを関係するすべての議題に使う（食い違いを防ぐ）。
+    uses は（議題の番号, その議題の中の選ぶ点の番号）の一覧。
+    """
+    qs: list[dict] = []
+    index: dict[str, int] = {}
+    for i in sorted(points):
+        for j, p in enumerate(points[i]):
+            k = point_key(p)
+            if k not in index:
+                index[k] = len(qs)
+                qs.append({**p, "key": k, "uses": []})
+            qs[index[k]]["uses"].append((i, j))
+    return qs
+
+
+def current_answers(questions: list[dict], decisions: dict[str, dict]) -> list[str]:
+    """問いごとの、いま選ばれている案（関係する議題のどれかで選ばれていれば、それを使う）。"""
+    out = []
+    for q in questions:
+        v = ""
+        for i, j in q["uses"]:
+            v = ((decisions.get(str(i)) or {}).get("picked") or {}).get(str(j), "")
+            if v:
+                break
+        out.append(v)
+    return out
+
+
 def remaining_choices(draft: Draft) -> list[str]:
     """改定案の本文に〔選択〕が残っている改定（住民向け説明の前に、理事会で選んで作り直す）。"""
     return [ref_name(a) for a in draft.amendments if CHOICE_MARK in a.text]

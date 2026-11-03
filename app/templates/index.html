@@ -9,6 +9,12 @@
   <label for="name">作業の名前</label>
   <input type="text" id="name" name="name" required placeholder="例：2026年度 規約見直し（委員会案）">
 
+  <div class="help">あなたが作業を見分けるための名前です。住民向けの説明などの資料には出ません。</div>
+
+  <label for="org">マンション名・管理組合名（任意）</label>
+  <input type="text" id="org" name="org" placeholder="例：〇〇マンション管理組合">
+  <div class="help">住民向けの説明・理事会の検討資料・新旧対照表の題名に入ります。空欄なら入れません（あとから作業の画面で変えられます）。</div>
+
   <label for="file">現行規約のファイル</label>
   <input type="file" id="file" name="file" accept="{{ supported|join(',') }}">
   <div class="muted">対応形式：Word（.docx。Google ドキュメントは「ダウンロード → Microsoft Word」で保存）、文字を選択できるPDF、テキスト。紙をスキャンしたPDFはまだ使えません。紙の規約しかない場合は、文字に起こして Word などで保存してから読み込み、点検の前に「現行」の文を原本と見比べてください（数字と条番号は特に）。</div>
@@ -51,7 +57,7 @@
 
 <div class="card">
 <h2>サンプルで試す</h2>
-<p class="muted">手元に規約がなくても、次のサンプルで流れを確かめられます（公開資料をもとにした規約と、架空の規約です）。点検から説明文まで通すと、API の費用が $2〜3 ほどかかります。</p>
+<p class="muted">手元に規約がなくても、次のサンプルで流れを確かめられます（公開資料をもとにした規約と、架空の規約です）。点検から総会後の最新規約まで通すと、時間は15〜50分ほど、AI の費用は$2〜10ほどかかります（点検 約$1、改定案は採用する指摘の数しだいで$1〜8。理事会の判断で作り直すと、その分も加わります）。</p>
 <div class="samples">
 {% for key, s in samples.items() %}
   <form action="/works" method="post" class="sample">

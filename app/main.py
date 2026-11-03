@@ -13,7 +13,9 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import store
 from core.config import ROOT
@@ -82,7 +84,8 @@ def _run_review(work_id: str) -> None:
                      for i, f in enumerate(result.findings)}
         store.update(work_id, status="点検済み", findings=[f.to_dict() for f in result.findings],
                      decisions=decisions, summary=result.summary, review_session=result.session_id,
-                     review_cost=result.usage.get("list_cost"))
+                     review_cost=result.usage.get("list_cost"),
+                     costs=work.get("costs", []) + [_cost_entry("点検", result.usage.get("list_cost"))])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="エラー", error=traceback.format_exc(limit=3))
@@ -109,9 +112,41 @@ def _points(work: dict) -> dict:
     return choice_points(paper, _draft(work)) if paper else {}
 
 
+def _org(work: dict) -> str:
+    """マンション名・管理組合名（住民向けの説明・検討資料・新旧対照表に入れる）。作業の名前は出さない。"""
+    return str(work.get("org", "")).strip()
+
+
+def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
+    title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
+    d = store.path(work_id)
+    (d / "taisho.html").write_text(to_html(draft, corpus, title), encoding="utf-8")
+    (d / "taisho.md").write_text(to_markdown(draft, corpus, title), encoding="utf-8")
+
+
+def _rerender(work_id: str) -> None:
+    """マンション名を変えたら、作ってある資料（新旧対照表・検討資料・住民向け説明）を AI を使わずに書き直す。"""
+    from core.board import apply_to_draft, to_html as board_html
+    from core.explain import Explanation, to_html as explain_html
+
+    work = store.load(work_id)
+    draft, paper = _draft(work), _board(work)
+    d = store.path(work_id)
+    if draft and (d / "taisho.html").exists():
+        _write_taisho(work_id, work, draft, _corpus(work_id))
+    if paper and (d / "board.html").exists():
+        (d / "board.html").write_text(board_html(paper, work.get("board_decisions") or None, _org(work), _points(work)),
+                                      encoding="utf-8")
+    if work.get("explain") and draft and (d / "explain.html").exists():
+        shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
+        (d / "explain.html").write_text(explain_html(Explanation.model_validate(work["explain"]), _org(work), shown),
+                                        encoding="utf-8")
+
+
 def _run_draft(work_id: str, with_board: bool = False) -> None:
     from core.board import decisions_text
     from core.drafting import run_draft
+    from core.progress import draft_plan
 
     work = store.load(work_id)
     try:
@@ -122,15 +157,18 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
                            title=f"改定案：{work['name']}", board=board)
         d = store.path(work_id)
         if result.draft:
-            (d / "taisho.html").write_text(to_html(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
-            (d / "taisho.md").write_text(to_markdown(result.draft, corpus, f"{work['name']} 新旧対照表（案）"), encoding="utf-8")
+            _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
         if result.draft and not board:
             extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
+        step = "改定案の作り直し" if work.get("draft") else "改定案"
         store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
                      draft=result.draft.to_dict() if result.draft else None, **extra,
                      draft_errors=result.errors, draft_evaluations=result.evaluations,
-                     draft_session=result.session_id, draft_cost=result.usage.get("list_cost"))
+                     draft_session=result.session_id, draft_cost=result.usage.get("list_cost"),
+                     draft_stop=result.stop, draft_elapsed=round(result.elapsed_sec),
+                     draft_plan=draft_plan(len(adopted)),
+                     costs=store.load(work_id).get("costs", []) + [_cost_entry(step, result.usage.get("list_cost"))])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3))
@@ -150,7 +188,7 @@ def _run_explain(work_id: str) -> None:
         paper, decisions = _board(work), work.get("board_decisions", {})
         draft = apply_to_draft(draft, paper, decisions)  # 理事会が見送りにした改定は説明しない
         ex, _ = generate(draft, work["info"], board=decisions_text(paper, decisions))
-        (store.path(work_id) / "explain.html").write_text(explain_html(ex, work["name"], draft), encoding="utf-8")
+        (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft), encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
@@ -169,7 +207,7 @@ def _run_board(work_id: str) -> None:
         from core.board import choice_points
 
         (store.path(work_id) / "board.html").write_text(
-            board_html(paper, None, work["name"], choice_points(paper, draft)), encoding="utf-8")
+            board_html(paper, None, _org(work), choice_points(paper, draft)), encoding="utf-8")
         store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
                      draft_reflects_board=False)
     except Exception as e:
@@ -321,6 +359,35 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
                      "history": history})
     return docs
 
+def _error_page(request: Request, status: int, message: str):
+    """エラーを、画面では日本語のページで示す（API の呼び出しには JSON で返す）。"""
+    wants_json = request.url.path.endswith("/status") or "text/html" not in request.headers.get("accept", "")
+    if wants_json:
+        return JSONResponse({"detail": message}, status_code=status)
+    parts = request.url.path.strip("/").split("/")
+    back = f"/works/{parts[1]}" if len(parts) > 2 and parts[0] == "works" and status != 404 else "/"
+    return templates.TemplateResponse(request, "error.html", {"status": status, "message": message, "back": back},
+                                      status_code=status)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request: Request, exc: StarletteHTTPException):
+    detail = exc.detail if isinstance(exc.detail, str) else ""
+    if not detail or detail.isascii():  # FastAPI 既定の英語のメッセージ（Not Found など）は日本語にする
+        detail = "ページが見つかりません。" if exc.status_code == 404 else "この操作はできません。前の画面に戻ってください。"
+    return _error_page(request, exc.status_code, detail)
+
+
+@app.exception_handler(RequestValidationError)
+async def form_error(request: Request, exc: RequestValidationError):
+    return _error_page(request, 400, "入力が足りないか、正しくありません。前の画面に戻って、入力欄を確認してください。")
+
+
+@app.exception_handler(store.WorkNotFound)
+async def missing_work(request: Request, exc: store.WorkNotFound):
+    return _error_page(request, 404, "この作業は見つかりません。削除されたか、アドレスが違う可能性があります。")
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {"works": store.list_works(), "supported": sorted(SUPPORTED), "samples": SAMPLES})
@@ -332,6 +399,7 @@ def create_work(
     kind: str = Form("単棟型"),
     units: str = Form(""),
     electronic: str = Form("未定"),
+    org: str = Form(""),
     sample: str = Form(""),
     file: UploadFile | None = File(None),
 ):
@@ -370,7 +438,7 @@ def create_work(
     info = {"型": kind, "電磁的方法の利用": electronic}
     if units:
         info["戸数"] = units
-    store.save(work_id, {"name": name, "info": info, "status": "点検中", "articles": len(kiyaku.articles),
+    store.save(work_id, {"name": name, "org": org.strip(), "info": info, "status": "点検中", "articles": len(kiyaku.articles),
                          "documents": documents, "log": []})
     threading.Thread(target=_run_review, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
@@ -378,10 +446,16 @@ def create_work(
 
 def next_step(work: dict) -> str:
     """指摘の判断のあとに、次にすることの案内。"""
+    from core.progress import draft_plan
+
+    plan = draft_plan(_adopted_count(work))
+    cost = f"{plan['estimate']}、AI の費用 {plan['cost']}ほど"
+    if plan["large"]:
+        cost += "。採用が多いと時間がかかるので、急ぐ場合は推奨・参考を絞ってください"
     if not work.get("draft"):
-        return "判断が終わったら、下の「採用した指摘から改定案を作る」を押してください（10〜15分ほどかかります）。"
+        return f"判断が終わったら、下の「採用した指摘から改定案を作る」を押してください（改定案に入れる指摘 {plan['adopted']}件で{cost}）。"
     if work.get("draft_stale"):
-        return "今の改定案を作った後に判断が変わりました。下の「改定案を作り直す」を押してください。"
+        return f"今の改定案を作った後に判断が変わりました。下の「改定案を作り直す」を押してください（{cost}）。"
     return "判断は今の改定案に反映されています。「4. 理事会での検討」に進めます。"
 
 
@@ -441,6 +515,7 @@ def show_work(request: Request, work_id: str):
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
         "board_points": _points(work) if work.get("board") and work.get("draft") else {},
+        **_questions_context(work),
         "meeting_groups": final_amendments(work) if work.get("draft") else {},
         "meeting": work.get("meeting") or {},
         "meeting_results": MEETING_RESULTS,
@@ -451,7 +526,19 @@ def show_work(request: Request, work_id: str):
         "quality": __import__("core.quality", fromlist=["draft_quality"]).draft_quality(work) if work.get("draft") else None,
         "source_note": _source_note(work_id, work),
         "done": request.query_params.get("done", ""),
+        "bulk": request.query_params.get("bulk", ""),
     })
+
+
+def _questions_context(work: dict) -> dict:
+    """理事会の欄の「組合が選ぶ点」（問いごとにまとめたもの）と、いまの答え。"""
+    from core.board import choice_questions, current_answers, point_key
+
+    if not (work.get("board") and work.get("draft")):
+        return {"questions": [], "answers": [], "qindex": {}, "point_key": point_key}
+    qs = choice_questions(_points(work))
+    return {"questions": qs, "answers": current_answers(qs, work.get("board_decisions", {})),
+            "qindex": {q["key"]: k for k, q in enumerate(qs)}, "point_key": point_key}
 
 
 def progress_view(work: dict) -> dict:
@@ -465,7 +552,7 @@ def progress_view(work: dict) -> dict:
     log = work.get("log", [])
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
-             "error": "エラー", "tool": "作業", "builtin": "作業"}
+             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"
@@ -488,7 +575,16 @@ def progress_view(work: dict) -> dict:
             now_text = text
     last = current[-1]["ts"] if current else since
     return {"elapsed": int(now - since), "last_age": int(now - last), "lines": lines,
-            "current": now_text, **summarize(work.get("status", ""), current)}
+            "current": now_text, **summarize(work.get("status", ""), current, adopted=_adopted_count(work))}
+
+
+def _adopted_count(work: dict) -> int:
+    """改定案に入れる指摘の件数（必須＋採用）。"""
+    return sum(1 for d in work.get("decisions", {}).values() if d.get("decision") == "採用")
+
+
+def _cost_entry(step: str, cost) -> dict:
+    return {"step": step, "cost": cost, "at": _now()}
 
 
 @app.get("/works/{work_id}/status")
@@ -522,6 +618,48 @@ async def save_decisions(request: Request, work_id: str):
     # 保存したら次の工程（改定案）の欄へ移り、保存の結果と次にすることを示す
     return RedirectResponse(f"/works/{work_id}?saved=1#next", status_code=303)
 
+
+
+@app.post("/works/{work_id}/org")
+async def save_org(request: Request, work_id: str):
+    form = await request.form()
+    store.load(work_id)
+    store.update(work_id, org=str(form.get("org", "")).strip()[:80])
+    _rerender(work_id)
+    return RedirectResponse(f"/works/{work_id}?done=org", status_code=303)
+
+
+BULK_SCOPES = {"推奨": ("推奨",), "参考": ("参考",), "推奨・参考": ("推奨", "参考")}
+
+
+@app.post("/works/{work_id}/decisions/bulk")
+async def save_bulk_decisions(request: Request, work_id: str):
+    """推奨・参考の指摘を、区分ごとにまとめて判断する（1件ずつ確定する手間を省く）。
+
+    判断が変わる指摘だけ履歴を残す。理由が空なら「まとめて採用」のように残す。
+    """
+    from core.history import record
+
+    form = await request.form()
+    scope, decision = str(form.get("scope", "")), str(form.get("decision", ""))
+    if scope not in BULK_SCOPES or decision not in DECISIONS:
+        raise HTTPException(400, "まとめて判断する範囲か判断の値が正しくありません。")
+    reason = str(form.get("reason", "")).strip() or f"まとめて{decision}"
+    work = store.load(work_id)
+    decisions = work.get("decisions", {})
+    now, changed = _now(), 0
+    for i, f in enumerate(work.get("findings", [])):
+        if f["category"] not in BULK_SCOPES[scope]:
+            continue
+        prev = decisions.get(str(i), {})
+        if prev.get("decision") == decision:
+            continue
+        decisions[str(i)] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
+        changed += 1
+    stale = bool(work.get("draft")) and (changed > 0 or work.get("draft_stale", False))
+    work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=now)
+    store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
+    return JSONResponse(decision_summary(work) | {"changed": changed})
 
 
 @app.post("/works/{work_id}/decisions/{index}")
@@ -683,13 +821,15 @@ async def save_board_decisions(request: Request, work_id: str):
     decisions = {}
     changed_redraft = False
     now = _now()
-    from core.board import picked_text
+    from core.board import choice_questions, picked_text, point_key
 
     points = _points(work)
+    # 組合が選ぶ点は、問いごとに1回だけ選ぶ（b_q_{問いの番号}）。答えを関係するすべての議題に使う
+    answers = {q["key"]: str(form.get(f"b_q_{k}", "")).strip() for k, q in enumerate(choice_questions(points))}
     for i, it in enumerate(paper.items):
         d = str(form.get(f"b_decision_{i}", ""))
         pts = points.get(i, [])
-        picked = {str(j): str(form.get(f"b_pick_{i}_{j}", "")).strip() for j in range(len(pts))}
+        picked = {str(j): answers.get(point_key(p), "") for j, p in enumerate(pts)}
         entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
                  "choice": picked_text(pts, picked) if pts else str(form.get(f"b_choice_{i}", "")).strip()}
         prev = old.get(str(i), {})
@@ -706,7 +846,7 @@ async def save_board_decisions(request: Request, work_id: str):
     if changed_redraft:
         changes["draft_reflects_board"] = False
     store.update(work_id, **changes)
-    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, work["name"], points), encoding="utf-8")
+    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points), encoding="utf-8")
     return RedirectResponse(f"/works/{work_id}#board", status_code=303)
 
 

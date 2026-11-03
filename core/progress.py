@@ -16,6 +16,24 @@ STAGES = {
     "説明文作成中": {"steps": ["改定案を読む", "説明文を書く"], "estimate": "1〜2分"},
 }
 
+# 改定案の時間・費用は、採用した指摘の件数で大きく変わる（11/3 の通しテストの実測：
+# 7件 約5分・$1.3、12〜13件 8〜12分・$2.5〜3.4、21件 30分で打ち切り・$5.4）。
+# 件数ごとに目安を示し、時間と費用の上限も件数に合わせて広げる。
+DRAFT_PLANS = [
+    (8, {"estimate": "5〜10分", "cost": "$1〜2", "deadline_min": 30, "budget_usd": 5}),
+    (15, {"estimate": "10〜20分", "cost": "$2〜4", "deadline_min": 30, "budget_usd": 5}),
+    (10**6, {"estimate": "20〜45分", "cost": "$4〜8", "deadline_min": 50, "budget_usd": 9}),
+]
+
+
+def draft_plan(adopted: int) -> dict:
+    """採用した指摘の件数から、改定案の時間・費用の目安と、打ち切る上限を返す。"""
+    for limit, plan in DRAFT_PLANS:
+        if adopted <= limit:
+            return {"adopted": adopted, **plan, "large": limit > 15}
+    raise AssertionError
+
+
 # ツール名 → （段階の番号、言い換え）
 TOOLS = {
     "list_articles": (1, "規約の条の一覧を確認"),
@@ -59,9 +77,11 @@ def _tool_name(entry: dict) -> str:
     return str(entry.get("text", "")).split("：", 1)[0]
 
 
-def summarize(status: str, log: list[dict]) -> dict:
-    """この処理の作業の記録（log）から、段階と件数をまとめる。"""
-    spec = STAGES.get(status, {"steps": [], "estimate": ""})
+def summarize(status: str, log: list[dict], adopted: int | None = None) -> dict:
+    """この処理の作業の記録（log）から、段階と件数をまとめる。adopted は改定案に入れる指摘の件数（目安に使う）。"""
+    spec = dict(STAGES.get(status, {"steps": [], "estimate": ""}))
+    if status == "改定案作成中" and adopted is not None:
+        spec["estimate"] = draft_plan(adopted)["estimate"]
     stage, counts = 0, {"規約の条": 0, "標準管理規約": 0, "区分所有法": 0, "指摘": 0}
     for e in log:
         kind, name = e.get("kind"), _tool_name(e)
