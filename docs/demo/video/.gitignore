@@ -1,0 +1,11 @@
+clips/
+seg/
+subs/
+chk/
+bkp-*.png
+booklet.png
+offsets.json
+rows.json
+list.txt
+edit.log
+*.mp4

@@ -9,9 +9,9 @@ COLS = ["読み込み", "点検", "指摘の判断", "改定案", "理事会・�
 X0, CW = 330, 241.6  # 列の左端と幅
 LH, BW, BH = 162, 214, 124  # レーンの高さ、箱の幅と高さ
 LANES = {  # 上端の y、名前、補足、英語、色
-    "H": (300, "人", "委員会・理事会<br>総会", "People", "orange"),
-    "C": (474, "Claude", "判断が要るところ", "AI", "blue"),
-    "P": (648, "プログラム", "毎回同じ結果", "Code", "gray"),
+    "H": (268, "人", "委員会・理事会<br>総会", "People", "orange"),
+    "C": (442, "Claude", "判断が要るところ", "AI", "blue"),
+    "P": (616, "プログラム", "毎回同じ結果", "Code", "gray"),
 }
 BOXES = [
     ("P0", 0, "P", "規約を読み込む", "条・項に分ける（Word・PDF）"),
@@ -67,14 +67,14 @@ h1 {{ font-size: 54px; }} .en {{ font-size: 26px; margin-top: 6px; }}
 .l-orange {{ background: var(--orange-wash); }} .l-blue {{ background: var(--blue-wash); }} .l-gray {{ background: var(--gray-wash); }}
 .lname {{ position: absolute; left: 160px; width: 175px; display: flex; flex-direction: column; justify-content: center; }}
 .lname b {{ font-size: 30px; font-weight: 900; }} .lname span {{ font-size: 18px; color: var(--ink2); }} .lname i {{ font-style: normal; font-size: 18px; color: var(--muted); }}
-.col {{ position: absolute; top: 258px; text-align: center; font-size: 22px; font-weight: 700; color: var(--ink2); }}
+.col {{ position: absolute; top: 228px; text-align: center; font-size: 22px; font-weight: 700; color: var(--ink2); }}
 .box {{ position: absolute; width: {BW}px; height: {BH}px; background: #fff; border: 3px solid; border-radius: 10px; padding: 10px 12px;
         display: flex; flex-direction: column; justify-content: center; text-align: center; }}
 .box b {{ font-size: 24px; font-weight: 900; line-height: 1.3; white-space: nowrap; }}
 .box span {{ font-size: 17px; color: var(--ink2); line-height: 1.45; margin-top: 4px; }}
 .b-orange {{ border-color: var(--orange); }} .b-blue {{ border-color: var(--blue); }} .b-gray {{ border-color: var(--gray); }}
 svg {{ position: absolute; left: 0; top: 0; }} path {{ fill: none; stroke: var(--ink2); stroke-width: 3; }}
-.foot {{ position: absolute; left: 140px; right: 140px; top: 836px; font-size: 21px; color: var(--ink2); line-height: 1.5; }}
+.foot {{ position: absolute; left: 140px; right: 140px; top: 796px; font-size: 21px; color: var(--ink2); line-height: 1.5; }}
 .foot b {{ color: var(--blue); }}
 </style></head><body>
 <h1>判断は Claude に。正確さが要るところはプログラムに</h1>
