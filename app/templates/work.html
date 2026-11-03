@@ -158,7 +158,8 @@
       {% if f.current_excerpt %}<div class="quote">{{ f.current_excerpt }}</div>{% else %}<div class="muted">今の規約に、この点の定めはありません。</div>{% endif %}</div>
     <div class="sec"><div class="lbl">改定の方向</div>
       <div class="proposal">{{ v.proposal }}
-        {% if f.choice_needed %}<div class="choicebox"><b>選ぶ必要があります：</b>{{ f.choice_note }}</div>{% endif %}</div></div>
+        {% if f.choice_needed %}<div class="choicebox"><b>選ぶ必要があります：</b>{{ f.choice_note }}
+          <div class="cb-flow">{% if f.category == "必須" %}この指摘は改定案に入ります。改定案では両方の案を示し、「4. 理事会での検討」でどちらにするか決めます。{% else %}採用すると、改定案では両方の案を示し、「4. 理事会での検討」でどちらにするか決めます。保留・不採用にすると、改定案にも理事会の資料にも出ません。{% endif %}</div></div>{% endif %}</div></div>
     <div class="sec"><div class="lbl">根拠</div>
       <div><ul class="basis">{% for b in v.basis %}
         <li><details><summary><span class="src src-{{ b.kind }}">{{ b.source }}</span> {{ b.ref }}{% if b.caption %} <span class="cap">{{ b.caption }}</span>{% endif %}</summary>
@@ -372,8 +373,22 @@
           <option value="">（未判断）</option>
           {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
         </select>
-        {% if it.tier == "暮らしや運営に関わる変更" %}
-          <input type="text" name="b_choice_{{ i }}" value="{{ d.choice }}" placeholder="〔選択〕の箇所で選んだ案（あれば）" style="max-width:360px">
+        {% set pts = board_points.get(i, []) %}
+        {% if pts %}
+          <div class="choose-ui">
+            <div class="cu-head">選ぶ必要があります（〔選択〕）{% if it.tier == "法律の改正に合わせる変更" %}<span class="muted">　法律に合わせる変更ですが、書き方は組合が選びます</span>{% endif %}</div>
+            {% for p in pts %}{% set j = loop.index0 %}{% set cur = (d.picked or {}).get(j|string, "") %}
+              <div class="cu-point"><b>{{ p.ref }}（{{ p.caption }}）：{{ p.point }}</b>
+                {% if p.options %}
+                  {% for o in p.options %}<label class="cu-opt"><input type="radio" name="b_pick_{{ i }}_{{ j }}" value="{{ o }}" {% if cur == o %}checked{% endif %}> {{ o }}</label>{% endfor %}
+                {% else %}
+                  <input type="text" name="b_pick_{{ i }}_{{ j }}" value="{{ cur }}" placeholder="選んだ案" style="max-width:560px">
+                {% endif %}
+                {% if p.note %}<div class="muted small">{{ p.note }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            <div class="muted small">案を選んで保存すると、選んだ案で改定案を作り直します（〔選択〕の印を外します）。{% if it.tier != "法律の改正に合わせる変更" %}「見送り」にした場合は選ばなくてかまいません。{% endif %}</div>
+          </div>
         {% endif %}
         <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}" style="max-width:560px">
         {% set h = d.history or [] %}
@@ -385,9 +400,9 @@
     <p><button type="submit">理事会の判断を保存する</button></p>
     </form>
     {% if board_state %}
-      {% if board_state.redraft and not work.draft_reflects_board %}
+      {% if board_state.needs_redraft %}
         <form action="/works/{{ id }}/board/redraft" method="post">
-          <p class="note">「修正して採用」「要修正」の議題があります（{{ board_state.redraft|join("、") }}）。理事会の判断を反映して改定案を作り直してください。</p>
+          <p class="note">{{ board_state.reason }}{% if board_state.redraft %}（対象の議題：{{ board_state.redraft|join("、") }}）{% endif %}</p>
           <button type="submit" {% if work.status in ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中") %}disabled{% endif %}>理事会の判断を反映して改定案を作り直す</button>
         </form>
       {% elif board_state.ready %}

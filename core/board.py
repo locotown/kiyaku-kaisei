@@ -18,7 +18,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from core.config import MODEL, client
-from core.draft import Draft
+from core.draft import CHOICE_MARK, Draft
 from core.explain import _ref_key, ref_name
 from core.review import ENFORCED, JST
 
@@ -159,18 +159,69 @@ def default_decisions(paper: BoardPaper) -> dict[str, dict]:
     return {str(i): {"decision": "", "note": "", "choice": ""} for i, _ in enumerate(paper.items)}
 
 
-def status(paper: BoardPaper, decisions: dict[str, dict]) -> dict:
-    """判断が済んだか、改定案の作り直しが要るかを返す。"""
-    undecided, redraft, skipped = [], [], []
+def choice_points(paper: BoardPaper, draft: Draft | None) -> dict[int, list[dict]]:
+    """議題ごとの、組合が選ぶ必要がある点（〔選択〕）。AI に任せず、改定案の choices から決める。
+
+    ①②③のどの段の議題でも、〔選択〕を含む改定があれば選ぶ点として示す。
+    """
+    if draft is None:
+        return {}
+    by_key = {_ref_key(ref_name(a)): a for a in draft.amendments}
+    out: dict[int, list[dict]] = {}
+    for i, it in enumerate(paper.items):
+        pts = []
+        for x in it.articles:
+            a = by_key.get(_ref_key(x))
+            if a is None:
+                continue
+            for c in a.choices or []:
+                if c.get("options"):
+                    pts.append({"ref": ref_name(a), "caption": a.caption, "point": c.get("point", ""),
+                                "options": list(c["options"]), "note": c.get("note", "")})
+            if CHOICE_MARK in a.text and not a.choices:
+                pts.append({"ref": ref_name(a), "caption": a.caption, "point": "〔選択〕の箇所", "options": [], "note": ""})
+        if pts:
+            out[i] = pts
+    return out
+
+
+def remaining_choices(draft: Draft) -> list[str]:
+    """改定案の本文に〔選択〕が残っている改定（住民向け説明の前に、理事会で選んで作り直す）。"""
+    return [ref_name(a) for a in draft.amendments if CHOICE_MARK in a.text]
+
+
+def picked_text(points: list[dict], picked: dict) -> str:
+    """選んだ案を1行にする（例：「第33条 届出の方法：（イ）書面又は電磁的方法」）。"""
+    parts = []
+    for j, p in enumerate(points):
+        v = (picked or {}).get(str(j), "")
+        if v:
+            parts.append(f"{p['ref']} {p['point']}：{v}")
+    return "／".join(parts)
+
+
+def status(paper: BoardPaper, decisions: dict[str, dict], points: dict[int, list[dict]] | None = None) -> dict:
+    """判断が済んだか、改定案の作り直しが要るかを返す。
+
+    〔選択〕のある議題は、見送り以外なら案をすべて選ぶまで判断済みにしない。案を選んだら作り直しが要る。
+    """
+    points = points or {}
+    undecided, redraft, skipped, needs_choice = [], [], [], []
     for i, it in enumerate(paper.items):
         d = decisions.get(str(i), {})
+        pts = points.get(i, [])
+        picked = [v for v in (d.get("picked") or {}).values() if v]
         if d.get("decision") not in DECISIONS[it.tier]:
             undecided.append(it.title)
-        elif d["decision"] in NEEDS_REDRAFT:
+        elif pts and d["decision"] != "見送り" and len(picked) < len(pts):
+            undecided.append(it.title)
+            needs_choice.append(it.title)
+        elif d["decision"] in NEEDS_REDRAFT or (pts and picked and d["decision"] != "見送り"):
             redraft.append(it.title)
         elif d["decision"] == "見送り":
             skipped.append(it.title)
-    return {"undecided": undecided, "redraft": redraft, "skipped": skipped, "done": not undecided}
+    return {"undecided": undecided, "redraft": redraft, "skipped": skipped, "needs_choice": needs_choice,
+            "done": not undecided}
 
 
 def skipped_refs(paper: BoardPaper, decisions: dict[str, dict]) -> set[str]:
@@ -200,8 +251,22 @@ def decisions_text(paper: BoardPaper, decisions: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
-def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: str = "") -> str:
+def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: str = "",
+            points: dict[int, list[dict]] | None = None) -> str:
     decisions = decisions or {}
+    points = points or {}
+
+    def choice_box(pts: list[dict], picked: dict) -> str:
+        if not pts:
+            return ""
+        rows = []
+        for j, p in enumerate(pts):
+            mine = (picked or {}).get(str(j), "")
+            opts = "".join(f"<li>{'☑' if o == mine else '□'} {html.escape(o)}</li>" for o in p["options"]) \
+                or f"<li>{'☑ ' + html.escape(mine) if mine else '□ ＿＿＿＿＿＿＿＿'}</li>"
+            note = f'<div class="cnote">{html.escape(p["note"])}</div>' if p.get("note") else ""
+            rows.append(f'<div class="cpoint"><b>{html.escape(p["ref"])}（{html.escape(p["caption"])}）：{html.escape(p["point"])}</b><ul>{opts}</ul>{note}</div>')
+        return '<div class="choose"><h4>選ぶ必要があります（〔選択〕）</h4>' + "".join(rows) + "</div>"
 
     def li(xs):
         return "".join(f"<li>{html.escape(x)}</li>" for x in xs)
@@ -224,6 +289,7 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
 <p>{html.escape(it.summary)}</p>
 <h4>{TIER_TASK[it.tier][0].replace('する', '')}のポイント</h4><ul>{li(it.points)}</ul>
 {('<h4>選べる案</h4><ul>' + li(it.options) + '</ul>') if it.options else ''}
+{choice_box(points.get(i, []), d.get("picked") or {})}
 {('<h4>想定される質問</h4><ul>' + li(it.questions) + '</ul>') if it.questions else ''}
 <p class="decide">判断：{choices}　メモ：＿＿＿＿＿＿＿＿＿＿</p>{recorded}
 </section>""")
@@ -240,6 +306,8 @@ h4 {{ font-size: .95rem; color: #1f5fae; margin: .6em 0 .1em; }} ul {{ margin: .
 .arts {{ font-size: .82rem; color: #5b636e; margin: 0; }}
 .decide {{ font-size: .9rem; background: #f7f8fa; padding: 4px 8px; border-radius: 4px; }}
 .rec {{ font-size: .9rem; color: #0b6b2b; }}
+.choose {{ border: 1.5px dashed #b54708; border-radius: 6px; padding: 4px 12px; margin: .6em 0; }} .choose h4 {{ color: #93370d; }}
+.choose ul {{ list-style: none; padding-left: .6em; }} .cnote {{ font-size: .85rem; color: #5b636e; }}
 .note {{ font-size: .85rem; color: #5b636e; border-top: 1px solid #d6dbe1; margin-top: 2em; padding-top: 8px; }}
 @media print {{ body {{ margin: 0; font-size: 10.5pt; }} }}
 </style></head><body>

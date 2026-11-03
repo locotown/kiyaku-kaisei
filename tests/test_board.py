@@ -107,3 +107,82 @@ def test_items_without_articles_become_notes():
     assert all(it.articles for it in paper.items)
     assert paper.notes and paper.notes[0].startswith("関連条文の見直し")
     assert "今回の改定案に含まれていない点" in to_html(paper)
+
+
+CHOICES = [{"point": "届出の方法", "options": ["（ア）書面", "（イ）書面又は電磁的方法"], "note": "電磁的方法を使うかで選ぶ"}]
+
+
+def draft_with_choice():
+    d = make_draft()
+    d.amendments[0] = Amendment("改正", "第47条", "第47条", "総会の会議及び議事", "第47条　…〔選択〕…", "", ["1-1"], [],
+                                ["第47条"], choices=CHOICES)
+    return d
+
+
+def test_choice_points_any_tier_and_status():
+    from core.board import choice_points, picked_text, remaining_choices
+
+    draft, paper = draft_with_choice(), make_paper()
+    fix_tiers(paper, draft)
+    pts = choice_points(paper, draft)
+    assert list(pts) == [0] and paper.items[0].tier == T1  # ①（必須）の議題でも選ぶ点として出す
+    assert pts[0][0]["options"] == ["（ア）書面", "（イ）書面又は電磁的方法"]
+    d = {"0": {"decision": "理解した"}, "1": {"decision": "採用"}, "2": {"decision": "採用"}, "3": {"decision": "確認した"}}
+    st = status(paper, d, pts)
+    assert not st["done"] and st["needs_choice"] == ["総会"]  # 案を選ぶまで判断済みにしない
+    d["0"]["picked"] = {"0": "（イ）書面又は電磁的方法"}
+    st = status(paper, d, pts)
+    assert st["done"] and st["redraft"] == ["総会"]  # 選んだら作り直しが要る
+    assert picked_text(pts[0], d["0"]["picked"]) == "第47条 届出の方法：（イ）書面又は電磁的方法"
+    assert remaining_choices(draft) == ["第47条"]
+    printed = to_html(paper, d, "t", pts)
+    assert "選ぶ必要があります" in printed and "☑ （イ）書面又は電磁的方法" in printed and "□ （ア）書面" in printed
+    # 見送りなら選ばなくてよい（②の議題に〔選択〕がある場合）
+    draft.amendments[1] = Amendment("改正", "第20条", "第20条", "区分所有者の責務", "第20条　〔選択〕", "", ["10"], [], ["第20条"],
+                                    choices=CHOICES)
+    pts = choice_points(paper, draft)
+    d2 = {**d, "1": {"decision": "見送り"}}
+    assert "責務" not in status(paper, d2, pts)["needs_choice"]
+
+
+def test_board_state_requires_choice_and_redraft(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import app.main as M
+    from app import store
+
+    draft, paper = draft_with_choice(), make_paper()
+    fix_tiers(paper, draft)
+    wid = store.new_id()
+    d = store.path(wid)
+    d.mkdir(parents=True)
+    shutil.copy(M.SAMPLE, d / "source.txt")
+    store.save(wid, {"name": "t", "info": {"型": "単棟型"}, "status": "検討資料あり", "articles": 87, "log": [],
+                     "findings": [FINDING], "decisions": {"0": {"decision": "採用", "reason": ""}},
+                     "draft": draft.to_dict(), "board": paper.model_dump(), "board_decisions": {}})
+    monkeypatch.setattr(M, "_run_explain", lambda wid: None)
+    try:
+        c = TestClient(M.app)
+        assert "選ぶ必要があります" in c.get(f"/works/{wid}").text
+        form = {"b_decision_0": "理解した", "b_decision_1": "採用", "b_decision_2": "採用", "b_decision_3": "確認した"}
+        c.post(f"/works/{wid}/board/decisions", data=form)
+        st = M.board_state(store.load(wid))
+        assert not st["ready"] and "案を選んでください" in st["reason"]
+        c.post(f"/works/{wid}/board/decisions", data={**form, "b_pick_0_0": "（イ）書面又は電磁的方法"})
+        w = store.load(wid)
+        assert w["board_decisions"]["0"]["choice"] == "第47条 届出の方法：（イ）書面又は電磁的方法"
+        st = M.board_state(w)
+        assert not st["ready"] and st["needs_redraft"]
+        assert c.post(f"/works/{wid}/explain", follow_redirects=False).status_code == 400
+        # 作り直したが〔選択〕が残った場合も、住民向け説明には進めない
+        store.update(wid, draft_reflects_board=True)
+        st = M.board_state(store.load(wid))
+        assert not st["ready"] and st["needs_redraft"] and "〔選択〕が残っています" in st["reason"]
+        # 選んだ案で書き直された（〔選択〕がない）なら進める
+        fixed = store.load(wid)["draft"]
+        fixed["amendments"][0]["text"] = "第47条　…書面又は電磁的方法…"
+        fixed["amendments"][0]["choices"] = []
+        store.update(wid, draft=fixed)
+        assert M.board_state(store.load(wid))["ready"]
+    finally:
+        shutil.rmtree(d)

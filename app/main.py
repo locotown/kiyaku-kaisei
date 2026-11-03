@@ -94,6 +94,21 @@ def _board(work: dict):
     return BoardPaper.model_validate(work["board"]) if work.get("board") else None
 
 
+def _draft(work: dict):
+    from core.draft import Amendment, Draft
+
+    d = work.get("draft")
+    return Draft(amendments=[Amendment(**a) for a in d["amendments"]], notes=d.get("notes", "")) if d else None
+
+
+def _points(work: dict) -> dict:
+    """理事会の議題ごとの、組合が選ぶ点（〔選択〕）。"""
+    from core.board import choice_points
+
+    paper = _board(work)
+    return choice_points(paper, _draft(work)) if paper else {}
+
+
 def _run_draft(work_id: str, with_board: bool = False) -> None:
     from core.board import decisions_text
     from core.drafting import run_draft
@@ -151,7 +166,10 @@ def _run_board(work_id: str) -> None:
         store.append_log(work_id, "session", "理事会の検討資料を作っています")
         draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
         paper, _ = board_generate(draft, work["info"])
-        (store.path(work_id) / "board.html").write_text(board_html(paper, None, work["name"]), encoding="utf-8")
+        from core.board import choice_points
+
+        (store.path(work_id) / "board.html").write_text(
+            board_html(paper, None, work["name"], choice_points(paper, draft)), encoding="utf-8")
         store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
                      draft_reflects_board=False)
     except Exception as e:
@@ -161,17 +179,27 @@ def _run_board(work_id: str) -> None:
 
 def board_state(work: dict) -> dict:
     """理事会の検討の状態。住民向け説明を作れるかを返す。"""
-    from core.board import status
+    from core.board import apply_to_draft, remaining_choices, status
 
     paper = _board(work)
     if not paper:
-        return {"ready": False, "reason": "理事会の検討資料をまだ作っていません。"}
-    st = status(paper, work.get("board_decisions", {}))
+        return {"ready": False, "needs_redraft": False, "reason": "理事会の検討資料をまだ作っていません。"}
+    decisions = work.get("board_decisions", {})
+    st = status(paper, decisions, _points(work))
     if not st["done"]:
-        return {**st, "ready": False, "reason": f"まだ判断していない議題が{len(st['undecided'])}つあります。"}
+        reason = f"まだ判断していない議題が{len(st['undecided'])}つあります。"
+        if st["needs_choice"]:
+            reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、案を選んでください。"
+        return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
-        return {**st, "ready": False, "reason": "「修正して採用」「要修正」の議題があります。先に理事会の判断を反映して改定案を作り直してください。"}
-    return {**st, "ready": True, "reason": ""}
+        return {**st, "ready": False, "needs_redraft": True,
+                "reason": "「修正して採用」「要修正」や、案を選んだ議題があります。理事会の判断を反映して改定案を作り直してください。"}
+    draft = _draft(work)
+    left = remaining_choices(apply_to_draft(draft, paper, decisions)) if draft else []
+    if left:
+        return {**st, "ready": False, "needs_redraft": True,
+                "reason": f"改定案に〔選択〕が残っています（{'、'.join(left)}）。理事会で選んだ案で改定案を作り直してください。"}
+    return {**st, "ready": True, "needs_redraft": False, "reason": ""}
 
 
 
@@ -332,6 +360,7 @@ def show_work(request: Request, work_id: str):
         "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
         "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
+        "board_points": _points(work) if work.get("board") and work.get("draft") else {},
         "hist_line": __import__("core.history", fromlist=["line"]).line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
@@ -520,13 +549,22 @@ async def save_board_decisions(request: Request, work_id: str):
     decisions = {}
     changed_redraft = False
     now = _now()
+    from core.board import picked_text
+
+    points = _points(work)
     for i, it in enumerate(paper.items):
         d = str(form.get(f"b_decision_{i}", ""))
+        pts = points.get(i, [])
+        picked = {str(j): str(form.get(f"b_pick_{i}_{j}", "")).strip() for j in range(len(pts))}
         entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
-                 "choice": str(form.get(f"b_choice_{i}", "")).strip()}
+                 "choice": picked_text(pts, picked) if pts else str(form.get(f"b_choice_{i}", "")).strip()}
         prev = old.get(str(i), {})
         if entry != {k: prev.get(k, "") for k in entry} and (entry["decision"] in NEEDS_REDRAFT or prev.get("decision") in NEEDS_REDRAFT):
             changed_redraft = True
+        if entry["choice"] != prev.get("choice", ""):  # 選んだ案が変われば、改定案に反映し直す
+            changed_redraft = True
+        if pts:
+            entry["picked"] = picked
         entry["history"] = record(prev, entry["decision"], entry["note"], now, reason_key="note",
                                   extra={"choice": entry["choice"]})
         decisions[str(i)] = entry
@@ -534,7 +572,7 @@ async def save_board_decisions(request: Request, work_id: str):
     if changed_redraft:
         changes["draft_reflects_board"] = False
     store.update(work_id, **changes)
-    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, work["name"]), encoding="utf-8")
+    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, work["name"], points), encoding="utf-8")
     return RedirectResponse(f"/works/{work_id}#board", status_code=303)
 
 
