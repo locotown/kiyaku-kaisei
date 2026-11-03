@@ -92,7 +92,7 @@ def current_texts(corpus, findings: list[Finding]) -> str:
         return ""
     return ("\n\n# 【改定対象の条の現行の文】（ツールが読み込んだ規約から取り出したもの。項目4の確認に使う）\n\n"
             + body + "\n\nここにない条を改定している場合は、指摘との関係を申し送りで説明しているかを確かめる。\n"
-            + f"改定後の条文が参照する条の現行の文は {REF_MOUNT} にある（ツールが置く。項目9の確認に使う）。"
+            + f"改定後の条文が参照する条と、ここにない条を改定した場合のその条の現行の文は {REF_MOUNT} にある（ツールが置く。項目4・9の確認に使う）。"
             "ファイルがない、または載っていない条は、参照先が改定後の規約にあるかだけを確かめる。\n")
 
 
@@ -147,11 +147,16 @@ class DraftToolHandler(ToolHandler):
         """
         from core.draft import references
 
-        keys = sorted(k for k in references(amendments, self.corpus) - self.targets if self.corpus.find(*k))
+        from core.sources import normalize_article_ref
+
+        # 参照されている条に加え、指摘の対象以外で改正・削除した条（参照合わせなど）も渡す
+        changed = {(self.corpus.resolve(a.document) or "規約", normalize_article_ref(a.article))
+                   for a in amendments if a.kind in ("改正", "削除")}
+        keys = sorted(k for k in (references(amendments, self.corpus) | changed) - self.targets if self.corpus.find(*k))
         text = article_texts(self.corpus, keys)
         if not text or text == self._shared or self.client is None:
             return 0
-        content = "# 改定後の条文が参照する条の現行の文（ツールが読み込んだ規約から取り出したもの）\n\n" + text + "\n"
+        content = "# 改定後の条文が参照する条と、指摘の対象以外で改定した条の現行の文（ツールが読み込んだ規約から取り出したもの）\n\n" + text + "\n"
         uploaded = self.client.beta.files.upload(file=("genko_sansho.md", content.encode("utf-8"), "text/markdown"),
                                                  betas=["files-api-2025-04-14", MA_BETA])
         if self._resource_id:

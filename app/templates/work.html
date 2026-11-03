@@ -335,7 +335,7 @@
         </ul>
         <div class="q-human"><b>人が確認すること：</b>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。
           {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}{% if q.choices %}特に、組合が選ぶ点（{{ q.choices }}か所、〔選択〕の印）は、理事会で決めてください。{% endif %}
-          {% if q.extra %}<div class="extra">指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。採点役はこれらの条の現行の文を見ていないので、新旧対照表で特に確認してください。</div>{% endif %}</div>
+          {% if q.extra %}<div class="extra">指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div>{% endif %}</div>
       </div>
     </div>
     <p><a class="btn" href="/works/{{ id }}/taisho" target="_blank">新旧対照表を開く</a>

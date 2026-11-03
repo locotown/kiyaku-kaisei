@@ -67,5 +67,6 @@ def test_share_references_uploads_only_referenced_articles():
     assert "■ 規約 第45条" in text and "■ 規約 第62条" in text and "■ 規約 第49条" not in text  # 対象の条は確認基準で渡し済み
     assert fake.added == [("file_1", REF_MOUNT)]
     assert h.share_references(amendments) == 0  # 変わらなければ置き直さない
-    amendments.append(amend("改正", "第50条", "第50条　第28条による。"))
-    assert h.share_references(amendments) == 3 and fake.deleted == ["res_1"] and fake.added[-1] == ("file_2", REF_MOUNT)
+    amendments.append(amend("改正", "第50条", "第50条　第28条による。"))  # 対象外の条の改正：第50条自身と参照先の第28条
+    assert h.share_references(amendments) == 4 and fake.deleted == ["res_1"] and fake.added[-1] == ("file_2", REF_MOUNT)
+    assert "■ 規約 第50条" in fake.uploaded[-1] and "■ 規約 第28条" in fake.uploaded[-1]
