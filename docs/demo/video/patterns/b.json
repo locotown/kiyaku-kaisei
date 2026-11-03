@@ -6,7 +6,7 @@
   "img:06_soukai",
   "img:01_japan",
   "img:02_kiyaku",
-  "img:booklet",
+  "img:11_rijicho",
   "clip:c1_upload",
   "clip:c2_review_busy",
   "clip:c3_findings",
@@ -19,21 +19,13 @@
   "clip:c12_final",
   "img:03_architecture",
   "img:04_eval",
+  "clip:c6_quality",
   "img:09_end"
  ],
  "extra": {
   "0": [
    [
     "title_b",
-    "badge",
-    0,
-    0,
-    0
-   ]
-  ],
-  "5": [
-   [
-    "booklet",
     "badge",
     0,
     0,
@@ -62,7 +54,7 @@
    [
     "07s_stamp_kaketsu",
     "stamp",
-    2.5,
+    2.0,
     1330,
     300
    ]
@@ -72,17 +64,17 @@
   "stamp": [
    [
     14,
-    2.5
+    2.0
    ]
   ],
   "whoosh": [
    2,
    6,
    16,
-   18
+   19
   ],
-  "chime": 18
+  "chime": 19
  },
- "dense_until": 15,
- "dense_after": 165
+ "dense_until": 16,
+ "dense_after": 168
 }

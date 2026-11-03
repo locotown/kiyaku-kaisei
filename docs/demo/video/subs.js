@@ -29,8 +29,8 @@ html,body{margin:0;background:transparent;width:1920px;height:1080px}.t{position
   // パターンB の冒頭：ツールの名前
   await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>@font-face{font-family:N;font-weight:900;src:url(${F}900-normal.woff2)}@font-face{font-family:N;font-weight:400;src:url(${F}400-normal.woff2)}
 html,body{margin:0;background:transparent;width:1920px;height:1080px}.t{position:absolute;left:0;right:0;top:300px;margin:0 auto;width:fit-content;background:rgba(255,255,255,.92);border-radius:16px;padding:34px 70px;text-align:center;font-family:N;box-shadow:0 10px 40px rgba(0,0,0,.15)}
-.t b{display:block;font-size:84px;font-weight:900;color:#0b0b0b;letter-spacing:.04em}.t span{display:block;font-size:30px;color:#52514e;margin-top:10px}</style></head>
-<body><div class="t"><b>管理規約 改正法対応ツール</b><span>Update your condominium bylaws to Japan's new law</span></div></body></html>`);
+.t b{display:block;font-size:120px;font-weight:900;color:#0b0b0b;letter-spacing:.08em;line-height:1.1}.t em{display:block;font-style:normal;font-size:44px;font-weight:900;color:#2b2a27;margin-top:14px}.t span{display:block;font-size:28px;color:#52514e;margin-top:10px}</style></head>
+<body><div class="t"><b>ととのう規約</b><em>管理規約を、改正法に合わせる</em><span>Totonou Kiyaku — put your condominium bylaws in order for Japan's new law</span></div></body></html>`);
   await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(150);
   await p.screenshot({ path: path.join(__dirname, SUBS, 'title_b.png'), omitBackground: true });
   await b.close(); console.log('字幕', rows.length);
