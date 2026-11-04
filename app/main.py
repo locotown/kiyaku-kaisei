@@ -50,6 +50,15 @@ SAMPLES = {
 DECISIONS = ("採用", "不採用", "保留")
 # 画面に出す言葉（保存する値は 採用／不採用／保留 のまま）。並びは画面の並び
 CHOICE_HELP = {"採用": "改定案に入れる", "不採用": "今回は見送る", "保留": "あとで決める"}
+
+
+def finding_line(e: dict) -> str:
+    """指摘の判断の履歴1件を、画面の言葉（改定案に入れる など）で1行にする。保存した値と、理事会・印刷用の履歴の書き方は変えない。"""
+    from core.history import line
+
+    def say(v: str) -> str:
+        return CHOICE_HELP.get(v, v) if v else "未判断"
+    return line({**e, "from": say(e.get("from", "")), "to": say(e["to"])})
 BUSY = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
 
 
@@ -526,6 +535,7 @@ def show_work(request: Request, work_id: str):
         "meeting_results": MEETING_RESULTS,
         "finals": final_documents(work_id, work) if work.get("meeting") else [],
         "hist_line": __import__("core.history", fromlist=["line"]).line,
+        "finding_line": finding_line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
         "quality": __import__("core.quality", fromlist=["draft_quality"]).draft_quality(work) if work.get("draft") else None,
@@ -688,15 +698,13 @@ async def save_one_decision(request: Request, work_id: str, index: int):
         decision = "採用"
     if decision not in DECISIONS:
         raise HTTPException(400, "判断の値が正しくありません")
-    from core.history import line
-
     reason = str(form.get("reason", prev.get("reason", ""))).strip()
     now = _now()
     decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     stale = bool(work.get("draft")) and (decision != prev.get("decision") or work.get("draft_stale", False))
     work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
-    item = decisions[key] | {"lines": [line(e) for e in reversed(decisions[key]["history"])]}
+    item = decisions[key] | {"lines": [finding_line(e) for e in reversed(decisions[key]["history"])]}
     return JSONResponse(decision_summary(work) | {"item": item})
 
 

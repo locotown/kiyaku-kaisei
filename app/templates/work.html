@@ -245,7 +245,7 @@
         <div class="cardsave" id="cs-{{ i }}" role="status"></div>
         {% set h = d.history or [] %}
         <details class="hist" id="hs-{{ i }}" {% if not h %}hidden{% endif %}><summary>判断の履歴（<span id="hn-{{ i }}">{{ h|length }}</span>件）</summary>
-          <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>
+          <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ finding_line(e) }}</li>{% endfor %}</ul></details>
         </div>
       {% endif %}
       </div>

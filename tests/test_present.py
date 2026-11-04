@@ -48,6 +48,8 @@ def test_save_shows_next_step():
         saved = store.load(wid)["decisions"]["0"]
         assert saved["decision"] == "採用" and saved["reason"] == "委員会で合意" and len(saved["history"]) == 1
         assert r.json()["item"]["lines"][0].endswith("「委員会で合意」（" + saved["history"][0]["edited_at"] + " に理由を修正）")
+        # 履歴は画面の言葉で出す（保存する値は「採用」のまま）
+        assert "あとで決める → 改定案に入れる" in r.json()["item"]["lines"][0] and saved["history"][0]["to"] == "採用"
         page = c.get(f"/works/{wid}").text
         assert "改定案に入れる指摘" in page and "マンションに特化した財産管理制度" in page
         store.update(wid, draft={"amendments": [], "notes": ""})
