@@ -1,7 +1,7 @@
 """改定案の確認結果の表示のテスト。"""
 
-from core.quality import RUBRIC_PLAIN, draft_quality
 from core.drafting import RUBRIC
+from core.quality import RUBRIC_PLAIN, draft_quality
 
 
 def test_quality():
@@ -51,12 +51,11 @@ def test_parse_explanation_and_extra():
 
 
 def test_current_texts_for_grader():
+    from core.config import ROOT
     from core.corpus import Corpus
     from core.drafting import current_texts
     from core.findings import Finding
     from core.ingest import load_collection
-
-    from core.config import ROOT
 
     corpus = Corpus.from_collection(load_collection(ROOT / "evals/data/old_collection.txt"))
     f = lambda doc, art: Finding(art, "1-1", "必須", "", "", [], [], "規約", "", document=doc)

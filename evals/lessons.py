@@ -22,7 +22,6 @@ import json
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
-from pathlib import Path
 
 from core.config import ROOT
 from core.quality import RUBRIC_PLAIN
@@ -30,14 +29,14 @@ from core.review import JST
 
 BAD = re.compile(r"満たしていない|満たさない|満たしていません|問題が(?:あ|残)|不備|合わない|合っていない|合いません|残って|違反|誤り|範囲外|欠番|照合ができ|partially")
 HEADINGS = re.compile(r"問題点[：:]|【満たしていない点[^】]*】|【満たしている項目】|満たしている点[：:]")
-ITEM = re.compile(r"項目\s*(\d{1,2})(?![〜~0-9])|^\s*\((\d{1,2})\)", re.M)
+ITEM = re.compile(r"項目\s*(\d{1,2})(?![〜~0-9])|^\s*\((\d{1,2})\)", re.MULTILINE)
 
 
 def failed_items(explanation: str) -> dict[int, list[str]]:
     """差し戻しのコメントから、満たしていない確認項目の番号と、その理由の文を取り出す。"""
     out: dict[int, list[str]] = defaultdict(list)
     # 「(4) …」「項目4：…」ごとの塊に分け、否定の言葉を含む塊だけを数える
-    chunks = re.split(r"(?=^\s*\(\d{1,2}\)|^\s*-\s*項目\d|項目\d{1,2}[：:（(])", explanation, flags=re.M)
+    chunks = re.split(r"(?=^\s*\(\d{1,2}\)|^\s*-\s*項目\d|項目\d{1,2}[：:（(])", explanation, flags=re.MULTILINE)
     for c in chunks:
         c = HEADINGS.sub("", c)  # 見出しの言葉（「問題点：」など）は数えない
         if re.search(r"not fully met|partially met|満点にはでき", c):  # 冒頭のまとめ（理由は後ろの項目ごとに書かれる）

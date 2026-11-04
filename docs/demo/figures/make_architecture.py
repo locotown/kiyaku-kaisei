@@ -31,10 +31,10 @@ def cx(i: int) -> float:
 
 
 pos = {k: (cx(c) - BW / 2, LANES[lane][0] + (LH - BH) / 2) for k, c, lane, *_ in BOXES}
-R = lambda k: (pos[k][0] + BW, pos[k][1] + BH / 2)  # noqa: E731
-L = lambda k: (pos[k][0], pos[k][1] + BH / 2)  # noqa: E731
-T = lambda k: (pos[k][0] + BW / 2, pos[k][1])  # noqa: E731
-B = lambda k: (pos[k][0] + BW / 2, pos[k][1] + BH)  # noqa: E731
+R = lambda k: (pos[k][0] + BW, pos[k][1] + BH / 2)
+L = lambda k: (pos[k][0], pos[k][1] + BH / 2)
+T = lambda k: (pos[k][0] + BW / 2, pos[k][1])
+B = lambda k: (pos[k][0] + BW / 2, pos[k][1] + BH)
 
 
 def curve(a, b):

@@ -1,7 +1,10 @@
 # 台本のナレーションを Open JTalk（声：Mei）で読み上げ、場面ごとの wav にする
-import json, re, subprocess, sys
-from pathlib import Path
+import json
 import os
+import subprocess
+import sys
+from pathlib import Path
+
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 VOICES = {'mei': 'voice/MMDAgent_Example-1.8/Voice/mei/mei_normal.htsvoice', 'm001': '/usr/share/hts-voice/nitech-jp-atr503-m001/nitech_jp_atr503_m001.htsvoice'}
 V = os.environ.get('VOICE', 'mei')  # 声（mei：女性、m001：男性）

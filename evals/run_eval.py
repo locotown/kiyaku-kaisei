@@ -20,8 +20,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 from core.config import ROOT
 from core.ingest import load_kiyaku

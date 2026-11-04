@@ -11,7 +11,6 @@ import re
 from dataclasses import asdict, dataclass, field
 
 from core.findings import Finding
-from core.model import Kiyaku
 from core.sources import law, normalize_article_ref, standard
 
 KINDS = ("改正", "新設", "削除")

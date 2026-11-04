@@ -7,19 +7,18 @@ Managed Agents ではなく Messages API の1回の呼び出し（構造化出�
 from __future__ import annotations
 
 import html
-import re
 import json
+import re
 from datetime import datetime
-
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from core.config import MODEL, client
 from core.draft import Draft
+from core.printstyle import PRINT_CSS
 from core.readability import JARGON
 from core.review import ENFORCED, JST
-from core.printstyle import PRINT_CSS
 
 TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
 TIER_GUIDE = {
@@ -137,7 +136,6 @@ def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") 
 
 def mark_required(ex: Explanation, draft: Draft) -> None:
     """「法律の改正に合わせるための変更」かどうかは AI に任せず、改定案の必須の論点から決める。"""
-    from core.sources import normalize_article_ref
     from core.topics import REQUIRED_TOPIC_IDS
 
     required_refs = {_ref_key(ref_name(a)) for a in draft.amendments if set(a.finding_refs) & set(REQUIRED_TOPIC_IDS)}
@@ -153,7 +151,6 @@ def mark_required(ex: Explanation, draft: Draft) -> None:
 
 def coverage(ex: Explanation, draft: Draft) -> dict:
     """改定した条が、説明資料のどの項目で取り上げられているか。取り上げていない条も返す。"""
-    from core.sources import normalize_article_ref
 
     where: dict[str, list[int]] = {}
     for i, it in enumerate(ex.items, 1):

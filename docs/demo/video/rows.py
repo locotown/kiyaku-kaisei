@@ -1,6 +1,9 @@
 # docs/DEMO.md の台本の表から、場面ごとの（開始秒, 画面, ナレーション, 英語）を取り出す
-import re, json, os
+import json
+import os
+import re
 from pathlib import Path
+
 H = Path(__file__).parent
 P = os.environ.get('PATTERN', 'a')
 PAT = json.load(open(H / 'patterns' / f'{P}.json'))

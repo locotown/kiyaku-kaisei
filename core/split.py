@@ -40,7 +40,7 @@ RE_VARIANT_NOTE = re.compile(r"^〔※.*〕$")
 RE_VARIANT = re.compile(rf"^[（(]([アイウエオカキクケコ])[）)]{SP}*(.*)$")
 RE_APPENDIX = re.compile(rf"^(附{SP}*則|別表)")
 RE_PAGE_NO = re.compile(r"^[-－‐]?\s*[0-9]+\s*[-－‐]?$")
-RE_DELETED = re.compile(rf"^[（(]削る[）)]$")
+RE_DELETED = re.compile(r"^[（(]削る[）)]$")
 
 
 def normalize(s: str) -> str:

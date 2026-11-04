@@ -1,6 +1,9 @@
 # 仮のデモ動画の撮影用の作業データを用意する（すべて架空のサンプルから。private/ に置くのでコミットされない）
-import json, shutil, time
+import json
+import shutil
+import time
 from pathlib import Path
+
 W = Path(__file__).resolve().parents[3] / 'private/work'
 ORG = 'さくら台マンション管理組合（架空）'
 B = W / '20261103-101327-054312'

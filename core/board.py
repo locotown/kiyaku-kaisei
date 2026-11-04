@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field
 from core.config import MODEL, client
 from core.draft import CHOICE_MARK, Draft
 from core.explain import _ref_key, ref_name
-from core.review import ENFORCED, JST
 from core.printstyle import PRINT_CSS
+from core.review import ENFORCED, JST
 
 TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
 TIER_TASK = {
