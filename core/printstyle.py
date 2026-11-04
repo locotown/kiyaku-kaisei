@@ -69,6 +69,7 @@ table.list th { color: var(--color-ink-3); font-size: .8rem; border-bottom-color
 body.wide table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 body.wide th, body.wide td { border: 1px solid var(--color-line-2); padding: 10px; vertical-align: top; font-size: .92rem; word-break: break-all; }
 body.wide th { background: var(--color-bg); font-size: .85rem; color: var(--color-ink-2); text-align: left; }
+body.wide th:nth-child(1) { width: 37%; } body.wide th:nth-child(2) { width: 33%; }
 body.wide td:nth-child(3) { font-size: .85rem; color: var(--color-ink-2); }
 body.wide h2 { border-left: 3px solid var(--color-primary); padding-left: 10px; }
 tr.row-must td:first-child { box-shadow: inset 3px 0 0 var(--color-must); }
@@ -81,9 +82,49 @@ del { color: var(--color-must); text-decoration-color: var(--color-must); text-d
 .art { margin: .7em 0; padding: 2px 0 2px 14px; border-left: 3px solid transparent; }
 .art.ch { border-left-color: var(--color-primary); background: none; }
 
+/* 画面だけに出す操作の帯（印刷する・Word で保存）。印刷には出ない */
+.toolbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+           padding: 10px 0; margin: -8px 0 16px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); font-size: .9rem; }
+.toolbar button, .toolbar a { font: inherit; font-weight: 700; min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px;
+           border-radius: 6px; text-decoration: none; cursor: pointer; }
+.toolbar button { background: var(--color-primary); color: #fff; border: 0; }
+.toolbar a { color: var(--color-primary); border: 1px solid var(--color-line-2); background: var(--color-surface); }
+.toolbar .hint { color: var(--color-ink-3); font-size: .85rem; }
+
 @media print {
+  .toolbar { display: none !important; }
+  h1, h2, h3, h4, .tier, .arts { break-after: avoid-page; }
+  thead { display: table-header-group; }
+  .check, .cpoint, .decide, .rec, .art { break-inside: avoid; }  /* 表の行は途中で切れてよい（長い条を次のページに送ると大きな空白ができる。見出しは各ページにくり返す） */
+  p, li { orphans: 2; widows: 2; }
   body, body.wide { margin: 0; padding: 0; font-size: 11pt; max-width: none; }
   .art.ch { border-left-color: transparent; } .art .tag, body.final .note { display: none; }
   a { color: inherit; text-decoration: none; }
 }
 """
+
+
+def page_css(title: str, landscape: bool = False) -> str:
+    """印刷の用紙（A4。新旧対照表は横）、余白、上の欄の資料名、下の欄のページ番号。
+
+    会議で「何ページの何条」と言えるように、すべてのページに資料名とページ番号を入れる。
+    """
+    name = " ".join(title.split()).replace("\\", "").replace('"', "”")
+    font = '"BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif'
+    return f"""
+@page {{
+  size: A4{" landscape" if landscape else ""}; margin: 16mm 14mm 16mm;
+  @top-left {{ content: "{name}"; font-family: {font}; font-size: 8pt; color: #61666d; }}
+  @top-right {{ content: "総会提案の下書き"; font-family: {font}; font-size: 8pt; color: #61666d; }}
+  @bottom-center {{ content: counter(page) " / " counter(pages); font-family: {font}; font-size: 9pt; color: #474c53; }}
+}}
+"""
+
+
+def toolbar(word_href: str = "", landscape: bool = False) -> str:
+    """画面の上に出す操作の帯（印刷する・Word で保存）。印刷には出ない。"""
+    word = f'<a href="{word_href}">Word で保存（直して使う）</a>' if word_href else ""
+    paper = "A4 横" if landscape else "A4 縦"
+    return (f'<div class="toolbar"><button type="button" onclick="window.print()">印刷する</button>{word}'
+            f'<span class="hint">{paper}で印刷します。各ページに資料名とページ番号が入ります。'
+            '変更箇所の色も印刷するには、印刷の設定で「背景のグラフィック」をオンにしてください。</span></div>')

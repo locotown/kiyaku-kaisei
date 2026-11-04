@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from core.config import MODEL, client
 from core.draft import Draft
-from core.printstyle import PRINT_CSS
+from core.printstyle import PRINT_CSS, page_css, toolbar
 from core.readability import JARGON
 from core.review import ENFORCED, JST
 
@@ -203,7 +203,8 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None) -> str:
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(ex.title)}</title>
-<style>{PRINT_CSS}</style></head><body>
+<style>{PRINT_CSS}{page_css(ex.title)}</style></head><body>
+{toolbar("explain.docx")}
 <h1>{html.escape(ex.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 {p(ex.intro)}

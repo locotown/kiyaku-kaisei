@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from core.config import MODEL, client
 from core.draft import CHOICE_MARK, Draft
 from core.explain import _ref_key, ref_name
-from core.printstyle import PRINT_CSS
+from core.printstyle import PRINT_CSS, page_css, toolbar
 from core.review import ENFORCED, JST
 
 TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
@@ -333,7 +333,8 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(paper.title)}</title>
-<style>{PRINT_CSS}</style></head><body>
+<style>{PRINT_CSS}{page_css(paper.title)}</style></head><body>
+{toolbar("board.docx")}
 <h1>{html.escape(paper.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 <p>{html.escape(paper.intro)}</p>

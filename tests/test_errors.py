@@ -51,3 +51,21 @@ def test_bulk_decisions(tmp_path, monkeypatch):
     # 必須は範囲に入らない。同じ判断なら変えない
     assert c.post(f"/works/{wid}/decisions/bulk", data={"scope": "推奨・参考", "decision": "採用"}).json()["changed"] == 1
     assert c.post(f"/works/{wid}/decisions/bulk", data={"scope": "必須", "decision": "保留"}).status_code == 400
+
+
+def test_word_downloads_need_documents(monkeypatch, tmp_path):
+    """Word の資料は、元の資料ができていなければ 404（分かりやすいページ）。"""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from app import main as M
+    from app import store
+
+    monkeypatch.setattr(store, "WORK", tmp_path)
+    (tmp_path / "20261104-000020-aaaaaa").mkdir()
+    (tmp_path / "20261104-000020-aaaaaa" / "work.json").write_text(json.dumps({"name": "試験", "status": "点検済み"}), encoding="utf-8")
+    c = TestClient(M.app)
+    for doc in ("taisho", "board", "explain"):
+        r = c.get(f"/works/20261104-000020-aaaaaa/{doc}.docx", headers={"accept": "text/html"})
+        assert r.status_code == 404 and "まだありません" in r.text

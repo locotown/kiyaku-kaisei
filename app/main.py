@@ -78,9 +78,24 @@ def _current_session(work: dict) -> str:
     return ids[-1] if ids else ""
 
 
+def rerender_all() -> None:
+    """保存してある資料（新旧対照表・検討資料・住民向け説明）を、今の見た目で作り直す（AI は使わない）。
+
+    印刷の体裁などを直したとき、すでに作ってある作業の資料にも反映するため。処理中の作業は触らない。
+    """
+    for w in store.list_works():
+        if w["status"] in BUSY:
+            continue
+        try:
+            _rerender(w["id"])
+        except Exception as e:  # 1つの作業で作り直せなくても、ほかの作業とサーバーの起動は続ける
+            store.append_log(w["id"], "error", f"資料の作り直しに失敗しました：{type(e).__name__}")
+
+
 @asynccontextmanager
 async def lifespan(_app):
     recover_interrupted()
+    rerender_all()
     yield
 
 
@@ -846,7 +861,7 @@ def final_html(work_id: str, n: int):
 
     d = _final(work_id, n)
     return HTMLResponse(final_to_html(d["blocks"], "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
-                                                   "書式は元の規約集に合わせて整えてください。"))
+                                                   "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx"))
 
 
 @app.get("/works/{work_id}/final/{n}.docx")
@@ -866,6 +881,58 @@ def taisho(work_id: str):
     if not p.exists():
         raise HTTPException(404, "新旧対照表はまだありません")
     return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _docx_response(data: bytes, ascii_name: str, name: str) -> Response:
+    from urllib.parse import quote
+
+    return Response(data, media_type=DOCX,
+                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"})
+
+
+@app.get("/works/{work_id}/taisho.docx")
+def taisho_docx(work_id: str):
+    """新旧対照表を Word で（A4 横。委員会で直して、議案書に使えるように）。"""
+    from core.wordout import taisho_docx as build
+
+    work = store.load(work_id)
+    draft = _draft(work)
+    if not draft:
+        raise HTTPException(404, "新旧対照表はまだありません")
+    title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
+    return _docx_response(build(draft, _corpus(work_id), title), "shinkyu_taisho.docx", f"{title}.docx")
+
+
+@app.get("/works/{work_id}/board.docx")
+def board_docx(work_id: str):
+    """理事会の検討資料を Word で。"""
+    from core.wordout import board_docx as build
+
+    work = store.load(work_id)
+    paper = _board(work)
+    if not paper:
+        raise HTTPException(404, "理事会の検討資料はまだありません")
+    return _docx_response(build(paper, work.get("board_decisions") or None, _org(work), _points(work)),
+                          "rijikai_kentou.docx", f"{paper.title}.docx")
+
+
+@app.get("/works/{work_id}/explain.docx")
+def explain_docx(work_id: str):
+    """住民向けの説明を Word で（理事会の判断を反映した改定案で、付録の一覧を作る）。"""
+    from core.board import apply_to_draft
+    from core.explain import Explanation
+    from core.wordout import explain_docx as build
+
+    work = store.load(work_id)
+    draft, paper = _draft(work), _board(work)
+    if not work.get("explain") or not draft:
+        raise HTTPException(404, "住民向けの説明はまだありません")
+    ex = Explanation.model_validate(work["explain"])
+    shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
+    return _docx_response(build(ex, _org(work), shown), "jumin_setsumei.docx", f"{ex.title}.docx")
 
 
 @app.get("/works/{work_id}/taisho.md")

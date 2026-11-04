@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 
 from core.draft import Draft
 from core.model import Kiyaku
-from core.printstyle import PRINT_CSS
+from core.printstyle import PRINT_CSS, page_css, toolbar
 from core.sources import normalize_article_ref
 
 DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。"
@@ -201,7 +201,8 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>{PRINT_CSS}</style></head><body class="wide">
+<style>{PRINT_CSS}{page_css(title, landscape=True)}</style></head><body class="wide">
+{toolbar("taisho.docx", landscape=True)}
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>

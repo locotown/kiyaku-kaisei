@@ -53,7 +53,7 @@
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       <div class="acts">
         <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表を開く</a>
-        <a class="tbtn2" href="/works/{{ id }}/taisho.md">{{ icon("download") }}Markdown で保存</a>
+        <a class="tbtn2" href="/works/{{ id }}/taisho.docx">{{ icon("download") }}Word で保存（直して使う）</a>
         <a class="tbtn2" href="#findings">指摘の判断に戻る</a>
       </div>
     </div>

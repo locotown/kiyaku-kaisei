@@ -77,6 +77,30 @@ def test_taisho_marks_only_changes(kiyaku, findings):
     html = to_html(draft, kiyaku)
     assert "<mark>1週間</mark>" in html and "<del>5日間</del>" in html and "法的助言ではありません" in html
     assert "（新設）" in to_markdown(draft, kiyaku)
+    # 印刷：A4 横、各ページに資料名とページ番号。画面には「印刷する」「Word で保存」
+    assert "size: A4 landscape" in html and "counter(pages)" in html and 'href="taisho.docx"' in html
+
+
+def test_taisho_docx(kiyaku, findings):
+    """新旧対照表の Word：A4 横、表の見出しを各ページにくり返す、変えた語句に下線・取り消し線。"""
+    import io
+
+    from docx import Document
+
+    from core.wordout import taisho_docx
+
+    draft, _, _ = check({"amendments": [amendment(kiyaku)], "notes": "法的助言ではありません"}, kiyaku, findings)
+    doc = Document(io.BytesIO(taisho_docx(draft, kiyaku, "試験 新旧対照表（案）")))
+    sec = doc.sections[0]
+    assert sec.page_width > sec.page_height                       # 横
+    assert "総会提案の下書き" in sec.header.paragraphs[0].text
+    t = doc.tables[0]
+    assert [c.text for c in t.rows[0].cells] == ["改定案", "現行", "区分・変更の理由・根拠"]
+    assert t.rows[0]._tr.xpath("./w:trPr/w:tblHeader")             # 見出しの行をくり返す
+    new_runs, old_runs = t.rows[1].cells[0].paragraphs[0].runs, t.rows[1].cells[1].paragraphs[0].runs
+    assert any(r.text == "1週間" and r.font.underline for r in new_runs)
+    assert any(r.text == "5日間" and r.font.strike for r in old_runs)
+    assert not any("総会を招集するには" in r.text and r.font.underline for r in new_runs)
 
 
 def test_notes_sections():
