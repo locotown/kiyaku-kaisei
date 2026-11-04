@@ -50,8 +50,15 @@
         <p class="pc-hand">書き込み：「{{ p.handwriting }}」<span class="small">　{{ p.reason }}</span></p>
         {% if p.check and p.status == "未確認" %}<p class="pc-check">{{ icon("alert") }}{% if p.confidence == "低" %}読み取りに自信がありません。{% endif %}数字・条番号・期間などは、写真と見比べてください。</p>{% endif %}
         {% if p.kind == "文言の修正" %}
-          <dl class="facts"><dt>今の文</dt><dd><div class="quote">{{ p.current }}</div></dd>
-            <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="5" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.proposed }}</div>{% endif %}</dd></dl>
+          {# 変わるところだけを、前後の文脈つきで見せる（直したあとは下線、元の語句は取り消し線。新旧対照表と同じ印） #}
+          <dl class="facts"><dt>変わるところ</dt><dd>{% for ch in changes(p.current, p.proposed) %}
+            <div class="chg"><div class="chg-old"><span class="small">今</span><span>{{ ch.before[0] }}{% for t, c in ch.before[1] %}{% if c %}<del>{{ t }}</del>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.before[2] }}</span></div>
+              <div class="chg-new"><span class="small">直したあと</span><span>{{ ch.after[0] }}{% for t, c in ch.after[1] %}{% if c %}<mark>{{ t }}</mark>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.after[2] }}</span></div></div>
+          {% endfor %}</dd></dl>
+          <details class="more"><summary>条の全文を見る・直す</summary>
+            <dl class="facts"><dt>今の文</dt><dd><div class="quote">{{ p.current }}</div></dd>
+              <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="8" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.proposed }}</div>{% endif %}</dd></dl>
+          </details>
         {% elif p.kind in ("判断", "選択") %}
           <dl class="facts"><dt>今の記録</dt><dd>{{ p.current or "（未記録）" }}</dd>
             <dt>反映する内容</dt><dd>{% if p.status == "未確認" %}<input type="text" name="text_{{ p.id }}" value="{{ p.proposed }}" aria-label="反映する内容">{% else %}{{ p.proposed }}{% endif %}</dd></dl>

@@ -148,6 +148,41 @@ def cost_usd(usage: dict) -> float:
                   + n("cache_read_input_tokens") * PRICE["cache_read"] + n("cache_creation_input_tokens") * PRICE["cache_write"]) / 1e6, 4)
 
 
+def changes(current: str, proposed: str, ctx: int = 10) -> list[dict]:
+    """変わるところだけを、前後の文脈つきで取り出す（長い条でも、どこが変わるかがすぐ分かるように）。
+
+    返すのは [{"before": [(文字列, 変わったか)], "after": [...]}]。近い変更はまとめる。
+    """
+    import difflib
+
+    ops = [o for o in difflib.SequenceMatcher(None, current, proposed, autojunk=False).get_opcodes() if o[0] != "equal"]
+    groups: list[list] = []
+    for o in ops:
+        if groups and o[1] - groups[-1][-1][2] <= ctx * 2:
+            groups[-1].append(o)
+        else:
+            groups.append([o])
+    out = []
+    for g in groups:
+        a0, a1 = max(0, g[0][1] - ctx), min(len(current), g[-1][2] + ctx)
+        b0, b1 = max(0, g[0][3] - ctx), min(len(proposed), g[-1][4] + ctx)
+
+        def parts(text, lo, hi, spans):
+            res, pos = [], lo
+            for s0, s1 in spans:
+                if s0 > pos:
+                    res.append((text[pos:s0], False))
+                if s1 > s0:
+                    res.append((text[s0:s1], True))
+                pos = s1
+            if hi > pos:
+                res.append((text[pos:hi], False))
+            return res
+        out.append({"before": ("…" if a0 > 0 else "", parts(current, a0, a1, [(o[1], o[2]) for o in g]), "…" if a1 < len(current) else ""),
+                    "after": ("…" if b0 > 0 else "", parts(proposed, b0, b1, [(o[3], o[4]) for o in g]), "…" if b1 < len(proposed) else "")})
+    return out
+
+
 NUMERIC = re.compile(r"[0-9０-９一二三四五六七八九十百]|条|項|号|日|週|月|年|分の")
 
 

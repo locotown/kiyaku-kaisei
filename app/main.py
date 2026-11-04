@@ -1202,6 +1202,7 @@ def notes_page(request: Request, work_id: str, batch: str):
     b = _note_batch(work, batch)
     return templates.TemplateResponse(request, "notes.html", {
         "id": work_id, "work": work, "b": b, "doc_name": NOTE_DOCS[b["doc"]], "ident_now": _ident(work_id, work),
+        "changes": __import__("core.notes", fromlist=["changes"]).changes,
         "done": request.query_params.get("done", ""),
     })
 
