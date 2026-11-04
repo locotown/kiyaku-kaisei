@@ -1,0 +1,49 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><style>@font-face{font-family:N;font-weight:400;src:url(https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-400-normal.woff2)}@font-face{font-family:N;font-weight:700;src:url(https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-700-normal.woff2)}@font-face{font-family:N;font-weight:900;src:url(https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-900-normal.woff2)}
+:root{--bg:#f4f6f9;--paper:#fff;--ink:#111418;--ink2:#3d4450;--line:#cfd6df;--accent:#1d5fbf;--soft:#eaf1fb;--must:#b42318;--rec:#1d5fbf;--ref:#4b5563;--ok:#16653a;--shu:#c8102e;--kai:#2f6b4f}
+*{box-sizing:border-box;margin:0}html,body{background:var(--bg);color:var(--ink);font-family:N,sans-serif;font-size:18px;line-height:1.75}
+.hdr{display:flex;align-items:center;gap:14px;padding:10px 24px;background:var(--paper);border-bottom:1px solid var(--line)}
+.logo{font-weight:900;font-size:24px;letter-spacing:.06em}.tagl{font-weight:700;color:var(--ink2);font-size:15px}.sp{flex:1}
+.tool{border:2px solid var(--line);border-radius:10px;padding:6px 14px;font-weight:700;font-size:16px;background:#fff;min-height:44px;display:inline-flex;align-items:center;gap:6px}
+.wrap{max-width:1120px;margin:0 auto;padding:16px 24px 120px}
+.kairan{display:grid;grid-template-columns:repeat(6,1fr);border:3px solid var(--kai);border-radius:12px;overflow:hidden;background:#fff;margin-bottom:14px}
+.kairan div{border-right:1px solid #c9d8cf;padding:6px 6px 8px;text-align:center;font-weight:700;font-size:15px;color:var(--ink2);min-height:84px}.kairan div:last-child{border-right:none}
+.kairan .mk{height:40px;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ok)}
+.kairan .now{background:var(--kai);color:#fff}.kairan .now .mk{color:#fff;font-size:15px}
+.seal{display:inline-flex;align-items:center;justify-content:center;border:3px solid var(--shu);border-radius:50%;color:var(--shu);font-weight:900;transform:rotate(-10deg)}
+h1{font-size:28px;font-weight:900;margin:4px 0 6px}.step{color:var(--accent);font-weight:900;font-size:16px}
+.sum{background:var(--paper);border:2px solid var(--accent);border-radius:12px;padding:14px 18px;margin:8px 0 14px}
+.bar{height:12px;background:#dfe6ef;border-radius:6px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--accent)}
+.chips span{display:inline-flex;align-items:center;min-height:44px;border:2px solid var(--line);border-radius:999px;padding:0 16px;margin:0 6px 6px 0;font-weight:700;font-size:16px;background:#fff}.chips span.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bulk{font-size:16px;color:var(--ink2);margin:2px 0 12px}.bulk b{color:var(--ink)}.bulk u{color:var(--accent);font-weight:700}
+.row{background:var(--paper);border:1px solid var(--line);border-left:8px solid var(--rec);border-radius:12px;padding:12px 16px;margin-bottom:10px}
+.row.must{border-left-color:var(--must)}.row.ref{border-left-color:var(--ref)}
+.rh{display:flex;align-items:center;gap:12px}.lab{font-weight:900;font-size:14px;padding:3px 10px;border-radius:6px;color:#fff;white-space:nowrap}
+.lab.must{background:var(--must)}.lab.rec{background:var(--rec)}.lab.ref{background:var(--ref)}
+.tt{font-weight:900;font-size:20px}.one{color:var(--ink2);font-size:17px}.open{color:var(--accent);font-weight:700;font-size:16px;white-space:nowrap}
+.state{margin-left:auto;font-weight:900;font-size:16px;white-space:nowrap}
+.choice{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 8px}
+.choice div{border:2px solid var(--line);border-radius:12px;min-height:64px;padding:8px 12px;font-weight:900;font-size:18px;background:#fff}.choice div small{display:block;font-weight:400;font-size:14px;color:var(--ink2)}
+.choice .sel{border-color:var(--ok);background:#ecf7f0;box-shadow:inset 0 0 0 2px var(--ok)}
+.reason{display:flex;gap:10px;align-items:center}.reason .in{flex:1;border:2px solid var(--line);border-radius:10px;min-height:48px;padding:8px 12px;color:var(--ink2);background:#fff}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 22px;border-radius:12px;background:var(--accent);color:#fff;font-weight:900;font-size:18px}
+.btn.ghost{background:#fff;color:var(--accent);border:2px solid var(--accent)}
+.saved{color:var(--ok);font-weight:700;font-size:15px;margin-top:6px}
+.detail{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px;font-size:16px;color:var(--ink2)}
+.next{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:16px;box-shadow:0 -6px 16px rgba(0,0,0,.06)}
+.next .t{flex:1;font-size:16px;color:var(--ink2)}.next .t b{color:var(--ink);font-size:18px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:12px}
+.okline{font-size:22px;font-weight:900;color:var(--ok)}
+.list li{margin:4px 0 4px 1.2em}
+.agenda{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 20px;margin-bottom:10px}
+</style></head><body style="width:390px"><div class="hdr" style="padding:8px 12px"><span class="seal" style="width:38px;height:38px;font-size:17px">整</span><span class="logo" style="font-size:20px">ととのう規約</span><span class="sp"></span><span class="tool" data-n="13">文字 大</span></div><div class="wrap" style="padding:10px 12px 140px"><div class="kairan" data-n="12" style="margin-bottom:4px"><div class="" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px">✓</div>1</div><div class="now" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px">いま</div>2</div><div class="" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px"></div>3</div><div class="" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px"></div>4</div><div class="" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px"></div>5</div><div class="" style="min-height:60px;padding:4px 2px"><div class="mk" style="height:30px;font-size:18px"></div>6</div></div><div style="font-size:15px;font-weight:700;color:var(--kai);margin-bottom:8px">いま：2. 指摘の判断（全6ステップ）</div><div class="step">ステップ 2 / 6</div><h1 style="font-size:24px">指摘を判断する</h1><div class="sum" data-n="6"><b style="font-size:20px">法律で必要な 7件 は、もう改定案に入っています。</b><br>このステップで決めていただくのは、残りの <b>17件</b>（推奨15・参考2）です。<br><b>判断済み 5 ／ 17</b><div class="bar"><i style="width:29%"></i></div></div><div class="chips" data-n="7"><span class="on">決めること 17</span><span>必須 7</span><span>推奨 15</span></div>
+<div class="row must" data-n="4"><div class="rh" style="flex-wrap:wrap;gap:6px"><span class="lab must">必須</span><span class="tt">特別決議を、出席者の多数決に</span>
+  <span class="one">全員の4分の3 → 出席者の4分の3</span><span class="state" style="color:var(--ok)">✓ 改定案に入っています</span><span class="open">詳しく ▾</span></div></div>
+<div class="row" data-n="1"><div class="rh" style="flex-wrap:wrap;gap:6px"><span class="lab rec">推奨</span><span class="tt">所在が分からない人を、決議の数から外す手続き</span><span class="open">詳しく ▴</span></div>
+  <div class="one" style="margin:4px 0 0 0">何が変わるか：裁判所の決定で、連絡がつかない区分所有者を総会の決議の母数から外せる手続きを定めます</div>
+  <div class="detail">今の規定：<i>（定めがありません）</i>　／　根拠：<b>区分所有法 第38条の2</b>（所在等不明区分所有者の除外）・<b>標準管理規約 第67条の3</b>　…（ここを開くと、条文の本文を読めます）</div>
+  <div class="choice" style="grid-template-columns:1fr" data-n="5"><div class="sel">改定案に入れる<small>（採用）</small></div><div>今回は見送る<small>（不採用）</small></div><div>あとで決める<small>（保留）</small></div></div>
+  <div class="reason" style="flex-wrap:wrap" data-n="3"><span class="in">理由（任意）：例）高齢の所有者が増えているため</span><span class="btn">確定する</span><span class="btn ghost">取り消す</span></div>
+  <div class="saved" data-n="2">いま「あとで決める」→「改定案に入れる」に変えようとしています。「確定する」で保存します（ページは動きません）</div></div>
+<div class="row"><div class="rh" style="flex-wrap:wrap;gap:6px"><span class="lab rec">推奨</span><span class="tt">国外に住む区分所有者の、国内管理人の届出</span><span class="state" style="color:var(--ok)">✓ 改定案に入れる（11月3日 21:38 保存）</span><span class="open">詳しく ▾</span></div></div>
+<div class="row ref"><div class="rh" style="flex-wrap:wrap;gap:6px"><span class="lab ref">参考</span><span class="tt">古い用語「マンション敷地売却」の言い換え</span><span class="state" style="color:var(--ink2)">あとで決める</span><span class="open">詳しく ▾</span></div></div>
+</div><div class="next" data-n="8" style="padding:10px 12px"><span class="btn" style="flex:1">判断を終えて、改定案へ →</span></div></body></html>

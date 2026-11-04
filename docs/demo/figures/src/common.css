@@ -1,0 +1,17 @@
+/* デモ動画の図（1920×1080）。字幕を重ねるので、下の210pxは空けておく */
+@font-face { font-family: "NSJP"; font-weight: 400; src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "NSJP"; font-weight: 700; src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "NSJP"; font-weight: 900; src: url("https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@5.0.19/files/noto-sans-jp-japanese-900-normal.woff2") format("woff2"); }
+:root {
+  --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781; --line: #e1e0d9;
+  --blue: #2a78d6; --blue-wash: #eaf2fc; --orange: #eb6834; --orange-wash: #fdeee7; --gray: #898781; --gray-wash: #f1f0ec;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; }
+body { background: var(--surface); color: var(--ink); font-family: "NSJP", system-ui, sans-serif; padding: 96px 140px 0; position: relative; }
+h1 { font-size: 64px; font-weight: 900; letter-spacing: .02em; line-height: 1.25; }
+.en { font-size: 30px; color: var(--ink2); font-weight: 400; margin-top: 12px; }
+.source { position: absolute; left: 140px; right: 140px; bottom: 214px; font-size: 20px; color: var(--muted); line-height: 1.5; }
+/* 撮影・素材に差し替える予定の仮のイラストに付ける印 */
+.kari { position: absolute; right: 40px; top: 36px; width: 84px; height: 84px; border: 5px solid #c8102e; border-radius: 50%; color: #c8102e;
+        font-size: 44px; font-weight: 900; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.75); }

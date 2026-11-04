@@ -1,0 +1,29 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><link rel="stylesheet" href="common.css">
+<style>
+/* 1つの全体を3つに分ける「縦に太い分割バー」。動画で読めるよう、画面用の上限（28px）より太くしている */
+.bar { display: flex; gap: 6px; height: 132px; margin-top: 110px; }
+.seg { border-radius: 8px; display: flex; align-items: center; padding-left: 28px; color: #fff; font-weight: 900; font-size: 64px; }
+.seg span { font-size: 36px; margin-left: 4px; }
+.latest { background: var(--blue); flex: 42.3; }
+.old { background: var(--orange); flex: 49.8; }
+.other { background: var(--gray); flex: 8.0; }
+.legend { display: flex; gap: 56px; margin-top: 30px; font-size: 32px; font-weight: 700; }
+.legend i { display: inline-block; width: 26px; height: 26px; border-radius: 4px; vertical-align: -3px; margin-right: 12px; }
+.legend small { display: block; font-size: 22px; color: var(--ink2); font-weight: 400; margin: 4px 0 0 38px; }
+.base { font-size: 26px; color: var(--ink2); margin-top: 52px; }
+</style></head><body>
+<h1>最新の標準に沿った規約は、4割ほど。<br>約半数は古い版のまま</h1>
+<div class="en">Only about 4 in 10 follow the latest national standard. About half still follow an older version.</div>
+<div class="bar" role="img" aria-label="最新の版に沿う 42.3%、古い版に沿う 49.8%、沿っていない・不明 8.0%">
+  <div class="seg latest">42.3<span>%</span></div>
+  <div class="seg old">49.8<span>%</span></div>
+  <div class="seg other"></div>
+</div>
+<div class="legend">
+  <div><i style="background:var(--blue)"></i>最新の版（2021年改正後）に沿う<small>Latest version (2021)</small></div>
+  <div><i style="background:var(--orange)"></i>古い版（2021年改正前）に沿う<small>Older version</small></div>
+  <div><i style="background:var(--gray)"></i>沿っていない・不明 8.0%<small>None / unknown</small></div>
+</div>
+<div class="base">管理規約を改正したことがある管理組合 1,369組合（2023年度の調査）。「概ね」と「一部」沿っているものの合計。</div>
+<div class="source">出典：国土交通省「令和5年度マンション総合調査」データ表 20③ マンション標準管理規約への準拠状況</div>
+</body></html>

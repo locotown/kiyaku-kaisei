@@ -1,5 +1,8 @@
 # プロジェクト概要（BRIEF）
 
+## 名前
+「ととのう規約」（11/3 決定）。説明の一行「管理規約を、改正法に合わせる」を必ず添える。英語：Totonou Kiyaku — put your condominium bylaws in order for Japan's new law。
+
 ## 一言で
 2026年4月施行の改正区分所有法に、マンション管理組合が専門家に頼らず、自分たちで管理規約を対応させるためのツール。
 

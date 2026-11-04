@@ -1,0 +1,18 @@
+# 秘密情報（コミットしない）
+.env
+CLAUDE.local.md
+
+# 非公開の検証データ
+private/
+
+# 依存パッケージ
+node_modules/
+
+# OS
+.DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

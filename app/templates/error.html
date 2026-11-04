@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}うまくいきませんでした｜ととのう規約{% endblock %}
+{% block content %}
+<div class="warn" id="error">
+  <h2>{{ "ページが見つかりません" if status == 404 else "うまくいきませんでした" }}</h2>
+  <p>{{ message }}</p>
+  <p><a class="btn" href="{{ back }}">{{ "作業の画面に戻る" if back != "/" else "トップに戻る" }}</a>
+     {% if back == "/" %}<a class="tbtn2" href="javascript:history.back()">前の画面に戻る</a>{% endif %}</p>
+</div>
+{% endblock %}
