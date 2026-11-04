@@ -1,4 +1,4 @@
-// 仮のデモ動画の画面録画（場面ごとに1本）。offsets.json に「画面が整った時刻」を残し、編集でそこから切り出す
+// 仮のデモ動画の画面録画（場面ごとに1本。1280×600：動画では上の900pxに置き、下の帯を字幕に空ける）。offsets.json に「画面が整った時刻」を残し、編集でそこから切り出す
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ async function scrollTo(page, sel, ms, margin = 90) {
 }
 async function clip(name, fn) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'ja-JP', recordVideo: { dir: OUT, size: { width: 1280, height: 720 } } });
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 600 }, locale: 'ja-JP', recordVideo: { dir: OUT, size: { width: 1280, height: 600 } } });
   const t0 = Date.now();
   const page = await ctx.newPage();
   page.on('dialog', d => d.dismiss());

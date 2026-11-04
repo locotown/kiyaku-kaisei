@@ -1,4 +1,4 @@
-# 仮のデモ動画を組み立てる：場面ごとに 1920×1080・30fps の部品を作り、字幕などを重ねて、つなぐ
+# 仮のデモ動画を組み立てる（画面の録画は上の900pxに置き、下の帯は字幕に空ける）：場面ごとに 1920×1080・30fps の部品を作り、字幕などを重ねて、つなぐ
 import json, subprocess
 from pathlib import Path
 import os
@@ -28,11 +28,11 @@ for i, (r, v) in enumerate(zip(rows, VIS)):
         each = round(d / len(parts_m), 2)
         for j, (nm, st) in enumerate(parts_m):
             inputs += ['-ss', f"{off[nm] + float(st):.2f}", '-t', str(each), '-i', str(H / 'clips' / f'{nm}.webm')]
-            chains.append(f"[{j}:v]scale=1920:1080:flags=lanczos,fps=30,tpad=stop_mode=clone:stop_duration={each},trim=duration={each},setpts=PTS-STARTPTS,setsar=1[m{j}]")
+            chains.append(f"[{j}:v]scale=1920:900:flags=lanczos,pad=1920:1080:0:0:color=0xf6f5f2,fps=30,tpad=stop_mode=clone:stop_duration={each},trim=duration={each},setpts=PTS-STARTPTS,setsar=1[m{j}]")
         chains.append(''.join(f'[m{j}]' for j in range(len(parts_m))) + f'concat=n={len(parts_m)}:v=1:a=0[base]')
     else:
         inputs += ['-ss', f"{off[name]:.2f}", '-t', str(d), '-i', str(H / 'clips' / f'{name}.webm')]
-        chains.append(f"[0:v]scale=1920:1080:flags=lanczos,fps=30,tpad=stop_mode=clone:stop_duration={d},trim=duration={d},setsar=1[base]")
+        chains.append(f"[0:v]scale=1920:900:flags=lanczos,pad=1920:1080:0:0:color=0xf6f5f2,fps=30,tpad=stop_mode=clone:stop_duration={d},trim=duration={d},setsar=1[base]")
     nbase = inputs.count('-i')
     layers = [(H / f'subs_{P}' / f'{i:02d}.png', 'full', 0, 0, 0), (H / f'subs_{P}' / 'kari.png', 'full', 0, 0, 0)]
     for nm, typ, t, x, y in EXTRA.get(i, []):
