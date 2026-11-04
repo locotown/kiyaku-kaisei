@@ -1,0 +1,92 @@
+{# 作業の画面（work.html）のステップ 4：理事会で検討。work.html の変数をそのまま使う #}
+{% from "_icons.html" import icon %}
+<section class="panel" data-step="board" id="board">
+  <div class="stepttl"><p class="eyebrow">ステップ 4 ／ 6</p><h1 class="page-title">理事会で検討する</h1>
+    <p class="lead">住民に説明する前に、改定案を3段に分けて理事会（委員会）で検討し、方針を固めます。
+    ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p></div>
+  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選び、「理事会の判断を保存する」を押してください。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if board %}
+    <div class="acts">
+      <a class="tbtn2" href="/works/{{ id }}/board" target="_blank">{{ icon("printer") }}検討資料を開く（印刷用）</a>
+      <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表</a>
+    </div>
+    {% if board_state %}
+      {% if board_state.needs_redraft %}
+        <form action="/works/{{ id }}/board/redraft" method="post" class="warn">
+          <p><b class="w">改定案の作り直しが必要です。</b>{{ board_state.reason }}{% if board_state.redraft %}（対象の議題：{{ board_state.redraft|join("、") }}）{% endif %}</p>
+          <button type="submit" class="boxed" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}理事会の判断を反映して改定案を作り直す</button>
+        </form>
+      {% elif board_state.ready %}
+        <div class="justdone">{{ icon("check") }}<span>理事会での検討が済みました。{% if board_state.skipped %}見送り：{{ board_state.skipped|join("、") }}（住民向け説明には含めません）{% endif %}</span></div>
+      {% endif %}
+    {% endif %}
+    <form action="/works/{{ id }}/board/decisions" method="post" id="boarddec">
+    {% if questions %}
+      <div class="choose-ui" id="questions">
+        <div class="cu-head">組合が選ぶ点（{{ questions|length }}問）</div>
+        <p class="small">改定案の〔選択〕の箇所です。同じ点が複数の議題に出てくる場合も、ここで1回選べば、関係するすべての議題に使います。
+          選んで保存すると、選んだ案で改定案を作り直します（〔選択〕の印を外します）。</p>
+        {% for q in questions %}{% set k = loop.index0 %}
+          <div class="cu-point" id="q-{{ k }}"><b>問{{ k + 1 }}　{{ q.ref }}（{{ q.caption }}）：{{ q.point }}</b>
+            <div class="small">関係する議題：{% for u in q.uses %}{{ u[0] + 1 }}. {{ board["items"][u[0]].title }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
+            {% if q.options %}
+              {% for o in q.options %}<label class="cu-opt"><input type="radio" name="b_q_{{ k }}" value="{{ o }}" {% if answers[k] == o %}checked{% endif %}><span>{{ o }}</span></label>{% endfor %}
+            {% else %}
+              <input type="text" name="b_q_{{ k }}" value="{{ answers[k] }}" placeholder="選んだ案" aria-label="選んだ案">
+            {% endif %}
+            {% if q.note %}<div class="small">{{ q.note }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% set ns = namespace(tier="") %}
+    {% for it in board["items"] %}
+      {% set i = loop.index0 %}{% set d = board_decisions.get(i|string, {}) %}
+      {% if it.tier != ns.tier %}{% set ns.tier = it.tier %}
+        <h2 class="tier">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h2>
+        <p class="muted">{{ board_tasks[it.tier][1] }}</p>
+      {% endif %}
+      <div class="finding bitem">
+        <div class="bh"><strong>{{ loop.index }}. {{ it.title }}</strong><span class="small">{{ it.articles|join("、") }}</span></div>
+        <p>{{ it.summary }}</p>
+        <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
+        {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+        <select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
+          <option value="">（未判断）</option>
+          {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+        {% set pts = board_points.get(i, []) %}
+        {% if pts %}
+          <div class="choose-ref">
+            <b>選ぶ点（〔選択〕）：</b>{% for p in pts %}{% set k = qindex[point_key(p)] %}
+              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}{% if not loop.last %}／{% endif %}{% endfor %}
+            <div class="small">案は上の「組合が選ぶ点」で選びます。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
+          </div>
+        {% endif %}
+        <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
+        {% set h = d.history or [] %}
+        {% if h %}<details class="hist"><summary>判断の履歴（{{ h|length }}件）</summary>
+          <ul>{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>{% endif %}
+      </div>
+    {% endfor %}
+    {% if board.notes %}<p class="muted">参考：今回の改定案に含まれていない点</p><ul class="muted">{% for n in board.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+    <noscript><p><button type="submit" class="boxed">理事会の判断を保存する</button></p></noscript>
+    </form>
+    {% if board_state and not board_state.ready and not board_state.needs_redraft %}<p class="muted">{{ board_state.reason }}</p>{% endif %}
+  {% endif %}
+  <form action="/works/{{ id }}/board" method="post" id="boardmake">
+    {% if board %}<button type="submit" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
+  </form>
+  <div class="bar"><div class="in">
+    {% if not board %}
+      <div class="t"><b>理事会の検討資料を作ります</b>　改定案を、理解する・判断する・確認するの3段に分けます</div>
+      <button type="submit" form="boardmake" class="btn" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% elif board_state and board_state.ready %}
+      <div class="t"><b>理事会での検討が済みました</b>　判断を変えたときは保存し直してください。<button type="submit" form="boarddec">判断を保存し直す</button></div>
+      <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
+    {% else %}
+      <div class="t"><b>議題ごとに判断を選び、保存します</b>　{{ board_state.reason if board_state else "" }}</div>
+      <button type="submit" form="boarddec" class="btn">理事会の判断を保存する</button>
+    {% endif %}
+  </div></div>
+</section>

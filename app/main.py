@@ -12,8 +12,14 @@ import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -138,8 +144,10 @@ def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
 
 def _rerender(work_id: str) -> None:
     """マンション名を変えたら、作ってある資料（新旧対照表・検討資料・住民向け説明）を AI を使わずに書き直す。"""
-    from core.board import apply_to_draft, to_html as board_html
-    from core.explain import Explanation, to_html as explain_html
+    from core.board import apply_to_draft
+    from core.board import to_html as board_html
+    from core.explain import Explanation
+    from core.explain import to_html as explain_html
 
     work = store.load(work_id)
     draft, paper = _draft(work), _board(work)
@@ -167,7 +175,6 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
         board = decisions_text(_board(work), work.get("board_decisions", {})) if with_board and work.get("board") else ""
         result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
                            title=f"改定案：{work['name']}", board=board)
-        d = store.path(work_id)
         if result.draft:
             _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
@@ -189,7 +196,8 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
 
 def _run_explain(work_id: str) -> None:
     from core.draft import Amendment, Draft
-    from core.explain import generate, to_html as explain_html
+    from core.explain import generate
+    from core.explain import to_html as explain_html
     from core.readability import measure_explanation
 
     work = store.load(work_id)
@@ -209,7 +217,9 @@ def _run_explain(work_id: str) -> None:
 
 
 def _run_board(work_id: str) -> None:
-    from core.board import default_decisions, generate as board_generate, to_html as board_html
+    from core.board import default_decisions
+    from core.board import generate as board_generate
+    from core.board import to_html as board_html
     from core.draft import Amendment, Draft
 
     work = store.load(work_id)
@@ -506,6 +516,11 @@ def _source_note(work_id: str, work: dict) -> dict:
 
 @app.get("/works/{work_id}", response_class=HTMLResponse)
 def show_work(request: Request, work_id: str):
+    from core.board import DECISIONS as BOARD_DECISIONS
+    from core.board import TIER_TASK
+    from core.history import line as hist_line
+    from core.quality import draft_quality
+
     work = store.load(work_id)
     findings = work.get("findings", [])
     order = {"必須": 0, "推奨": 1, "参考": 2}
@@ -525,8 +540,8 @@ def show_work(request: Request, work_id: str):
         "id": work_id, "work": work, "rows": rows, "views": views, "summary": summary, "tally": summary["tally"], "decisions": decisions, "choices": DECISIONS,
         "choice_help": CHOICE_HELP,
         "board": work.get("board"), "board_decisions": work.get("board_decisions", {}),
-        "board_choices": __import__("core.board", fromlist=["DECISIONS"]).DECISIONS,
-        "board_tasks": __import__("core.board", fromlist=["TIER_TASK"]).TIER_TASK,
+        "board_choices": BOARD_DECISIONS,
+        "board_tasks": TIER_TASK,
         "board_state": board_state(work) if work.get("draft") else None,
         "board_points": _points(work) if work.get("board") and work.get("draft") else {},
         **_questions_context(work),
@@ -534,11 +549,11 @@ def show_work(request: Request, work_id: str):
         "meeting": work.get("meeting") or {},
         "meeting_results": MEETING_RESULTS,
         "finals": final_documents(work_id, work) if work.get("meeting") else [],
-        "hist_line": __import__("core.history", fromlist=["line"]).line,
+        "hist_line": hist_line,
         "finding_line": finding_line,
         "progress": progress_view(work) if work["status"] in BUSY else None,
         "journey": journey(work, board_state(work) if work.get("draft") else None),
-        "quality": __import__("core.quality", fromlist=["draft_quality"]).draft_quality(work) if work.get("draft") else None,
+        "quality": draft_quality(work) if work.get("draft") else None,
         "source_note": _source_note(work_id, work),
         "done": request.query_params.get("done", ""),
         "bulk": request.query_params.get("bulk", ""),
@@ -821,7 +836,8 @@ def start_board(work_id: str):
 
 @app.post("/works/{work_id}/board/decisions")
 async def save_board_decisions(request: Request, work_id: str):
-    from core.board import DECISIONS, NEEDS_REDRAFT, to_html as board_html
+    from core.board import DECISIONS, NEEDS_REDRAFT
+    from core.board import to_html as board_html
 
     form = await request.form()
     work = store.load(work_id)

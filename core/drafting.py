@@ -153,7 +153,6 @@ class DraftToolHandler(ToolHandler):
         規約全体は渡さず、参照されている条だけを置く。置いた条の数を返す（変わらなければ 0）。
         """
         from core.draft import references
-
         from core.sources import normalize_article_ref
 
         # 参照されている条に加え、指摘の対象以外で改正・削除した条（参照合わせなど）も渡す

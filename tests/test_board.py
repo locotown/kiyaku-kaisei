@@ -2,10 +2,16 @@
 
 import shutil
 
-import pytest
-
-from core.board import (BoardItem, BoardPaper, apply_to_draft, coverage, decisions_text, fix_tiers, status,
-                        to_html)
+from core.board import (
+    BoardItem,
+    BoardPaper,
+    apply_to_draft,
+    coverage,
+    decisions_text,
+    fix_tiers,
+    status,
+    to_html,
+)
 from core.draft import Amendment, Draft
 
 FINDING = {"article": "第47条", "topic_id": "1-1", "category": "必須", "issue": "i", "current_excerpt": "",

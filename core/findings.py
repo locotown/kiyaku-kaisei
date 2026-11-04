@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 
-from core.model import Kiyaku
 from core.sources import law, normalize_article_ref, standard
 from core.topics import TOPIC_BY_ID
 

@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from core.config import MODEL, ROOT, client
 from core.tools import TOOL_DEFS

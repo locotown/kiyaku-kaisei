@@ -12,8 +12,8 @@ from difflib import SequenceMatcher
 
 from core.draft import Draft
 from core.model import Kiyaku
-from core.sources import normalize_article_ref
 from core.printstyle import PRINT_CSS
+from core.sources import normalize_article_ref
 
 DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。"
 LEGEND = "改定案の列の<mark>下線と薄い色の印</mark>は追加・変更した語句、現行の列の<del>赤の取り消し線</del>は削除・変更前の語句です。"
@@ -36,7 +36,7 @@ def _current_text(kiyaku: Kiyaku, ref: str | None) -> str:
 
 
 # 語句のまとまり（漢字・ひらがな・カタカナ・数字・英字の連なり、記号は1文字ずつ）
-TOKEN = re.compile(r"[\u4e00-\u9fff々〆]+|[\u3041-\u309f]+|[\u30a1-\u30ffー]+|[0-9０-９]+|[A-Za-zＡ-Ｚａ-ｚ]+|\n|.", re.S)
+TOKEN = re.compile(r"[\u4e00-\u9fff々〆]+|[\u3041-\u309f]+|[\u30a1-\u30ffー]+|[0-9０-９]+|[A-Za-zＡ-Ｚａ-ｚ]+|\n|.", re.DOTALL)
 
 
 def _tokens(s: str) -> list[str]:

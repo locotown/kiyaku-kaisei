@@ -1,9 +1,12 @@
 # 仮のデモ動画の音：ナレーション（Open JTalk）＋ BGM（自作：琴に似た撥弦の音・五音音階）＋ 効果音（自作：判子・場面の切り替え）
 # 素材集の音は使わず、すべてここで合成する（著作権の心配がない）
-import json, wave
-import numpy as np
-from pathlib import Path
+import json
 import os
+import wave
+from pathlib import Path
+
+import numpy as np
+
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 H = Path(__file__).parent
 SR, TOTAL = 48000, 180.0

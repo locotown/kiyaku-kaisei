@@ -17,8 +17,8 @@ from datetime import date
 
 from core.draft import Amendment
 from core.model import Article, Kiyaku
-from core.sources import normalize_article_ref
 from core.printstyle import PRINT_CSS
+from core.sources import normalize_article_ref
 
 
 @dataclass

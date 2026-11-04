@@ -81,7 +81,7 @@ def plain(text: str) -> str:
 def parse_explanation(text: str) -> dict:
     """採点役のコメントを、確認項目ごと（(1)〜(11)）の一行と、確認できなかった点に分ける。"""
     items: dict[int, str] = {}
-    for m in re.finditer(r"^\s*\((\d{1,2})\)\s*(.+?)(?=^\s*\(\d{1,2}\)|\Z)", text, flags=re.M | re.S):
+    for m in re.finditer(r"^\s*\((\d{1,2})\)\s*(.+?)(?=^\s*\(\d{1,2}\)|\Z)", text, flags=re.MULTILINE | re.DOTALL):
         body = re.split(r"確認できなかった点|(?<=。)\s*(?:総じて|全体として|以上)", " ".join(m.group(2).split()))[0]  # 結びの文は外す
         items[int(m.group(1))] = plain(body.strip())
     limits = []

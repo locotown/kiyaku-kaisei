@@ -1,7 +1,8 @@
 # 読み上げの長さに合わせて場面の長さを配分し直す（合計は 180 秒）。声が収まらない場面を延ばし、余る場面を詰める
 import json
-from pathlib import Path
 import os
+from pathlib import Path
+
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 H = Path(__file__).parent
 rows = json.load(open(H / f'rows_{P}.json'))

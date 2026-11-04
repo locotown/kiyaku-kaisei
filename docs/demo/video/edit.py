@@ -1,7 +1,9 @@
 # 仮のデモ動画を組み立てる（画面の録画は上の900pxに置き、下の帯は字幕に空ける）：場面ごとに 1920×1080・30fps の部品を作り、字幕などを重ねて、つなぐ
-import json, subprocess
-from pathlib import Path
+import json
 import os
+import subprocess
+from pathlib import Path
+
 P = os.environ.get('PATTERN', 'a')  # パターン（a：初期版、b：何を作ったかを先に見せる）
 H = Path(__file__).parent
 FIG = H.parent / 'figures'

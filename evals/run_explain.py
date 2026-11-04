@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import sys
 import time
-from pathlib import Path
 
 from core.config import ROOT
 from core.draft import Amendment, Draft

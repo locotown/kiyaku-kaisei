@@ -17,11 +17,11 @@ class Corpus:
         self.rules = rules or {}
 
     @classmethod
-    def of(cls, x) -> "Corpus":
+    def of(cls, x) -> Corpus:
         return x if isinstance(x, Corpus) else cls(x)
 
     @classmethod
-    def from_collection(cls, collection) -> "Corpus":
+    def from_collection(cls, collection) -> Corpus:
         main = collection.main.kiyaku if collection.main and collection.main.kiyaku else Kiyaku()
         rules = {d.title: d.kiyaku for d in collection.rules if d.kiyaku and d.kiyaku.articles}
         return cls(main, rules)

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date, datetime, timedelta, timezone
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 
 from core.config import ROOT, client
 from core.findings import Finding

@@ -134,7 +134,7 @@ def flow(current: int, sp=False) -> str:
             cls = "done"
             mark = '<div class="m hanko">済</div>' if who == "human" else f'<div class="m">{icon("check", 16, "currentColor", 2.5)}</div>'
         elif k == current:
-            cls, mark = "now", f'<div class="m"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span></div>'
+            cls, mark = "now", '<div class="m"><span style="width:10px;height:10px;border-radius:50%;background:#fff"></span></div>'
         else:
             cls, mark = "", '<div class="m"></div>'
         label = "" if sp else f"{k + 1}. {s}"
