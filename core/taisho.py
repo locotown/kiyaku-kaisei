@@ -174,17 +174,31 @@ RESOLUTION_GUIDE = ("規約の改定は総会の特別決議（組合員総数�
                     "細則の改定は普通決議（出席者の議決権の過半数）で決めます。総会では別の議案になります。")
 
 
-def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> str:
+def edit_label(edits: dict | None, a) -> str:
+    """委員会で直した条の印（「委員会で直した文（AI の確認前）」など）。直していない条は空。"""
+    from core.editcheck import label
+
+    return label((edits or {}).get(f"{a.document or '規約'}|{a.article}"), a.text) if edits else ""
+
+
+def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None) -> str:
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
     grouped = numbered(all_rows)
     sections = []
     for document, items in grouped:
-        sections.append(_html_table(items, group_heading(document) if len(grouped) > 1 or document != "規約" else ""))
+        sections.append(_html_table(items, group_heading(document) if len(grouped) > 1 or document != "規約" else "", edits))
     return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1, ident=ident)
 
 
-def _html_table(items: list[tuple[int, dict]], heading: str) -> str:
+def _edit_html(text: str) -> str:
+    if not text:
+        return ""
+    kind = "humanedit ok" if "AI 確認済み：問題なし" in text else "humanedit"
+    return f'<span class="{kind}">{html.escape(text)}</span>'
+
+
+def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None = None) -> str:
     body = []
     for n, r in items:
         a = r["amendment"]
@@ -197,7 +211,7 @@ def _html_table(items: list[tuple[int, dict]], heading: str) -> str:
         )
         body.append(
             f'<tr class="{"row-must" if c["is_required"] else "row-opt"}">'
-            f'<td><span class="rowno">行{n}</span>{caption}{_html_parts(r["new"], "new")}</td>'
+            f'<td><span class="rowno">行{n}</span>{_edit_html(edit_label(edits, a))}{caption}{_html_parts(r["new"], "new")}</td>'
             f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td>{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"<br><small>根拠：{html.escape(basis)}</small>"

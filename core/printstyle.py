@@ -77,6 +77,8 @@ tr.row-opt td:first-child { box-shadow: inset 3px 0 0 var(--color-line-2); }
 mark { background: var(--color-primary-soft); color: inherit; padding: 0 1px; text-decoration: underline; text-decoration-color: var(--color-primary); text-underline-offset: 3px; }
 del { color: var(--color-must); text-decoration-color: var(--color-must); text-decoration-thickness: 1.5px; }
 .refcap { color: var(--color-ink-2); font-size: .9em; }
+.humanedit { display: block; width: fit-content; font-size: .8rem; font-weight: 700; color: var(--color-must); border: 1px solid var(--color-must); border-radius: 4px; padding: 0 6px; margin-bottom: 4px; }
+.humanedit.ok { color: var(--color-ok); border-color: var(--color-ok); }
 .rowno { display: block; font-weight: 700; color: var(--color-primary); font-size: .9rem; margin-bottom: 2px; }
 
 /* 最新の規約：変更した条は左の線で示す */
