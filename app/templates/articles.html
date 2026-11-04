@@ -19,7 +19,15 @@
   {% if counts.total %}
   <p>委員会で直した条 <b>{{ counts.total }}条</b>（AI の確認前 <b>{{ counts.unchecked|length }}条</b>{% if counts.unchecked %}：{{ counts.unchecked|join("、") }}{% endif %}）</p>
   {% if counts.flagged %}<p class="warn"><b class="w">AI が気になる点を挙げた条：{{ counts.flagged|join("、") }}</b>。下の結果を読んで、必要なら直すか、AI が作った文に戻してください。</p>{% endif %}
-  {% if reviewing %}<p class="warn"><b class="w">AI が確かめています。</b>この画面は5秒ごとに更新されます。</p>
+  {% if reviewing %}{% set rp = review_progress %}
+  <div class="reviewing" role="status"><span class="spinner" aria-hidden="true"></span>
+    <div>{% if rp.active %}<b>AI が{{ rp.active }}を確かめています</b>（<span class="elapsed" data-elapsed="{{ rp.elapsed }}">{{ rp.elapsed }}</span>秒たちました。1条あたり、ふつう20〜60秒かかります）{% else %}<b>AI が確かめる準備をしています</b>{% endif %}
+      {% if rp.left > 1 %}<br><span class="small">このあと、ほかに {{ rp.left - 1 }}条が順番を待っています。</span>{% endif %}
+      <br><span class="small">終わると、この画面が自動で切り替わります（5秒ごとに確かめています）。ほかの画面に移ってもかまいません。</span></div></div>
+  <script>
+  (() => { const el = document.querySelector(".reviewing .elapsed"); if (!el) return;
+    let n = Number(el.dataset.elapsed) || 0; setInterval(() => { el.textContent = ++n; }, 1000); })();
+  </script>
   {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
   {% else %}<p class="muted">まだ直した条はありません。</p>{% endif %}
 </div>
@@ -41,7 +49,7 @@
     {% if a.edit %}
       {% set r = a.edit.review or {} %}
       <div class="editreview">
-        {% if r.status == "確認中" %}<p class="small">AI が確かめています…</p>
+        {% if r.status == "確認中" %}<p class="small">{% if r.queued %}順番を待っています（前の条が終わると始まります）{% else %}<span class="spinner sm" aria-hidden="true"></span> AI が確かめています…{% endif %}</p>
         {% elif r.status == "済み" and r.for_text == a.text %}
           <p><span class="verdict v-{{ 'ok' if r.verdict == '問題なし' else 'ng' }}">AI の確認：{{ r.verdict }}</span>
             <span class="small">（{{ r.at }}・約${{ "%.2f"|format(r.cost_usd or 0) }}）</span></p>

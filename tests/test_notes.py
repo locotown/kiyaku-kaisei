@@ -287,3 +287,21 @@ def test_review_drops_concerns_without_basis(monkeypatch):
     monkeypatch.setattr(E, "client", lambda: Client())
     review, _ = E.review_edit("材料")
     assert review.concerns == [] and review.verdict == "問題なし"           # 根拠を示せない指摘は出さない
+
+
+def test_review_progress_is_visible(work):
+    """AI が確かめている間、何を確かめていて何秒たったか・順番待ちが画面に出る（人の確認 第3回：動いているか分からない）。"""
+    from datetime import datetime, timedelta
+
+    started = (datetime.now() - timedelta(seconds=12)).isoformat(timespec="seconds")
+    store.update(WID, human_edits={
+        "規約|第20条": {"text": "第20条　直した", "original": "第20条　…", "at": "", "note": "",
+                      "review": {"status": "確認中", "queued": False, "started": started, "for_text": "第20条　直した"}},
+        "規約|第47条": {"text": "第47条　直した", "original": "第47条　…", "at": "", "note": "",
+                      "review": {"status": "確認中", "queued": True, "for_text": "第47条　直した"}},
+    })
+    page = work.get(f"/works/{WID}/articles").text
+    assert "AI が第20条を確かめています" in page and "秒たちました" in page
+    assert "ほかに 1条が順番を待っています" in page and "順番を待っています（前の条が終わると始まります）" in page
+    p = M._review_progress(store.load(WID)["human_edits"])
+    assert p["active"] == "第20条" and p["left"] == 2 and 10 <= p["elapsed"] <= 60

@@ -1454,6 +1454,7 @@ def articles_page(request: Request, work_id: str):
     return templates.TemplateResponse(request, "articles.html", {
         "id": work_id, "work": work, "items": items, "ident": _ident(work_id, work), "counts": edit_counts(work),
         "reviewing": any((e.get("review") or {}).get("status") == "確認中" for e in human.values()),
+        "review_progress": _review_progress(human),
         "busy": work["status"] in BUSY, "saved": request.query_params.get("saved", ""),
     })
 
@@ -1561,6 +1562,12 @@ def _review_edits(work_id: str, keys: list[str]) -> None:
         if not e:
             continue
         text = e["text"]
+
+        def begin(data: dict, key=key) -> None:  # 順番待ちから「確かめています」に（画面に経過時間を出すため）
+            r = ((data.get("human_edits") or {}).get(key) or {}).get("review")
+            if r:
+                r.update(queued=False, started=__import__("datetime").datetime.now().isoformat(timespec="seconds"))
+        store.mutate(work_id, begin)
         try:
             review, usage = review_edit(_review_material(work_id, work, key))
             usd = cost_usd(usage)
@@ -1602,7 +1609,27 @@ async def review_articles(request: Request, work_id: str):
 
     def mark(data: dict) -> None:
         for k in keys:
-            data["human_edits"][k]["review"] = {"status": "確認中", "for_text": data["human_edits"][k]["text"], "at": _now()}
+            data["human_edits"][k]["review"] = {"status": "確認中", "queued": True, "for_text": data["human_edits"][k]["text"],
+                                                "at": _now()}
     store.mutate(work_id, mark)
     threading.Thread(target=_review_edits, args=(work_id, keys), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}/articles#row-top", status_code=303)
+
+
+
+def _review_progress(human: dict) -> dict | None:
+    """AI が確かめている間の進み具合（何条のうち何条目か、今の条を確かめ始めてからの秒数）。"""
+    from datetime import datetime
+
+    jobs = [(k, e["review"]) for k, e in human.items() if (e.get("review") or {}).get("status") == "確認中"]
+    if not jobs:
+        return None
+    active = next(((k, r) for k, r in jobs if not r.get("queued")), None)
+    elapsed = 0
+    if active and active[1].get("started"):
+        try:
+            elapsed = max(0, int((datetime.now() - datetime.fromisoformat(active[1]["started"])).total_seconds()))
+        except ValueError:
+            elapsed = 0
+    return {"left": len(jobs), "active": active[0].split("|", 1)[1] if active else "", "elapsed": elapsed,
+            "started": active[1].get("started", "") if active else ""}

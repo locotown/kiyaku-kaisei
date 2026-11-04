@@ -299,3 +299,12 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .concerns { margin: 0; padding-left: 1.2em; display: grid; gap: var(--space-2); }
 .review-top { margin-bottom: var(--space-5); }
 .q-human .flagged { color: var(--color-must); margin-top: var(--space-1); }
+/* 条の文の画面：今の規定・AI の元の文は、改行をそのまま見せる */
+.tk .quote { white-space: pre-wrap; }
+.artedit .quote { background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
+/* AI が確かめている間の表示（動いていることが分かるように） */
+.reviewing { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); background: var(--color-surface); margin: var(--space-3) 0; }
+.spinner { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--color-primary-soft); border-top-color: var(--color-primary); animation: spin 0.9s linear infinite; margin-top: 4px; }
+.spinner.sm { display: inline-block; width: 14px; height: 14px; border-width: 2px; margin: 0 4px -2px 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
