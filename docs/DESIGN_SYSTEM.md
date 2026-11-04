@@ -5,6 +5,7 @@
 
 - **トークンの正本は `app/static/tokens.css`、部品の見た目の正本は `app/static/components.css`**。値を変えるときはそのファイルだけを変え、このページの表も合わせる
 - Claude のデザインシステム（Design System の型の Artifact、非公開：https://claude.ai/artifact/3hMhGegDNYLML5jUFVD6F8 ）は、この2つを写したもの。部品11個の見本・ブランドブック・ロゴ・表紙を持つ。食い違ったら、リポジトリのほうが正しい。変えたら写し直す
+- アプリだけにある要素（処理中の進み具合、改定案の確認結果、理事会の議題など）は `app/static/app.css` に、トークンだけを使って書く
 - 部品の見た目の見本：docs/plans/design/v3/（指摘の判断・スマホの幅・改定案・総会）、作り方は docs/plans/design/mock3.py
 
 ## 原則
@@ -87,6 +88,9 @@
 - フォームの名前：`decision_*`、`reason_*`、`b_decision_*`、`b_q_*`、`b_note_*`、`m_result_*`、`m_edit_*`、`m_name`、`m_date`
 - アンカー：`#findings`、`#next`、`#board`、`#explain`、`#meeting`。ステップの切り替えは URL の `#ステップ名` で選ぶ
 - 判断の値：採用 ／ 不採用 ／ 保留
+
+## 注意の示し方
+- 注意・警告の専用の色は作らない。区分「必須」の色 `--color-must` の文字と、細い線で示す（黄色い箱にしない）。朱は使わない（判子だけの色）
 
 ## 書かないこと
 - 画面と出力は日本語だけ

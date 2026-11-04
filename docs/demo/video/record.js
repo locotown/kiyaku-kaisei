@@ -49,23 +49,24 @@ async function clip(name, fn) {
     await sleep(9000);
   });
   await clip('c3_findings', async (p, ready) => {
-    await p.goto(D('dm0001') + '#findings'); await sleep(800);
-    await p.evaluate(() => { document.getElementById('findings-fold').open = true; window.scrollTo(0, document.getElementById('findings').offsetTop - 10); });
-    await sleep(800); ready();
+    // 11/4 第3案：ステップごとの画面。指摘は1行に畳んであり、押すと開く
+    await p.goto(D('dm0001') + '#findings'); await sleep(1000); ready();
     await sleep(1500);
     await p.click('.fbtn[data-filter="必須"]'); await sleep(1500);
-    await smooth(p, 260, 2500); await sleep(3000);
+    await smooth(p, 420, 2500); await sleep(1000);
+    await p.click('.fcard:not([hidden]) > summary'); await sleep(1500);
+    await smooth(p, 260, 2000); await sleep(2000);
   });
   await clip('c4_basis_bulk', async (p, ready) => {
     await p.goto(D('dm0001') + '#findings'); await sleep(800);
-    await p.evaluate(() => { document.getElementById('findings-fold').open = true; });
     try { await p.click('.fbtn[data-filter="必須"]'); } catch (e) {}
-    await p.evaluate(() => { const c = document.querySelector('.fcard:not([hidden]) .basis'); window.scrollTo(0, c.getBoundingClientRect().top + window.scrollY - 330); });
+    await p.evaluate(() => { const c = document.querySelector('.fcard:not([hidden])'); c.open = true; const b = c.querySelector('.basis'); window.scrollTo(0, b.getBoundingClientRect().top + window.scrollY - 330); });
     await sleep(800); ready();
     await sleep(800);
     await p.click('.fcard:not([hidden]) .basis summary'); await sleep(2800);
-    await p.click('.fbtn[data-filter="all"]'); await sleep(300);
+    await p.click('.fbtn[data-filter="decide"]'); await sleep(300);
     await scrollTo(p, '#bulk', 1200, 200); await sleep(500);
+    await p.click('#bulk > summary'); await sleep(800);
     await p.selectOption('#bk-dec', '採用'); await sleep(1800);
   });
   await clip('c5_draft_busy', async (p, ready) => {
