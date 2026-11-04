@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 import threading
 import traceback
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -30,7 +31,47 @@ from core.findings import Finding
 from core.ingest import SUPPORTED, UnsupportedFormat, load_kiyaku
 from core.taisho import to_html, to_markdown
 
-app = FastAPI(title="ととのう規約")
+# 処理中のまま止まった作業を、次にどうすればよいか（処理はこのサーバーのスレッドで動くので、サーバーが止まると処理も止まる）
+INTERRUPTED = {
+    "点検中": ("エラー", "トップ画面から、規約をもう一度読み込んで点検を始めてください。"),
+    "改定案作成中": ("改定案エラー", "「改定案を作る」（または「改定案を作り直す」）をもう一度押してください。"),
+    "検討資料作成中": ("検討資料エラー", "「理事会の検討資料を作る」をもう一度押してください。"),
+    "説明文作成中": ("説明文エラー", "「住民向けの説明を作る」をもう一度押してください。"),
+}
+
+
+def recover_interrupted() -> list[str]:
+    """サーバーの起動時に、処理中のまま残っている作業を「途中で止まった」に切り替える。
+
+    codespace の停止やサーバーの再起動で処理が途中で止まると、状態が「作成中」のまま残り、ボタンが押せなくなるため。
+    起動した時点では、このサーバーで動いている処理はないので、処理中の作業はすべて止まったものと分かる。
+    デモの録画用に、わざと処理中にしてある架空の作業（demo_busy）は対象にしない。
+    """
+    fixed = []
+    for w in store.list_works():
+        if w["status"] not in INTERRUPTED:
+            continue
+        work = store.load(w["id"])
+        if work.get("demo_busy"):
+            continue
+        status, todo = INTERRUPTED[w["status"]]
+        # 途中から再開できるように、止まったときの AI のセッション（作業の記録の最後の sesn_…）を残しておく
+        sessions = [e["text"] for e in work.get("log", []) if e.get("kind") == "session" and e.get("text", "").startswith("sesn_")]
+        store.append_log(w["id"], "error", "処理が途中で止まりました（サーバーの再起動など）")
+        store.update(w["id"], status=status, interrupted=w["status"], interrupted_session=sessions[-1] if sessions else "",
+                     error="処理が途中で止まりました（codespace の停止や、サーバーの再起動などで、AI の作業が中断されました）。\n"
+                           + todo + "\nこれまでの判断と、できていた資料はそのまま残っています。止まるまでの AI の費用はかかっています。")
+        fixed.append(w["id"])
+    return fixed
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    recover_interrupted()
+    yield
+
+
+app = FastAPI(title="ととのう規約", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")  # デザイントークンなど
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"

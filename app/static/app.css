@@ -237,6 +237,8 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk { line-break: strict; }
 .tk p, .tk .help, .tk li, .tk dd, .tk .lead, .tk .note, .tk .srcnote, .tk .legend > div, .tk .pd-head { text-align: justify; }
 .tk h1, .tk h2, .tk h3, .tk .tt { text-wrap: balance; }
+/* 進み具合のステップ名は丸の真下に（上の両端揃えを受けない） */
+.tk .flow li { text-align: center; }
 
 /* ---- 開いた指摘 ---- */
 .body > .facts:first-child { margin-top: var(--space-4); }
