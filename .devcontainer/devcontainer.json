@@ -24,6 +24,12 @@
       "openFiles": [
         "README.md"
       ]
+    },
+    "vscode": {
+      "settings": {
+        "python.terminal.activateEnvironment": false,
+        "python-envs.terminal.autoActivationType": "off"
+      }
     }
   }
 }
