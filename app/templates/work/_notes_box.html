@@ -20,9 +20,22 @@
   {% endfor %}</ul>
   {% endif %}
 </details>
-{% if work.todos %}
-<div class="todos sec">
-  <h2>宿題・メモ（書き込みから）</h2>
-  <ul>{% for t in work.todos|reverse %}<li><b>{{ t.where }}</b>：{{ t.text }} <span class="small">（{{ t.at }}）</span></li>{% endfor %}</ul>
-</div>
+{% if work.todos or note_doc %}
+<form method="post" action="/works/{{ id }}/todos" class="todos sec">
+  <input type="hidden" name="back" value="{{ note_doc }}">
+  <h2>宿題・メモ</h2>
+  <p class="small">書き込みから残した宿題・メモです。会議のあとで見返して、直したり、済みにしたり、足したりできます。</p>
+  {% if work.todos %}<ul class="todolist">{% for t in work.todos|reverse %}{% set tid = t.id or ("i" ~ (work.todos|length - loop.index)) %}
+    <li class="{{ 'tdone' if t.done }}">
+      <div class="td-head"><b>{{ t.where }}</b> <span class="small">（{{ t.at }}{% if t.edited_at %}・{{ t.edited_at }} に直した{% endif %}）</span>
+        <label class="small"><input type="checkbox" name="done_{{ tid }}" value="1" {{ "checked" if t.done }}> 済み</label>
+        <label class="small"><input type="checkbox" name="del_{{ tid }}" value="1"> 消す</label></div>
+      <input type="text" name="text_{{ tid }}" value="{{ t.text }}" aria-label="宿題・メモ">
+      <input type="text" name="memo_{{ tid }}" value="{{ t.memo or '' }}" placeholder="補足（会議での経緯など）" aria-label="補足">
+    </li>{% endfor %}</ul>{% endif %}
+  <div class="td-new"><span class="small">宿題・メモを足す</span>
+    <input type="text" name="new_where" placeholder="場所（例：第25条、議題3。空なら全体）" aria-label="場所">
+    <input type="text" name="new_text" placeholder="内容" aria-label="足す宿題・メモ"></div>
+  <button type="submit" class="boxed">宿題・メモを保存する</button>
+</form>
 {% endif %}

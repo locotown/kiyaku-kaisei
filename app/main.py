@@ -1198,20 +1198,31 @@ def note_photo(work_id: str, batch: str, n: int):
 @app.get("/works/{work_id}/notes/{batch}", response_class=HTMLResponse)
 def notes_page(request: Request, work_id: str, batch: str):
     """読み取った書き込みと、反映の提案を確かめる画面。"""
+    from core.board import DECISIONS
+    from core.notes import changes
+
     work = store.load(work_id)
     b = _note_batch(work, batch)
+    if b["doc"] == "board":  # 写真にない内容を足すときの「場所」
+        paper = _board(work)
+        places = [(f"item:{i}", f"議題{i + 1} {it.title}") for i, it in enumerate(paper.items)] if paper else []
+    else:
+        places = list(_row_labels(work_id, work).items())
     return templates.TemplateResponse(request, "notes.html", {
         "id": work_id, "work": work, "b": b, "doc_name": NOTE_DOCS[b["doc"]], "ident_now": _ident(work_id, work),
-        "changes": __import__("core.notes", fromlist=["changes"]).changes,
+        "changes": changes, "places": places,
+        "decision_options": list(dict.fromkeys(d for ds in DECISIONS.values() for d in ds)),
         "done": request.query_params.get("done", ""),
     })
 
 
 @app.post("/works/{work_id}/notes/{batch}/apply")
 async def apply_notes(request: Request, work_id: str, batch: str):
-    """選んだ提案を反映する（AI は使わない）。条の文の修正は、あとで改定案を作り直しても上書きしない。"""
+    """選んだ提案を反映する（AI は使わない）。条の文の修正は、あとで改定案を作り直しても上書きしない。
+
+    提案ごとの「補足」（会議での経緯など）と、写真にない内容を手で足した分も、ここで一緒に記録する。
+    """
     from core.board import choice_questions
-    from core.draft import check
 
     form = await request.form()
     work = store.load(work_id)
@@ -1226,30 +1237,19 @@ async def apply_notes(request: Request, work_id: str, batch: str):
             continue
         text = str(form.get(f"text_{p['id']}", p.get("proposed", ""))).strip()
         chosen.append((p, act, text))
+    memos = {p["id"]: str(form.get(f"memo_{p['id']}", "")).strip() for p, _, _ in chosen}
+    added = _manual_proposals(work_id, work, b, form)  # 写真にない内容を手で足した分は、そのまま反映する
+    for p in added:
+        chosen.append((p, "反映する", p["proposed"]))
+        memos[p["id"]] = p.get("memo", "")
     applied = [(p, t) for p, act, t in chosen if act == "反映する" and t]
     stamp = f"{now} の書き込みから"
 
     # 条の文の修正：改定案を直し、委員会で直した文として記録する（AI の元の文も残す）
-    edits = [(p, t) for p, t in applied if p["kind"] == "文言の修正"]
+    edits = [{"document": p.get("document", "規約"), "article": p["article"], "text": t, "note": memos.get(p["id"], "")}
+             for p, t in applied if p["kind"] == "文言の修正"]
     if edits:
-        def change_draft(data: dict) -> None:
-            human = data.setdefault("human_edits", {})
-            for p, t in edits:
-                for am in data["draft"]["amendments"]:
-                    if am["article"] == p["article"] and am.get("document", "規約") == p.get("document", "規約"):
-                        key = f"{am.get('document', '規約')}|{am['article']}"
-                        human[key] = {"text": t, "original": human.get(key, {}).get("original", am["text"]),
-                                      "at": now, "batch": batch}
-                        am["text"] = t
-        work = store.mutate(work_id, change_draft)
-        draft = _draft(work)
-        corpus = _corpus(work_id)
-        _, errors, _ = check(draft.to_dict(), corpus, [f for i, f in enumerate(_findings(work))
-                                                       if work["decisions"][str(i)]["decision"] == "採用"])
-        store.update(work_id, draft_errors=errors)
-        _write_taisho(work_id, work, draft, corpus)
-        _rerender(work_id)
-        store.append_log(work_id, "edit", f"{stamp}：条の文を直しました（{'、'.join(p['article'] for p, _ in edits)}）")
+        _edit_articles(work_id, edits, f"{stamp}：条の文を直しました", batch=batch)
 
     # 理事会の判断・〔選択〕・メモ：画面のフォームと同じ形にして、同じ処理で保存する（履歴も残る）
     board_props = [(p, t) for p, t in applied if p["kind"] in ("判断", "選択", "理事会のメモ")]
@@ -1265,22 +1265,29 @@ async def apply_notes(request: Request, work_id: str, batch: str):
         qs = choice_questions(_points(work))
         for k, ans in enumerate(_questions_context(work)["answers"]):
             form_now[f"b_q_{k}"] = ans
+
+        def add_note(i: int, text: str) -> None:
+            old = form_now[f"b_note_{i}"]
+            form_now[f"b_note_{i}"] = f"{old}／{text}" if old else text
+
         for p, t in board_props:
             i = p["item"]
             if p["kind"] == "判断":
                 form_now[f"b_decision_{i}"] = t
             elif p["kind"] == "理事会のメモ":
-                old = form_now[f"b_note_{i}"]
-                form_now[f"b_note_{i}"] = f"{old}／{t}" if old else t
+                add_note(i, t)
             else:
                 k = next((k for k, q in enumerate(qs) if (i, p["point"]) in q["uses"]), None)
                 if k is not None:
                     form_now[f"b_q_{k}"] = t
+            if memos.get(p["id"]):  # 補足（会議での経緯）は、議題のメモに残す（議事録に使える）
+                add_note(i, memos[p["id"]])
         _apply_board_form(work_id, form_now)
         store.append_log(work_id, "edit", f"{stamp}：理事会の判断などを記録しました（{len(board_props)}件）")
 
     # メモ・宿題（読めなかった書き込みに、人が文字を入れた場合も）
-    todos = [{"text": t, "where": p["where"], "at": now, "batch": batch}
+    todos = [{"id": _todo_id(), "text": t, "where": p["where"], "at": now, "batch": batch, "memo": memos.get(p["id"], ""),
+              "done": False}
              for p, t in applied if p["kind"] in ("メモ・宿題", "読めない")]
     ids = {p["id"]: act for p, act, _ in chosen}
 
@@ -1289,11 +1296,76 @@ async def apply_notes(request: Request, work_id: str, batch: str):
             data.setdefault("todos", []).extend(todos)
         for bb in data.get("notes", []):
             if bb["id"] == batch:
+                bb["proposals"].extend(added)
                 for p in bb["proposals"]:
                     if p["id"] in ids:
                         p.update(status="反映済み" if ids[p["id"]] == "反映する" else "反映しない", decided_at=now)
+                        if memos.get(p["id"]):
+                            p["memo"] = memos[p["id"]]
     store.mutate(work_id, finish)
     return RedirectResponse(f"/works/{work_id}/notes/{batch}?done={len(applied)}", status_code=303)
+
+
+def _manual_proposals(work_id: str, work: dict, b: dict, form) -> list[dict]:
+    """確認画面で、写真にない内容を手で足した分を、提案と同じ形にする（会議のあとで思い出して足す場合など）。
+
+    場所は「全体」「行N（新旧対照表）」「議題N（検討資料）」。議題の判断は、その議題で選べるものだけを記録し、
+    選べないものはメモにする（写真の読み取りと同じ扱い）。条の文を直すときは「条の文を直す」画面を使う。
+    """
+    from core.board import DECISIONS
+
+    text = str(form.get("add_text", "")).strip()
+    decision = str(form.get("add_decision", "")).strip()
+    place = str(form.get("add_place", "")).strip()
+    memo = str(form.get("add_memo", "")).strip()
+    if not text and not decision:
+        return []
+    n = sum(1 for p in b["proposals"] if p["photo"] == 0)
+    out = []
+
+    def add(kind: str, where: str, proposed: str, **kw) -> None:
+        out.append({"kind": kind, "photo": 0, "id": f"0-{n + len(out) + 1}", "where": where, "handwriting": "",
+                    "confidence": "", "reason": "", "check": False, "status": "未確認", "manual": True,
+                    "proposed": proposed, **kw})
+
+    paper = _board(work)
+    if place.startswith("item:") and paper and place[5:].isdigit() and int(place[5:]) < len(paper.items):
+        i = int(place[5:])
+        it = paper.items[i]
+        where = f"議題{i + 1} {it.title}"
+        d = work.get("board_decisions", {}).get(str(i), {})
+        if decision in DECISIONS[it.tier]:
+            add("判断", where, decision, item=i, current=d.get("decision", ""))
+        elif decision:
+            text = f"☑{decision}" + (f"／{text}" if text else "")
+        if text:
+            add("理事会のメモ", where, text, item=i, current=d.get("note", ""))
+    else:
+        where = "全体"
+        if place.startswith("row:"):
+            where = _row_labels(work_id, work).get(place, "全体")
+        body = "／".join(x for x in (f"☑{decision}" if decision else "", text) if x)
+        add("メモ・宿題", where, body)
+    if out:
+        out[0]["memo"] = memo
+    return out
+
+
+def _row_labels(work_id: str, work: dict) -> dict[str, str]:
+    """新旧対照表の行の番号と見出し（例：{"row:2": "行2 第25条の2（保険金等の請求及び受領等）"}）。"""
+    from core.taisho import numbered, rows
+
+    draft = _draft(work)
+    if not draft:
+        return {}
+    return {f"row:{n}": f"行{n} {r['amendment'].article}（{r['amendment'].caption}）"
+            for _doc, items in numbered(rows(draft, _corpus(work_id))) for n, r in items}
+
+
+def _todo_id() -> str:
+    import uuid
+
+    return uuid.uuid4().hex[:8]
 
 
 def _keep_human_edits(work: dict, draft) -> list[str]:
@@ -1306,3 +1378,122 @@ def _keep_human_edits(work: dict, draft) -> list[str]:
                 am.text = e["text"]
                 kept.append(article)
     return kept
+
+
+def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -> None:
+    """人が直した条の文を改定案に入れ、委員会で直した文として記録する（AI の元の文も残す。AI は使わない）。
+
+    edits の各要素：{"document", "article", "text", "note"}。text が None なら、AI が作った文に戻す。
+    直した文は、あとで改定案を作り直しても上書きしない（_keep_human_edits）。
+    """
+    from core.draft import check
+
+    now = _now()
+
+    def change(data: dict) -> None:
+        human = data.setdefault("human_edits", {})
+        for e in edits:
+            key = f"{e['document']}|{e['article']}"
+            for am in data["draft"]["amendments"]:
+                if am["article"] != e["article"] or am.get("document", "規約") != e["document"]:
+                    continue
+                if e["text"] is None:  # AI の文に戻す
+                    if key in human:
+                        am["text"] = human.pop(key)["original"]
+                    continue
+                prev = human.get(key, {})
+                human[key] = {"text": e["text"], "original": prev.get("original", am["text"]), "at": now,
+                              "batch": batch, "note": e.get("note", "")}
+                am["text"] = e["text"]
+    work = store.mutate(work_id, change)
+    draft = _draft(work)
+    corpus = _corpus(work_id)
+    _, errors, _ = check(draft.to_dict(), corpus, [f for i, f in enumerate(_findings(work))
+                                                   if work["decisions"][str(i)]["decision"] == "採用"])
+    store.update(work_id, draft_errors=errors)
+    _write_taisho(work_id, work, draft, corpus)
+    _rerender(work_id)
+    store.append_log(work_id, "edit", f"{log}（{'、'.join(e['article'] for e in edits)}）")
+
+
+@app.get("/works/{work_id}/articles", response_class=HTMLResponse)
+def articles_page(request: Request, work_id: str):
+    """改定案の条の文を、人が直接直す画面（委員会のあとで見返して直す場合など）。"""
+    from core.taisho import numbered, rows
+
+    work = store.load(work_id)
+    draft = _draft(work)
+    if not draft:
+        raise HTTPException(404, "改定案がまだありません。")
+    human = work.get("human_edits") or {}
+    items = []
+    for document, group in numbered(rows(draft, _corpus(work_id))):
+        for n, r in group:
+            am = r["amendment"]
+            if am.kind == "削除":
+                continue
+            items.append({"n": n, "document": document, "article": am.article, "caption": am.caption, "kind": am.kind,
+                          "current": "".join(t for t, _ in r["old"]), "text": am.text,
+                          "edit": human.get(f"{am.document}|{am.article}")})
+    return templates.TemplateResponse(request, "articles.html", {
+        "id": work_id, "work": work, "items": items, "ident": _ident(work_id, work),
+        "busy": work["status"] in BUSY, "saved": request.query_params.get("saved", ""),
+    })
+
+
+@app.post("/works/{work_id}/articles")
+async def save_articles(request: Request, work_id: str):
+    """条の文の手直しを保存する。開いたあとに改定案が変わっていたら、上書きせずに開き直してもらう。"""
+    form = await request.form()
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "AI が作業中です。終わってから直してください。")
+    if str(form.get("ident", "")) != _ident(work_id, work):
+        raise HTTPException(409, "この画面を開いたあとに、改定案が変わりました。画面を開き直してから、もう一度直してください。")
+    human = work.get("human_edits") or {}
+    edits = []
+    for am in _draft(work).amendments:
+        key = f"{am.document}|{am.article}"
+        if form.get(f"revert_{key}") and key in human:
+            edits.append({"document": am.document, "article": am.article, "text": None})
+            continue
+        text = str(form.get(f"text_{key}", am.text)).replace("\r\n", "\n").strip()
+        note = str(form.get(f"note_{key}", "")).strip()
+        if not text:
+            continue
+        if text != am.text.strip() or (key in human and note != human[key].get("note", "")):
+            edits.append({"document": am.document, "article": am.article, "text": text, "note": note})
+    if edits:
+        _edit_articles(work_id, edits, f"{_now()} 条の文を直しました")
+    return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits)}", status_code=303)
+
+
+@app.post("/works/{work_id}/todos")
+async def save_todos(request: Request, work_id: str):
+    """書き込みから残した宿題・メモを、直す・済みにする・消す・足す（AI は使わない）。"""
+    form = await request.form()
+    back = "#board" if form.get("back") == "board" else "#next"
+    now = _now()
+
+    def change(data: dict) -> None:
+        keep = []
+        for i, t in enumerate(data.get("todos", [])):
+            tid = t.setdefault("id", f"i{i}")
+            if f"text_{tid}" not in form:  # 画面に出ていなかった宿題（別の画面で足された分）は、そのまま残す
+                keep.append(t)
+                continue
+            if form.get(f"del_{tid}"):
+                continue
+            text = str(form.get(f"text_{tid}", "")).strip()
+            memo = str(form.get(f"memo_{tid}", "")).strip()
+            done = bool(form.get(f"done_{tid}"))
+            if text and (text, memo, done) != (t.get("text"), t.get("memo", ""), t.get("done", False)):
+                t.update(text=text, memo=memo, done=done, edited_at=now)
+            keep.append(t)
+        new = str(form.get("new_text", "")).strip()
+        if new:
+            keep.append({"id": _todo_id(), "text": new, "where": str(form.get("new_where", "")).strip() or "全体",
+                         "at": now, "batch": "", "memo": "", "done": False})
+        data["todos"] = keep
+    store.mutate(work_id, change)
+    return RedirectResponse(f"/works/{work_id}{back}", status_code=303)

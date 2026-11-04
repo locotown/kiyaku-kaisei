@@ -267,3 +267,23 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .chg > div { display: grid; grid-template-columns: 5.5em 1fr; gap: var(--space-2); padding: 2px 0; }
 .chg del { color: var(--color-must); text-decoration-thickness: 1.5px; }
 .chg mark { background: var(--color-primary-soft); color: inherit; text-decoration: underline; text-decoration-color: var(--color-primary); text-underline-offset: 3px; }
+/* 補足（会議での経緯）・手で足す欄・宿題の手直し・条の文の手直し */
+.tk .pc-memo, .tk .artlabel, .tk .addgrid label { display: block; margin: var(--space-3) 0 0; font-weight: 400; }
+.tk .addgrid label { margin: 0; }
+.tk .todolist label, .tk .revert { display: inline-flex; gap: var(--space-1); align-items: center; margin: 0; font-weight: 400; }
+.pc-memo .small, .artlabel .small, .addgrid .small, .td-new .small { display: block; margin-bottom: 2px; }
+.tk .pc-memo input, .tk .artlabel textarea, .tk .addgrid input, .tk .addgrid select, .tk .todolist input[type=text], .tk .td-new input { width: 100%; max-width: none; }
+.pc-memo-done { font-size: var(--text-sm); margin: var(--space-2) 0; }
+.pc-memo-done .small { margin-right: var(--space-2); }
+.addgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
+.addgrid .wide { grid-column: 1 / -1; }
+.tk .todolist { list-style: none; padding: 0; margin: var(--space-3) 0; }
+.todolist li { border-top: 1px solid var(--color-line); padding: var(--space-3) 0; display: grid; gap: var(--space-2); }
+.todolist .td-head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: baseline; font-size: var(--text-sm); }
+.todolist li.tdone input[name^=text_] { text-decoration: line-through; color: var(--color-ink-3); }
+.td-new { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-2) var(--space-3); margin: var(--space-3) 0; }
+.td-new .small { grid-column: 1 / -1; }
+.artedit .rowno { font-weight: 700; color: var(--color-primary); }
+.artedit.edited { border-left: 3px solid var(--color-primary); padding-left: var(--space-4); }
+.tk .artedit .revert { margin-top: var(--space-2); }
+@media (max-width: 640px) { .addgrid, .td-new { grid-template-columns: 1fr; } }
