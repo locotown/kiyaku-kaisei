@@ -238,11 +238,9 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk p, .tk .help, .tk li, .tk dd, .tk .lead, .tk .note, .tk .srcnote, .tk .legend > div, .tk .pd-head { text-align: justify; }
 .tk h1, .tk h2, .tk h3, .tk .tt { text-wrap: balance; }
 
-/* ---- 開いた指摘の固定：上は絞り込みのタブの下、下は画面の下の帯の上に止める ---- */
-#findings { --sticky-top: 53px; --sticky-bottom: 0px; }
-html.js #findings { --sticky-bottom: 73px; }
+/* ---- 開いた指摘 ---- */
 .body > .facts:first-child { margin-top: var(--space-4); }
 .btext { max-height: 240px; }
-/* スマホの幅では固定しない（題名の行と判断の切り替えで画面の半分以上が埋まるため） */
-@media (max-width: 640px) { details.item[open] > summary, .decstrip { position: static; } }
 .decstrip .cardsave:empty { display: none; }
+/* 絞り込みのタブの帯を、開いた指摘の箱と同じ幅に（箱の角が帯の横からはみ出さないように） */
+@media (min-width: 641px) { .tabs.filters { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); padding: 0 var(--space-5); } }
