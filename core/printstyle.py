@@ -20,6 +20,9 @@ body { font-family: var(--font-sans); max-width: 820px; margin: 32px auto; paddi
        color: var(--color-ink); background: var(--color-surface); font-size: 17px; -webkit-font-smoothing: antialiased; }
 body.wide { max-width: none; margin: 32px; padding: 0; }
 h1, h2, h3, h4 { font-feature-settings: "palt"; line-height: 1.4; font-weight: 700; }
+/* 日本語の折り返し：文節の切れ目で折り返し、行末に1〜2文字だけ残さない（対応していないブラウザは文字単位） */
+body { word-break: auto-phrase; text-wrap: pretty; }
+h1, h2, h3, h4 { text-wrap: balance; }
 h1 { font-size: 1.6rem; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 2px solid var(--color-primary); }
 h2 { font-size: 1.25rem; margin: 2em 0 .4em; }
 h3, h3.title { font-size: 1.1rem; margin: 1.4em 0 .2em; }

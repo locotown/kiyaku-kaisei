@@ -55,6 +55,7 @@
 
 - 見出しは `font-feature-settings: "palt"` で文字の間隔を詰める
 - 件数・条番号など桁をそろえたい数字は `font-variant-numeric: tabular-nums`
+- 日本語は文節の切れ目で折り返す（`word-break: auto-phrase`）。行末に1〜2文字だけ残さない（本文 `text-wrap: pretty`、見出し `balance`）。対応していないブラウザは文字単位で折り返す
 
 ### 余白・丸み・大きさ
 | トークン | 値 |

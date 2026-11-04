@@ -232,3 +232,9 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .tabs.filters { flex-wrap: nowrap; overflow-x: auto; gap: 0 var(--space-4); scrollbar-width: none; }
   .tabs.filters .fbtn { white-space: nowrap; flex: none; }
 }
+
+/* ---- 日本語の折り返し：文節の切れ目で折り返し（「作｜業」のような分かれ方をしない）、行末に1〜2文字だけ残さない。
+   対応していないブラウザ（Safari など）は、これまでどおり文字単位で折り返す ---- */
+.tk { word-break: auto-phrase; text-wrap: pretty; }
+.tk h1, .tk h2, .tk h3, .tk .tt, .tk .lead { text-wrap: balance; }
+.tk pre, .tk .log, .tk .btext, .tk .quote, .tk input, .tk textarea, .tk select { word-break: normal; text-wrap: wrap; }
