@@ -75,6 +75,7 @@
     </form>
     {% if board_state and not board_state.ready and not board_state.needs_redraft %}<p class="muted">{{ board_state.reason }}</p>{% endif %}
   {% endif %}
+  {% if board %}{% set note_doc = "board" %}{% include "work/_notes_box.html" %}{% endif %}
   <form action="/works/{{ id }}/board" method="post" id="boardmake">
     {% if board %}<button type="submit" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
   </form>

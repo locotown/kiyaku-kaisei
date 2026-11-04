@@ -245,3 +245,21 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .decstrip .cardsave:empty { display: none; }
 /* 絞り込みのタブの帯を、開いた指摘の箱と同じ幅に（箱の角が帯の横からはみ出さないように） */
 @media (min-width: 641px) { .tabs.filters { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); padding: 0 var(--space-5); } }
+
+/* ---- 書き込みの反映（notes.html・作業の画面の読み込み欄） ---- */
+.noteform { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: var(--space-2) 0; }
+.notelist { margin: var(--space-2) 0; font-size: var(--text-sm); }
+.todos ul { font-size: var(--text-sm); }
+.notephoto .np-head { display: grid; grid-template-columns: 180px 1fr; gap: var(--space-4); align-items: start; margin-bottom: var(--space-3); }
+.np-thumb { width: 180px; border: 1px solid var(--color-line-2); border-radius: var(--radius-2); display: block; }
+.proposal-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-4) var(--space-5); margin: var(--space-3) 0; }
+.proposal-card.needcheck { border-left: 3px solid var(--color-must); }
+.proposal-card.settled { background: none; }
+.pc-head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: baseline; }
+.pc-hand { margin: var(--space-2) 0; }
+.pc-check { color: var(--color-must); font-size: var(--text-sm); display: flex; gap: var(--space-2); align-items: center; }
+.proposal-card .facts { margin-left: 0; }
+.proposal-card textarea, .proposal-card input[type=text] { max-width: none; }
+.pc-seg { margin-left: 0; grid-template-columns: repeat(2, 1fr); max-width: 420px; }
+.low { color: var(--color-must); font-weight: 700; }
+@media (max-width: 640px) { .notephoto .np-head { grid-template-columns: 1fr; } .np-thumb { width: 100%; } .pc-seg { grid-template-columns: 1fr; } }

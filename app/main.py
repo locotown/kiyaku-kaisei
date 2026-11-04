@@ -49,6 +49,12 @@ def recover_interrupted() -> list[str]:
     """
     fixed = []
     for w in store.list_works():
+        def stop_reading(data: dict) -> None:
+            for b in data.get("notes", []):
+                if b.get("status") == "読み取り中":
+                    b["status"] = "中断"
+        if any(b.get("status") == "読み取り中" for b in store.load(w["id"]).get("notes", [])):
+            store.mutate(w["id"], stop_reading)
         if w["status"] not in INTERRUPTED:
             continue
         work = store.load(w["id"])
@@ -260,13 +266,16 @@ def _run_draft(work_id: str, with_board: bool = False, resume: str = "") -> None
         corpus = _corpus(work_id)
         adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
         board = decisions_text(_board(work), work.get("board_decisions", {})) if with_board and work.get("board") else ""
-        log = lambda k, t: store.append_log(work_id, k, t)  # noqa: E731
+        log = lambda k, t: store.append_log(work_id, k, t)
         if resume:
             result = resume_draft(corpus.main, adopted, resume, on_event=log, rules=corpus.rules)
         else:
             result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=log,
                                title=f"改定案：{work['name']}", board=board)
         if result.draft:
+            kept = _keep_human_edits(work, result.draft)
+            if kept:
+                store.append_log(work_id, "edit", f"委員会の書き込みで直した文を引き継ぎました（{'、'.join(kept)}）")
             _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
         if result.draft and not board:
@@ -997,12 +1006,11 @@ def start_board(work_id: str):
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
 
-@app.post("/works/{work_id}/board/decisions")
-async def save_board_decisions(request: Request, work_id: str):
+def _apply_board_form(work_id: str, form) -> None:
+    """理事会の判断を保存する（画面のフォーム、または写真の書き込みから組み立てた同じ形の値）。履歴も残す。"""
     from core.board import DECISIONS, NEEDS_REDRAFT
     from core.board import to_html as board_html
 
-    form = await request.form()
     work = store.load(work_id)
     paper = _board(work)
     if not paper:
@@ -1040,6 +1048,11 @@ async def save_board_decisions(request: Request, work_id: str):
     store.update(work_id, **changes)
     (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points, ident=_ident(work_id, work)),
                                                     encoding="utf-8")
+
+
+@app.post("/works/{work_id}/board/decisions")
+async def save_board_decisions(request: Request, work_id: str):
+    _apply_board_form(work_id, await request.form())
     return RedirectResponse(f"/works/{work_id}#board", status_code=303)
 
 
@@ -1059,3 +1072,236 @@ def board_page(work_id: str):
     if not p.exists():
         raise HTTPException(404, "理事会の検討資料はまだありません")
     return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+# ---- 書き込みの反映：委員会・理事会で印刷した資料に書き込んだ内容を、スマホの写真から読み取って反映する ----
+# 流れ：写真を読み込む → AI が書き込みを読み取る（写真1枚ずつ、終わるたびに保存）→ 提案 → 人が確かめて反映（AI は使わない）
+NOTE_DOCS = {"taisho": "新旧対照表", "board": "理事会の検討資料"}
+
+
+def _note_batch(work: dict, batch: str) -> dict:
+    for b in work.get("notes", []):
+        if b["id"] == batch:
+            return b
+    raise HTTPException(404, "書き込みの読み込みが見つかりません")
+
+
+def _notes_dir(work_id: str, batch: str) -> Path:
+    if not batch.replace("-", "").isalnum():
+        raise HTTPException(404, "書き込みの読み込みが見つかりません")
+    return store.path(work_id) / "notes" / batch
+
+
+def _with_batch(work_id: str, batch: str, fn) -> None:
+    def change(data: dict) -> None:
+        for b in data.get("notes", []):
+            if b["id"] == batch:
+                fn(b)
+    store.mutate(work_id, change)
+
+
+@app.post("/works/{work_id}/notes")
+async def upload_notes(work_id: str, doc: str = Form(...), photos: list[UploadFile] = File(...)):
+    """書き込みのある資料の写真を読み込み、読み取りを始める（写真は何枚でも）。"""
+    from core.notes import preprocess
+
+    work = store.load(work_id)
+    if doc not in NOTE_DOCS:
+        raise HTTPException(400, "資料の種類が正しくありません")
+    if (doc == "taisho" and not work.get("draft")) or (doc == "board" and not work.get("board")):
+        raise HTTPException(400, f"{NOTE_DOCS[doc]}がまだありません。")
+    batch = __import__("datetime").datetime.now().strftime("%Y%m%d%H%M%S")
+    d = _notes_dir(work_id, batch)
+    d.mkdir(parents=True, exist_ok=True)
+    saved, skipped = [], 0
+    for f in photos:
+        try:
+            jpeg = preprocess(await f.read())
+        except ValueError:
+            skipped += 1
+            continue
+        n = len(saved) + 1
+        (d / f"p{n}.jpg").write_bytes(jpeg)  # 開き直した画像だけを保存する（元のファイルは保存しない）
+        saved.append({"n": n, "status": "待ち"})
+    if not saved:
+        raise HTTPException(400, "写真を読み込めませんでした。スマホで撮った写真（JPEG・PNG など）を選んでください。")
+    entry = {"id": batch, "at": _now(), "doc": doc, "status": "読み取り中", "photos": saved, "proposals": [],
+             "ident": _ident(work_id, work), "cost_usd": 0.0, "skipped": skipped}
+    store.mutate(work_id, lambda data: data.setdefault("notes", []).append(entry))
+    threading.Thread(target=_read_notes, args=(work_id, batch), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
+
+
+def _read_notes(work_id: str, batch: str) -> None:
+    """写真を1枚ずつ読み取り、終わるたびに保存する（途中で止まっても、読み取った分は残る）。"""
+    from core.notes import (
+        board_context,
+        build_proposals,
+        cost_usd,
+        read_photo,
+        taisho_context,
+    )
+
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    draft, paper = _draft(work), _board(work)
+    corpus = _corpus(work_id) if draft else None
+    points = _points(work)
+    context = taisho_context(draft, corpus) if b["doc"] == "taisho" else board_context(paper, points)
+    for ph in b["photos"]:
+        if ph["status"] == "読み取り済み":
+            continue
+        n = ph["n"]
+        try:
+            reading, usage = read_photo((_notes_dir(work_id, batch) / f"p{n}.jpg").read_bytes(), context)
+            props = build_proposals(reading, n, draft=draft, corpus=corpus, paper=paper, points=points,
+                                    board_decisions=work.get("board_decisions", {}))
+
+            def done(bb, n=n, reading=reading, usage=usage, props=props):
+                for p in bb["photos"]:
+                    if p["n"] == n:
+                        p.update(status="読み取り済み", document=reading.document, ident=reading.ident, page=reading.page,
+                                 note=reading.note, cost_usd=cost_usd(usage), usage=usage)
+                bb["proposals"] = [p for p in bb["proposals"] if p["photo"] != n] + props
+                bb["cost_usd"] = round(sum(p.get("cost_usd", 0) for p in bb["photos"]), 4)
+            _with_batch(work_id, batch, done)
+        except Exception as e:  # 1枚読めなくても、残りの写真は読み取る
+            store.append_log(work_id, "error", f"写真{n}を読み取れませんでした：{type(e).__name__}")
+
+            def failed(bb, n=n, e=e):
+                for p in bb["photos"]:
+                    if p["n"] == n:
+                        p.update(status="失敗", error=f"{type(e).__name__}: {e}"[:300])
+            _with_batch(work_id, batch, failed)
+    _with_batch(work_id, batch, lambda bb: bb.update(status="読み取り済み"))
+
+
+@app.post("/works/{work_id}/notes/{batch}/resume")
+def resume_notes(work_id: str, batch: str):
+    """途中で止まった読み取りを、残りの写真から続ける。"""
+    b = _note_batch(store.load(work_id), batch)
+    if b["status"] == "読み取り中":
+        raise HTTPException(409, "読み取り中です。終わるまでお待ちください。")
+    _with_batch(work_id, batch, lambda bb: bb.update(status="読み取り中"))
+    threading.Thread(target=_read_notes, args=(work_id, batch), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
+
+
+@app.get("/works/{work_id}/notes/{batch}/photo/{n}")
+def note_photo(work_id: str, batch: str, n: int):
+    p = _notes_dir(work_id, batch) / f"p{int(n)}.jpg"
+    if not p.exists():
+        raise HTTPException(404, "写真が見つかりません")
+    return FileResponse(p, media_type="image/jpeg")
+
+
+@app.get("/works/{work_id}/notes/{batch}", response_class=HTMLResponse)
+def notes_page(request: Request, work_id: str, batch: str):
+    """読み取った書き込みと、反映の提案を確かめる画面。"""
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    return templates.TemplateResponse(request, "notes.html", {
+        "id": work_id, "work": work, "b": b, "doc_name": NOTE_DOCS[b["doc"]], "ident_now": _ident(work_id, work),
+        "done": request.query_params.get("done", ""),
+    })
+
+
+@app.post("/works/{work_id}/notes/{batch}/apply")
+async def apply_notes(request: Request, work_id: str, batch: str):
+    """選んだ提案を反映する（AI は使わない）。条の文の修正は、あとで改定案を作り直しても上書きしない。"""
+    from core.board import choice_questions
+    from core.draft import check
+
+    form = await request.form()
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    now = _now()
+    chosen = []
+    for p in b["proposals"]:
+        if p["status"] != "未確認":
+            continue
+        act = str(form.get(f"act_{p['id']}", ""))
+        if act not in ("反映する", "反映しない"):
+            continue
+        text = str(form.get(f"text_{p['id']}", p.get("proposed", ""))).strip()
+        chosen.append((p, act, text))
+    applied = [(p, t) for p, act, t in chosen if act == "反映する" and t]
+    stamp = f"{now} の書き込みから"
+
+    # 条の文の修正：改定案を直し、委員会で直した文として記録する（AI の元の文も残す）
+    edits = [(p, t) for p, t in applied if p["kind"] == "文言の修正"]
+    if edits:
+        def change_draft(data: dict) -> None:
+            human = data.setdefault("human_edits", {})
+            for p, t in edits:
+                for am in data["draft"]["amendments"]:
+                    if am["article"] == p["article"] and am.get("document", "規約") == p.get("document", "規約"):
+                        key = f"{am.get('document', '規約')}|{am['article']}"
+                        human[key] = {"text": t, "original": human.get(key, {}).get("original", am["text"]),
+                                      "at": now, "batch": batch}
+                        am["text"] = t
+        work = store.mutate(work_id, change_draft)
+        draft = _draft(work)
+        corpus = _corpus(work_id)
+        _, errors, _ = check(draft.to_dict(), corpus, [f for i, f in enumerate(_findings(work))
+                                                       if work["decisions"][str(i)]["decision"] == "採用"])
+        store.update(work_id, draft_errors=errors)
+        _write_taisho(work_id, work, draft, corpus)
+        _rerender(work_id)
+        store.append_log(work_id, "edit", f"{stamp}：条の文を直しました（{'、'.join(p['article'] for p, _ in edits)}）")
+
+    # 理事会の判断・〔選択〕・メモ：画面のフォームと同じ形にして、同じ処理で保存する（履歴も残る）
+    board_props = [(p, t) for p, t in applied if p["kind"] in ("判断", "選択", "理事会のメモ")]
+    if board_props:
+        work = store.load(work_id)
+        paper = _board(work)
+        form_now = {}
+        dec = work.get("board_decisions", {})
+        for i, _ in enumerate(paper.items):
+            d = dec.get(str(i), {})
+            form_now[f"b_decision_{i}"] = d.get("decision", "")
+            form_now[f"b_note_{i}"] = d.get("note", "")
+        qs = choice_questions(_points(work))
+        for k, ans in enumerate(_questions_context(work)["answers"]):
+            form_now[f"b_q_{k}"] = ans
+        for p, t in board_props:
+            i = p["item"]
+            if p["kind"] == "判断":
+                form_now[f"b_decision_{i}"] = t
+            elif p["kind"] == "理事会のメモ":
+                old = form_now[f"b_note_{i}"]
+                form_now[f"b_note_{i}"] = f"{old}／{t}" if old else t
+            else:
+                k = next((k for k, q in enumerate(qs) if (i, p["point"]) in q["uses"]), None)
+                if k is not None:
+                    form_now[f"b_q_{k}"] = t
+        _apply_board_form(work_id, form_now)
+        store.append_log(work_id, "edit", f"{stamp}：理事会の判断などを記録しました（{len(board_props)}件）")
+
+    # メモ・宿題（読めなかった書き込みに、人が文字を入れた場合も）
+    todos = [{"text": t, "where": p["where"], "at": now, "batch": batch}
+             for p, t in applied if p["kind"] in ("メモ・宿題", "読めない")]
+    ids = {p["id"]: act for p, act, _ in chosen}
+
+    def finish(data: dict) -> None:
+        if todos:
+            data.setdefault("todos", []).extend(todos)
+        for bb in data.get("notes", []):
+            if bb["id"] == batch:
+                for p in bb["proposals"]:
+                    if p["id"] in ids:
+                        p.update(status="反映済み" if ids[p["id"]] == "反映する" else "反映しない", decided_at=now)
+    store.mutate(work_id, finish)
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}?done={len(applied)}", status_code=303)
+
+
+def _keep_human_edits(work: dict, draft) -> list[str]:
+    """改定案を作り直したとき、委員会の書き込みで直した条の文を引き継ぐ（AI の新しい文で黙って上書きしない）。"""
+    kept = []
+    for key, e in (work.get("human_edits") or {}).items():
+        document, article = key.split("|", 1)
+        for am in draft.amendments:
+            if am.article == article and (am.document or "規約") == document and am.text != e["text"]:
+                am.text = e["text"]
+                kept.append(article)
+    return kept

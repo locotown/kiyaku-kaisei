@@ -18,7 +18,11 @@ busy() {  # 30分以内に更新された作業のうち、処理中のものが
     before=$(git rev-parse HEAD)
     git pull --ff-only -q 2>/dev/null
     after=$(git rev-parse HEAD)
-    [ "$before" != "$after" ] && echo "[自動更新] $(git log -1 --format=%s)（ブラウザを再読み込みしてください）"
+    if [ "$before" != "$after" ]; then
+      # 使う部品（pyproject.toml・uv.lock）が変わったら入れ直す（サーバーの自動の再起動は、部品を入れ直さないため）
+      git diff --name-only "$before" "$after" | grep -qE '^(pyproject\.toml|uv\.lock)$' && "$UV" sync -q
+      echo "[自動更新] $(git log -1 --format=%s)（ブラウザを再読み込みしてください）"
+    fi
   done
 ) &
 trap 'kill $! 2>/dev/null' EXIT
