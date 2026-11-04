@@ -55,14 +55,27 @@ def recover_interrupted() -> list[str]:
         if work.get("demo_busy"):
             continue
         status, todo = INTERRUPTED[w["status"]]
-        # 途中から再開できるように、止まったときの AI のセッション（作業の記録の最後の sesn_…）を残しておく
-        sessions = [e["text"] for e in work.get("log", []) if e.get("kind") == "session" and e.get("text", "").startswith("sesn_")]
+        session = _current_session(work) if w["status"] == "改定案作成中" else ""
+        if session:
+            todo = ("「途中から再開する」を押すと、AI の作業の止まったところから続けます（最初から作り直すより費用を抑えられます）。"
+                    "うまくいかないときは「最初から作り直す」を押してください。")
         store.append_log(w["id"], "error", "処理が途中で止まりました（サーバーの再起動など）")
-        store.update(w["id"], status=status, interrupted=w["status"], interrupted_session=sessions[-1] if sessions else "",
+        store.update(w["id"], status=status, interrupted=w["status"], interrupted_session=session,
                      error="処理が途中で止まりました（codespace の停止や、サーバーの再起動などで、AI の作業が中断されました）。\n"
                            + todo + "\nこれまでの判断と、できていた資料はそのまま残っています。止まるまでの AI の費用はかかっています。")
         fixed.append(w["id"])
     return fixed
+
+
+def _current_session(work: dict) -> str:
+    """今回の処理（状態が「作成中」になってから）で始めた AI のセッションの番号。なければ空。
+
+    前に終わった処理のセッションを「再開」すると、古い結果を受け取ってしまうため、始めた時刻で絞る。
+    """
+    since = work.get("status_since", 0)
+    ids = [e["text"] for e in work.get("log", [])
+           if e.get("kind") == "session" and str(e.get("text", "")).startswith("sesn_") and e.get("ts", 0) >= since]
+    return ids[-1] if ids else ""
 
 
 @asynccontextmanager
@@ -204,9 +217,10 @@ def _rerender(work_id: str) -> None:
                                         encoding="utf-8")
 
 
-def _run_draft(work_id: str, with_board: bool = False) -> None:
+def _run_draft(work_id: str, with_board: bool = False, resume: str = "") -> None:
+    """改定案を作る。resume にセッションの番号があれば、途中で止まった作業に続きから取り組む。"""
     from core.board import decisions_text
-    from core.drafting import run_draft
+    from core.drafting import resume_draft, run_draft
     from core.progress import draft_plan
 
     work = store.load(work_id)
@@ -214,15 +228,19 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
         corpus = _corpus(work_id)
         adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
         board = decisions_text(_board(work), work.get("board_decisions", {})) if with_board and work.get("board") else ""
-        result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
-                           title=f"改定案：{work['name']}", board=board)
+        log = lambda k, t: store.append_log(work_id, k, t)  # noqa: E731
+        if resume:
+            result = resume_draft(corpus.main, adopted, resume, on_event=log, rules=corpus.rules)
+        else:
+            result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=log,
+                               title=f"改定案：{work['name']}", board=board)
         if result.draft:
             _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
         if result.draft and not board:
             extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
-        step = "改定案の作り直し" if work.get("draft") else "改定案"
-        store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
+        step = ("改定案（途中から再開）" if resume else "改定案の作り直し" if work.get("draft") else "改定案")
+        store.update(work_id, status="改定案あり" if result.draft else "改定案エラー", interrupted="", interrupted_session="",
                      draft=result.draft.to_dict() if result.draft else None, **extra,
                      draft_errors=result.errors, draft_evaluations=result.evaluations,
                      draft_session=result.session_id, draft_cost=result.usage.get("list_cost"),
@@ -232,7 +250,10 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
                      costs=store.load(work_id).get("costs", []) + [_cost_entry(step, result.usage.get("list_cost"))])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
-        store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3))
+        # AI の作業を始めたあとで止まったなら、途中から再開できるようにセッションの番号を残す
+        session = _current_session(store.load(work_id))
+        store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3),
+                     interrupted="改定案作成中" if session else "", interrupted_session=session)
 
 
 def _run_explain(work_id: str) -> None:
@@ -623,7 +644,8 @@ def progress_view(work: dict) -> dict:
     log = work.get("log", [])
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
-             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き"}
+             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き",
+             "resume": "再開"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"
@@ -769,8 +791,22 @@ def start_draft(work_id: str):
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中")
+    store.update(work_id, status="改定案作成中", draft_with_board=False)
     threading.Thread(target=_run_draft, args=(work_id,), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+@app.post("/works/{work_id}/draft/resume")
+def resume_draft_work(work_id: str):
+    """途中で止まった改定案づくりを、AI のセッションにつなぎ直して続きから進める（最初から作り直すより費用を抑えられる）。"""
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "処理中です。終わるまでお待ちください。")
+    session = work.get("interrupted_session", "")
+    if work["status"] != "改定案エラー" or not session:
+        raise HTTPException(409, "途中から再開できる作業がありません。「改定案を作る」から始めてください。")
+    store.update(work_id, status="改定案作成中")
+    threading.Thread(target=_run_draft, args=(work_id, bool(work.get("draft_with_board")), session), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
 
@@ -925,7 +961,7 @@ def redraft_with_board(work_id: str):
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中")
+    store.update(work_id, status="改定案作成中", draft_with_board=True)
     threading.Thread(target=_run_draft, args=(work_id, True), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
