@@ -109,7 +109,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .st.hold { color: var(--color-ink-2); } .st.no { color: var(--color-ink-3); }
 .body { margin: var(--space-4) 0 0 84px; }
 .body .facts { margin: 0 0 var(--space-4); }
-.facts dd .quote, .cmp .quote { white-space: pre-wrap; background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
+.facts dd .quote { white-space: pre-wrap; background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
 .choicebox { margin-top: var(--space-2); padding-left: var(--space-3); border-left: 3px solid var(--color-line-2); font-size: var(--text-sm); }
 .choicebox b { color: var(--color-must); }
 .cb-flow { color: var(--color-ink-2); margin-top: var(--space-1); }
@@ -120,7 +120,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .basis .src { font-size: var(--text-xs); color: var(--color-ink-3); text-decoration: none; display: inline-block; margin-right: 4px; }
 .basis .cap { color: var(--color-ink-2); }
 .basis .cap::before { content: "（"; } .basis .cap::after { content: "）"; }
-.btext { white-space: pre-wrap; font-size: var(--text-sm); background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); margin: var(--space-1) 0; max-height: 320px; overflow: auto; color: var(--color-ink); }
+.btext { white-space: pre-wrap; font-size: var(--text-sm); background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); margin: var(--space-1) 0; color: var(--color-ink); }
 .readnote { font-size: var(--text-sm); color: var(--color-ink-2); border-left: 3px solid var(--color-line-2); padding: 2px var(--space-3); margin-top: var(--space-2); }
 .refcap { color: var(--color-ink-2); font-size: .9em; }
 .fixed { display: flex; gap: var(--space-2); align-items: center; color: var(--color-ok); font-weight: 700; }
@@ -240,7 +240,6 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 
 /* ---- 開いた指摘 ---- */
 .body > .facts:first-child { margin-top: var(--space-4); }
-.btext { max-height: 240px; }
 .decstrip .cardsave:empty { display: none; }
 /* 絞り込みのタブの帯を、開いた指摘の箱と同じ幅に（箱の角が帯の横からはみ出さないように） */
 @media (min-width: 641px) { .tabs.filters { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); padding: 0 var(--space-5); } }
