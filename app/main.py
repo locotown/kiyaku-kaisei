@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 import threading
 import traceback
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -30,7 +31,81 @@ from core.findings import Finding
 from core.ingest import SUPPORTED, UnsupportedFormat, load_kiyaku
 from core.taisho import to_html, to_markdown
 
-app = FastAPI(title="ととのう規約")
+# 処理中のまま止まった作業を、次にどうすればよいか（処理はこのサーバーのスレッドで動くので、サーバーが止まると処理も止まる）
+INTERRUPTED = {
+    "点検中": ("エラー", "トップ画面から、規約をもう一度読み込んで点検を始めてください。"),
+    "改定案作成中": ("改定案エラー", "「改定案を作る」（または「改定案を作り直す」）をもう一度押してください。"),
+    "検討資料作成中": ("検討資料エラー", "「理事会の検討資料を作る」をもう一度押してください。"),
+    "説明文作成中": ("説明文エラー", "「住民向けの説明を作る」をもう一度押してください。"),
+}
+
+
+def recover_interrupted() -> list[str]:
+    """サーバーの起動時に、処理中のまま残っている作業を「途中で止まった」に切り替える。
+
+    codespace の停止やサーバーの再起動で処理が途中で止まると、状態が「作成中」のまま残り、ボタンが押せなくなるため。
+    起動した時点では、このサーバーで動いている処理はないので、処理中の作業はすべて止まったものと分かる。
+    デモの録画用に、わざと処理中にしてある架空の作業（demo_busy）は対象にしない。
+    """
+    fixed = []
+    for w in store.list_works():
+        def stop_reading(data: dict) -> None:
+            for b in data.get("notes", []):
+                if b.get("status") == "読み取り中":
+                    b["status"] = "中断"
+        if any(b.get("status") == "読み取り中" for b in store.load(w["id"]).get("notes", [])):
+            store.mutate(w["id"], stop_reading)
+        if w["status"] not in INTERRUPTED:
+            continue
+        work = store.load(w["id"])
+        if work.get("demo_busy"):
+            continue
+        status, todo = INTERRUPTED[w["status"]]
+        session = _current_session(work) if w["status"] == "改定案作成中" else ""
+        if session:
+            todo = ("「途中から再開する」を押すと、AI の作業の止まったところから続けます（最初から作り直すより費用を抑えられます）。"
+                    "うまくいかないときは「最初から作り直す」を押してください。")
+        store.append_log(w["id"], "error", "処理が途中で止まりました（サーバーの再起動など）")
+        store.update(w["id"], status=status, interrupted=w["status"], interrupted_session=session,
+                     error="処理が途中で止まりました（codespace の停止や、サーバーの再起動などで、AI の作業が中断されました）。\n"
+                           + todo + "\nこれまでの判断と、できていた資料はそのまま残っています。止まるまでの AI の費用はかかっています。")
+        fixed.append(w["id"])
+    return fixed
+
+
+def _current_session(work: dict) -> str:
+    """今回の処理（状態が「作成中」になってから）で始めた AI のセッションの番号。なければ空。
+
+    前に終わった処理のセッションを「再開」すると、古い結果を受け取ってしまうため、始めた時刻で絞る。
+    """
+    since = work.get("status_since", 0)
+    ids = [e["text"] for e in work.get("log", [])
+           if e.get("kind") == "session" and str(e.get("text", "")).startswith("sesn_") and e.get("ts", 0) >= since]
+    return ids[-1] if ids else ""
+
+
+def rerender_all() -> None:
+    """保存してある資料（新旧対照表・検討資料・住民向け説明）を、今の見た目で作り直す（AI は使わない）。
+
+    印刷の体裁などを直したとき、すでに作ってある作業の資料にも反映するため。処理中の作業は触らない。
+    """
+    for w in store.list_works():
+        if w["status"] in BUSY:
+            continue
+        try:
+            _rerender(w["id"])
+        except Exception as e:  # 1つの作業で作り直せなくても、ほかの作業とサーバーの起動は続ける
+            store.append_log(w["id"], "error", f"資料の作り直しに失敗しました：{type(e).__name__}")
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    recover_interrupted()
+    rerender_all()
+    yield
+
+
+app = FastAPI(title="ととのう規約", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")  # デザイントークンなど
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
@@ -135,10 +210,25 @@ def _org(work: dict) -> str:
     return str(work.get("org", "")).strip()
 
 
+def _ident(work_id: str, work: dict) -> str:
+    """印刷物・Word に入れる、作業と改定案の版の番号（例：ID 0d9663-a1b2c3）。
+
+    書き込んだ紙や直した Word を戻したときに、どの作業の、どの版の改定案から作った資料かを見分けるため。
+    改定案が変われば番号も変わる。
+    """
+    import hashlib
+    import json
+
+    draft = _draft(work)  # 保存した形と、作った直後の形がずれないよう、同じ形に整えてから数える
+    payload = json.dumps(draft.to_dict(), sort_keys=True, ensure_ascii=False) if draft else ""
+    h = hashlib.sha1(payload.encode()).hexdigest()[:6] if draft else "000000"
+    return f"ID {work_id[-6:]}-{h}"
+
+
 def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
     d = store.path(work_id)
-    (d / "taisho.html").write_text(to_html(draft, corpus, title), encoding="utf-8")
+    (d / "taisho.html").write_text(to_html(draft, corpus, title, ident=_ident(work_id, work | {"draft": draft.to_dict()})), encoding="utf-8")
     (d / "taisho.md").write_text(to_markdown(draft, corpus, title), encoding="utf-8")
 
 
@@ -155,17 +245,20 @@ def _rerender(work_id: str) -> None:
     if draft and (d / "taisho.html").exists():
         _write_taisho(work_id, work, draft, _corpus(work_id))
     if paper and (d / "board.html").exists():
-        (d / "board.html").write_text(board_html(paper, work.get("board_decisions") or None, _org(work), _points(work)),
+        (d / "board.html").write_text(board_html(paper, work.get("board_decisions") or None, _org(work), _points(work),
+                                                 ident=_ident(work_id, work)),
                                       encoding="utf-8")
     if work.get("explain") and draft and (d / "explain.html").exists():
         shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
-        (d / "explain.html").write_text(explain_html(Explanation.model_validate(work["explain"]), _org(work), shown),
+        (d / "explain.html").write_text(explain_html(Explanation.model_validate(work["explain"]), _org(work), shown,
+                                                     ident=_ident(work_id, work)),
                                         encoding="utf-8")
 
 
-def _run_draft(work_id: str, with_board: bool = False) -> None:
+def _run_draft(work_id: str, with_board: bool = False, resume: str = "") -> None:
+    """改定案を作る。resume にセッションの番号があれば、途中で止まった作業に続きから取り組む。"""
     from core.board import decisions_text
-    from core.drafting import run_draft
+    from core.drafting import resume_draft, run_draft
     from core.progress import draft_plan
 
     work = store.load(work_id)
@@ -173,15 +266,22 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
         corpus = _corpus(work_id)
         adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
         board = decisions_text(_board(work), work.get("board_decisions", {})) if with_board and work.get("board") else ""
-        result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=lambda k, t: store.append_log(work_id, k, t),
-                           title=f"改定案：{work['name']}", board=board)
+        log = lambda k, t: store.append_log(work_id, k, t)
+        if resume:
+            result = resume_draft(corpus.main, adopted, resume, on_event=log, rules=corpus.rules)
+        else:
+            result = run_draft(corpus.main, adopted, work["info"], rules=corpus.rules, on_event=log,
+                               title=f"改定案：{work['name']}", board=board)
         if result.draft:
+            kept = _keep_human_edits(work, result.draft)
+            if kept:
+                store.append_log(work_id, "edit", f"委員会の書き込みで直した文を引き継ぎました（{'、'.join(kept)}）")
             _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
         if result.draft and not board:
             extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
-        step = "改定案の作り直し" if work.get("draft") else "改定案"
-        store.update(work_id, status="改定案あり" if result.draft else "改定案エラー",
+        step = ("改定案（途中から再開）" if resume else "改定案の作り直し" if work.get("draft") else "改定案")
+        store.update(work_id, status="改定案あり" if result.draft else "改定案エラー", interrupted="", interrupted_session="",
                      draft=result.draft.to_dict() if result.draft else None, **extra,
                      draft_errors=result.errors, draft_evaluations=result.evaluations,
                      draft_session=result.session_id, draft_cost=result.usage.get("list_cost"),
@@ -191,7 +291,10 @@ def _run_draft(work_id: str, with_board: bool = False) -> None:
                      costs=store.load(work_id).get("costs", []) + [_cost_entry(step, result.usage.get("list_cost"))])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
-        store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3))
+        # AI の作業を始めたあとで止まったなら、途中から再開できるようにセッションの番号を残す
+        session = _current_session(store.load(work_id))
+        store.update(work_id, status="改定案エラー", error=traceback.format_exc(limit=3),
+                     interrupted="改定案作成中" if session else "", interrupted_session=session)
 
 
 def _run_explain(work_id: str) -> None:
@@ -209,7 +312,8 @@ def _run_explain(work_id: str) -> None:
         paper, decisions = _board(work), work.get("board_decisions", {})
         draft = apply_to_draft(draft, paper, decisions)  # 理事会が見送りにした改定は説明しない
         ex, _ = generate(draft, work["info"], board=decisions_text(paper, decisions))
-        (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft), encoding="utf-8")
+        (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft, ident=_ident(work_id, work)),
+                                                         encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
@@ -230,7 +334,7 @@ def _run_board(work_id: str) -> None:
         from core.board import choice_points
 
         (store.path(work_id) / "board.html").write_text(
-            board_html(paper, None, _org(work), choice_points(paper, draft)), encoding="utf-8")
+            board_html(paper, None, _org(work), choice_points(paper, draft), ident=_ident(work_id, work)), encoding="utf-8")
         store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
                      draft_reflects_board=False)
     except Exception as e:
@@ -582,7 +686,8 @@ def progress_view(work: dict) -> dict:
     log = work.get("log", [])
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
-             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き"}
+             "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き",
+             "resume": "再開"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"
@@ -728,8 +833,22 @@ def start_draft(work_id: str):
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中")
+    store.update(work_id, status="改定案作成中", draft_with_board=False)
     threading.Thread(target=_run_draft, args=(work_id,), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+@app.post("/works/{work_id}/draft/resume")
+def resume_draft_work(work_id: str):
+    """途中で止まった改定案づくりを、AI のセッションにつなぎ直して続きから進める（最初から作り直すより費用を抑えられる）。"""
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "処理中です。終わるまでお待ちください。")
+    session = work.get("interrupted_session", "")
+    if work["status"] != "改定案エラー" or not session:
+        raise HTTPException(409, "途中から再開できる作業がありません。「改定案を作る」から始めてください。")
+    store.update(work_id, status="改定案作成中")
+    threading.Thread(target=_run_draft, args=(work_id, bool(work.get("draft_with_board")), session), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
 
@@ -769,7 +888,8 @@ def final_html(work_id: str, n: int):
 
     d = _final(work_id, n)
     return HTMLResponse(final_to_html(d["blocks"], "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
-                                                   "書式は元の規約集に合わせて整えてください。"))
+                                                   "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx",
+                                      ident=_ident(work_id, store.load(work_id))))
 
 
 @app.get("/works/{work_id}/final/{n}.docx")
@@ -780,7 +900,7 @@ def final_docx(work_id: str, n: int):
 
     d = _final(work_id, n)
     name = quote(f"{d['title']}（最新）.docx")
-    return Response(to_docx(d["blocks"]), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
 @app.get("/works/{work_id}/taisho", response_class=HTMLResponse)
@@ -789,6 +909,58 @@ def taisho(work_id: str):
     if not p.exists():
         raise HTTPException(404, "新旧対照表はまだありません")
     return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _docx_response(data: bytes, ascii_name: str, name: str) -> Response:
+    from urllib.parse import quote
+
+    return Response(data, media_type=DOCX,
+                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"})
+
+
+@app.get("/works/{work_id}/taisho.docx")
+def taisho_docx(work_id: str):
+    """新旧対照表を Word で（A4 横。委員会で直して、議案書に使えるように）。"""
+    from core.wordout import taisho_docx as build
+
+    work = store.load(work_id)
+    draft = _draft(work)
+    if not draft:
+        raise HTTPException(404, "新旧対照表はまだありません")
+    title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
+    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work)), "shinkyu_taisho.docx", f"{title}.docx")
+
+
+@app.get("/works/{work_id}/board.docx")
+def board_docx(work_id: str):
+    """理事会の検討資料を Word で。"""
+    from core.wordout import board_docx as build
+
+    work = store.load(work_id)
+    paper = _board(work)
+    if not paper:
+        raise HTTPException(404, "理事会の検討資料はまだありません")
+    return _docx_response(build(paper, work.get("board_decisions") or None, _org(work), _points(work), ident=_ident(work_id, work)),
+                          "rijikai_kentou.docx", f"{paper.title}.docx")
+
+
+@app.get("/works/{work_id}/explain.docx")
+def explain_docx(work_id: str):
+    """住民向けの説明を Word で（理事会の判断を反映した改定案で、付録の一覧を作る）。"""
+    from core.board import apply_to_draft
+    from core.explain import Explanation
+    from core.wordout import explain_docx as build
+
+    work = store.load(work_id)
+    draft, paper = _draft(work), _board(work)
+    if not work.get("explain") or not draft:
+        raise HTTPException(404, "住民向けの説明はまだありません")
+    ex = Explanation.model_validate(work["explain"])
+    shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
+    return _docx_response(build(ex, _org(work), shown, ident=_ident(work_id, work)), "jumin_setsumei.docx", f"{ex.title}.docx")
 
 
 @app.get("/works/{work_id}/taisho.md")
@@ -834,12 +1006,11 @@ def start_board(work_id: str):
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
 
-@app.post("/works/{work_id}/board/decisions")
-async def save_board_decisions(request: Request, work_id: str):
+def _apply_board_form(work_id: str, form) -> None:
+    """理事会の判断を保存する（画面のフォーム、または写真の書き込みから組み立てた同じ形の値）。履歴も残す。"""
     from core.board import DECISIONS, NEEDS_REDRAFT
     from core.board import to_html as board_html
 
-    form = await request.form()
     work = store.load(work_id)
     paper = _board(work)
     if not paper:
@@ -875,7 +1046,13 @@ async def save_board_decisions(request: Request, work_id: str):
     if changed_redraft:
         changes["draft_reflects_board"] = False
     store.update(work_id, **changes)
-    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points), encoding="utf-8")
+    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points, ident=_ident(work_id, work)),
+                                                    encoding="utf-8")
+
+
+@app.post("/works/{work_id}/board/decisions")
+async def save_board_decisions(request: Request, work_id: str):
+    _apply_board_form(work_id, await request.form())
     return RedirectResponse(f"/works/{work_id}#board", status_code=303)
 
 
@@ -884,7 +1061,7 @@ def redraft_with_board(work_id: str):
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中")
+    store.update(work_id, status="改定案作成中", draft_with_board=True)
     threading.Thread(target=_run_draft, args=(work_id, True), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
@@ -895,3 +1072,237 @@ def board_page(work_id: str):
     if not p.exists():
         raise HTTPException(404, "理事会の検討資料はまだありません")
     return FileResponse(p, media_type="text/html; charset=utf-8")
+
+
+# ---- 書き込みの反映：委員会・理事会で印刷した資料に書き込んだ内容を、スマホの写真から読み取って反映する ----
+# 流れ：写真を読み込む → AI が書き込みを読み取る（写真1枚ずつ、終わるたびに保存）→ 提案 → 人が確かめて反映（AI は使わない）
+NOTE_DOCS = {"taisho": "新旧対照表", "board": "理事会の検討資料"}
+
+
+def _note_batch(work: dict, batch: str) -> dict:
+    for b in work.get("notes", []):
+        if b["id"] == batch:
+            return b
+    raise HTTPException(404, "書き込みの読み込みが見つかりません")
+
+
+def _notes_dir(work_id: str, batch: str) -> Path:
+    if not batch.replace("-", "").isalnum():
+        raise HTTPException(404, "書き込みの読み込みが見つかりません")
+    return store.path(work_id) / "notes" / batch
+
+
+def _with_batch(work_id: str, batch: str, fn) -> None:
+    def change(data: dict) -> None:
+        for b in data.get("notes", []):
+            if b["id"] == batch:
+                fn(b)
+    store.mutate(work_id, change)
+
+
+@app.post("/works/{work_id}/notes")
+async def upload_notes(work_id: str, doc: str = Form(...), photos: list[UploadFile] = File(...)):
+    """書き込みのある資料の写真を読み込み、読み取りを始める（写真は何枚でも）。"""
+    from core.notes import preprocess
+
+    work = store.load(work_id)
+    if doc not in NOTE_DOCS:
+        raise HTTPException(400, "資料の種類が正しくありません")
+    if (doc == "taisho" and not work.get("draft")) or (doc == "board" and not work.get("board")):
+        raise HTTPException(400, f"{NOTE_DOCS[doc]}がまだありません。")
+    batch = __import__("datetime").datetime.now().strftime("%Y%m%d%H%M%S")
+    d = _notes_dir(work_id, batch)
+    d.mkdir(parents=True, exist_ok=True)
+    saved, skipped = [], 0
+    for f in photos:
+        try:
+            jpeg = preprocess(await f.read())
+        except ValueError:
+            skipped += 1
+            continue
+        n = len(saved) + 1
+        (d / f"p{n}.jpg").write_bytes(jpeg)  # 開き直した画像だけを保存する（元のファイルは保存しない）
+        saved.append({"n": n, "status": "待ち"})
+    if not saved:
+        raise HTTPException(400, "写真を読み込めませんでした。スマホで撮った写真（JPEG・PNG など）を選んでください。")
+    entry = {"id": batch, "at": _now(), "doc": doc, "status": "読み取り中", "photos": saved, "proposals": [],
+             "ident": _ident(work_id, work), "cost_usd": 0.0, "skipped": skipped}
+    store.mutate(work_id, lambda data: data.setdefault("notes", []).append(entry))
+    threading.Thread(target=_read_notes, args=(work_id, batch), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
+
+
+def _read_notes(work_id: str, batch: str) -> None:
+    """写真を1枚ずつ読み取り、終わるたびに保存する（途中で止まっても、読み取った分は残る）。"""
+    from core.notes import (
+        board_context,
+        build_proposals,
+        cost_usd,
+        read_photo,
+        taisho_context,
+    )
+
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    draft, paper = _draft(work), _board(work)
+    corpus = _corpus(work_id) if draft else None
+    points = _points(work)
+    context = taisho_context(draft, corpus) if b["doc"] == "taisho" else board_context(paper, points)
+    for ph in b["photos"]:
+        if ph["status"] == "読み取り済み":
+            continue
+        n = ph["n"]
+        try:
+            reading, usage = read_photo((_notes_dir(work_id, batch) / f"p{n}.jpg").read_bytes(), context)
+            props = build_proposals(reading, n, draft=draft, corpus=corpus, paper=paper, points=points,
+                                    board_decisions=work.get("board_decisions", {}))
+
+            def done(bb, n=n, reading=reading, usage=usage, props=props):
+                for p in bb["photos"]:
+                    if p["n"] == n:
+                        p.update(status="読み取り済み", document=reading.document, ident=reading.ident, page=reading.page,
+                                 note=reading.note, cost_usd=cost_usd(usage), usage=usage)
+                bb["proposals"] = [p for p in bb["proposals"] if p["photo"] != n] + props
+                bb["cost_usd"] = round(sum(p.get("cost_usd", 0) for p in bb["photos"]), 4)
+            _with_batch(work_id, batch, done)
+        except Exception as e:  # 1枚読めなくても、残りの写真は読み取る
+            store.append_log(work_id, "error", f"写真{n}を読み取れませんでした：{type(e).__name__}")
+
+            def failed(bb, n=n, e=e):
+                for p in bb["photos"]:
+                    if p["n"] == n:
+                        p.update(status="失敗", error=f"{type(e).__name__}: {e}"[:300])
+            _with_batch(work_id, batch, failed)
+    _with_batch(work_id, batch, lambda bb: bb.update(status="読み取り済み"))
+
+
+@app.post("/works/{work_id}/notes/{batch}/resume")
+def resume_notes(work_id: str, batch: str):
+    """途中で止まった読み取りを、残りの写真から続ける。"""
+    b = _note_batch(store.load(work_id), batch)
+    if b["status"] == "読み取り中":
+        raise HTTPException(409, "読み取り中です。終わるまでお待ちください。")
+    _with_batch(work_id, batch, lambda bb: bb.update(status="読み取り中"))
+    threading.Thread(target=_read_notes, args=(work_id, batch), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
+
+
+@app.get("/works/{work_id}/notes/{batch}/photo/{n}")
+def note_photo(work_id: str, batch: str, n: int):
+    p = _notes_dir(work_id, batch) / f"p{int(n)}.jpg"
+    if not p.exists():
+        raise HTTPException(404, "写真が見つかりません")
+    return FileResponse(p, media_type="image/jpeg")
+
+
+@app.get("/works/{work_id}/notes/{batch}", response_class=HTMLResponse)
+def notes_page(request: Request, work_id: str, batch: str):
+    """読み取った書き込みと、反映の提案を確かめる画面。"""
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    return templates.TemplateResponse(request, "notes.html", {
+        "id": work_id, "work": work, "b": b, "doc_name": NOTE_DOCS[b["doc"]], "ident_now": _ident(work_id, work),
+        "changes": __import__("core.notes", fromlist=["changes"]).changes,
+        "done": request.query_params.get("done", ""),
+    })
+
+
+@app.post("/works/{work_id}/notes/{batch}/apply")
+async def apply_notes(request: Request, work_id: str, batch: str):
+    """選んだ提案を反映する（AI は使わない）。条の文の修正は、あとで改定案を作り直しても上書きしない。"""
+    from core.board import choice_questions
+    from core.draft import check
+
+    form = await request.form()
+    work = store.load(work_id)
+    b = _note_batch(work, batch)
+    now = _now()
+    chosen = []
+    for p in b["proposals"]:
+        if p["status"] != "未確認":
+            continue
+        act = str(form.get(f"act_{p['id']}", ""))
+        if act not in ("反映する", "反映しない"):
+            continue
+        text = str(form.get(f"text_{p['id']}", p.get("proposed", ""))).strip()
+        chosen.append((p, act, text))
+    applied = [(p, t) for p, act, t in chosen if act == "反映する" and t]
+    stamp = f"{now} の書き込みから"
+
+    # 条の文の修正：改定案を直し、委員会で直した文として記録する（AI の元の文も残す）
+    edits = [(p, t) for p, t in applied if p["kind"] == "文言の修正"]
+    if edits:
+        def change_draft(data: dict) -> None:
+            human = data.setdefault("human_edits", {})
+            for p, t in edits:
+                for am in data["draft"]["amendments"]:
+                    if am["article"] == p["article"] and am.get("document", "規約") == p.get("document", "規約"):
+                        key = f"{am.get('document', '規約')}|{am['article']}"
+                        human[key] = {"text": t, "original": human.get(key, {}).get("original", am["text"]),
+                                      "at": now, "batch": batch}
+                        am["text"] = t
+        work = store.mutate(work_id, change_draft)
+        draft = _draft(work)
+        corpus = _corpus(work_id)
+        _, errors, _ = check(draft.to_dict(), corpus, [f for i, f in enumerate(_findings(work))
+                                                       if work["decisions"][str(i)]["decision"] == "採用"])
+        store.update(work_id, draft_errors=errors)
+        _write_taisho(work_id, work, draft, corpus)
+        _rerender(work_id)
+        store.append_log(work_id, "edit", f"{stamp}：条の文を直しました（{'、'.join(p['article'] for p, _ in edits)}）")
+
+    # 理事会の判断・〔選択〕・メモ：画面のフォームと同じ形にして、同じ処理で保存する（履歴も残る）
+    board_props = [(p, t) for p, t in applied if p["kind"] in ("判断", "選択", "理事会のメモ")]
+    if board_props:
+        work = store.load(work_id)
+        paper = _board(work)
+        form_now = {}
+        dec = work.get("board_decisions", {})
+        for i, _ in enumerate(paper.items):
+            d = dec.get(str(i), {})
+            form_now[f"b_decision_{i}"] = d.get("decision", "")
+            form_now[f"b_note_{i}"] = d.get("note", "")
+        qs = choice_questions(_points(work))
+        for k, ans in enumerate(_questions_context(work)["answers"]):
+            form_now[f"b_q_{k}"] = ans
+        for p, t in board_props:
+            i = p["item"]
+            if p["kind"] == "判断":
+                form_now[f"b_decision_{i}"] = t
+            elif p["kind"] == "理事会のメモ":
+                old = form_now[f"b_note_{i}"]
+                form_now[f"b_note_{i}"] = f"{old}／{t}" if old else t
+            else:
+                k = next((k for k, q in enumerate(qs) if (i, p["point"]) in q["uses"]), None)
+                if k is not None:
+                    form_now[f"b_q_{k}"] = t
+        _apply_board_form(work_id, form_now)
+        store.append_log(work_id, "edit", f"{stamp}：理事会の判断などを記録しました（{len(board_props)}件）")
+
+    # メモ・宿題（読めなかった書き込みに、人が文字を入れた場合も）
+    todos = [{"text": t, "where": p["where"], "at": now, "batch": batch}
+             for p, t in applied if p["kind"] in ("メモ・宿題", "読めない")]
+    ids = {p["id"]: act for p, act, _ in chosen}
+
+    def finish(data: dict) -> None:
+        if todos:
+            data.setdefault("todos", []).extend(todos)
+        for bb in data.get("notes", []):
+            if bb["id"] == batch:
+                for p in bb["proposals"]:
+                    if p["id"] in ids:
+                        p.update(status="反映済み" if ids[p["id"]] == "反映する" else "反映しない", decided_at=now)
+    store.mutate(work_id, finish)
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}?done={len(applied)}", status_code=303)
+
+
+def _keep_human_edits(work: dict, draft) -> list[str]:
+    """改定案を作り直したとき、委員会の書き込みで直した条の文を引き継ぐ（AI の新しい文で黙って上書きしない）。"""
+    kept = []
+    for key, e in (work.get("human_edits") or {}).items():
+        document, article = key.split("|", 1)
+        for am in draft.amendments:
+            if am.article == article and (am.document or "規約") == document and am.text != e["text"]:
+                am.text = e["text"]
+                kept.append(article)
+    return kept

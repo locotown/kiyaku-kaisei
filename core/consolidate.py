@@ -17,7 +17,7 @@ from datetime import date
 
 from core.draft import Amendment
 from core.model import Article, Kiyaku
-from core.printstyle import PRINT_CSS
+from core.printstyle import PRINT_CSS, page_css, toolbar
 from core.sources import normalize_article_ref
 
 
@@ -122,14 +122,14 @@ def to_text(blocks: list[Block]) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def to_docx(blocks: list[Block]) -> bytes:
-    """Word 文書にする（見出しは太字、条の見出しは段落を分ける）。"""
-    from docx import Document
+def to_docx(blocks: list[Block], ident: str = "") -> bytes:
+    """Word 文書にする（見出しは太字、条の見出しは段落を分ける）。体裁はほかの資料と同じ（資料名・ページ番号・書体）。"""
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.shared import Pt
 
-    doc = Document()
-    doc.styles["Normal"].font.size = Pt(10.5)
+    from core.wordout import new_document
+
+    doc = new_document(blocks[0].lines[0] if blocks else "最新の規約", ident=ident)
     for b in blocks:
         if b.kind == "title":
             p = doc.add_paragraph()
@@ -150,7 +150,7 @@ def to_docx(blocks: list[Block]) -> bytes:
     return buf.getvalue()
 
 
-def to_html(blocks: list[Block], note: str = "") -> str:
+def to_html(blocks: list[Block], note: str = "", word_href: str = "", ident: str = "") -> str:
     """画面で確認する用。変更した条に色を付ける。"""
     labels = {"改正": "改正", "新設": "新設", "削除": "削除", "附則": "今回追加"}
     parts = []
@@ -166,7 +166,8 @@ def to_html(blocks: list[Block], note: str = "") -> str:
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(blocks[0].lines[0] if blocks else "最新の規約")}</title>
-<style>{PRINT_CSS}</style></head><body class="final">
+<style>{PRINT_CSS}{page_css(blocks[0].lines[0] if blocks else "最新の規約", ident=ident)}</style></head><body class="final">
+{toolbar(word_href)}
 {f'<p class="note">{html.escape(note)}</p>' if note else ''}
 {''.join(parts)}
 </body></html>

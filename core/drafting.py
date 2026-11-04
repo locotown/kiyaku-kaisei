@@ -3,6 +3,9 @@
 点検で受け付けた指摘をもとに、エージェントが条ごとの改定案を JSON で書き、
 /mnt/session/outputs/kaitei.json に保存する。別の採点役（grader）がルーブリックで採点し、
 合格するまでエージェントが直す。終わったら Files API でファイルを受け取り、アプリ側でも検査する。
+
+AI の作業（セッション）は Anthropic 側に残るので、通信が切れたり、こちらのサーバーが止まったりしても、
+セッションにつなぎ直して続きから進められる（_drive・resume_draft）。最初から作り直すと費用がもう一度かかるため。
 """
 
 from __future__ import annotations
@@ -12,6 +15,9 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+
+import anthropic
+import httpx2
 
 from core.config import ROOT, client
 from core.draft import DRAFT_SCHEMA, Draft, check
@@ -25,6 +31,7 @@ from core.tools import TOOL_DEFS, ToolHandler
 STATE = ROOT / "agents/state.json"
 OUTPUT_NAME = "kaitei.json"
 MAX_ITERATIONS = 3
+RECONNECTS = 6  # 通信が切れたときに、つなぎ直す回数の上限
 
 CHECK_TOOL = {
     "type": "custom",
@@ -238,7 +245,6 @@ def run_draft(
     notify = on_event or (lambda kind, text: None)
     evaluations: list[dict] = []
     started = time.monotonic()
-    stop = ""
     plan = draft_plan(len(findings))  # 採用が多いほど、時間と費用の上限を広げる
     deadline = plan["deadline_min"] * 60
 
@@ -258,69 +264,198 @@ def run_draft(
         notify("precedent", f"標準どおりの条 {len(pre['drafts'])}条は、国の改正文を下書きに使います（{'、'.join(d['article'] for d in pre['drafts'][:6])}{' ほか' if len(pre['drafts']) > 6 else ''}）")
     handler.attach(c, session.id, notify)
 
-    with c.beta.sessions.events.stream(session_id=session.id) as stream:
-        c.beta.sessions.events.send(
-            session_id=session.id,
-            events=[{
-                "type": "user.define_outcome",
-                "description": description,
-                "rubric": {"type": "text", "content": RUBRIC + current_texts(handler.corpus, findings)},
-                "max_iterations": MAX_ITERATIONS,
-            }],
-        )
-        for event in stream:
-            if time.monotonic() - started > deadline:
-                stop = "timeout"
-                notify("stopped", f"時間の上限（{plan['deadline_min']}分）に達したため、AI の作業を止めました")
-                c.beta.sessions.events.send(session_id=session.id, events=[{"type": "user.interrupt"}])
-                break
-            etype = event.type
-            if etype == "agent.custom_tool_use":
-                notify("tool", describe_tool(event.name, dict(event.input or {})))
-                try:
-                    result, is_error = handler.run(event.name, dict(event.input or {})), False
-                except Exception as e:
-                    result, is_error = f"ツールの実行に失敗しました: {e}", True
-                c.beta.sessions.events.send(
-                    session_id=session.id,
-                    events=[{"type": "user.custom_tool_result", "custom_tool_use_id": event.id,
-                             "content": [{"type": "text", "text": result}], "is_error": is_error}],
-                )
-            elif etype == "agent.tool_use":
-                notify("builtin", describe_builtin(getattr(event, "name", "")))
-                if getattr(event, "evaluated_permission", None) == "ask":
-                    c.beta.sessions.events.send(
-                        session_id=session.id,
-                        events=[{"type": "user.tool_confirmation", "tool_use_id": event.id, "result": "deny"}],
-                    )
-            elif etype == "span.outcome_evaluation_start":
-                notify("grading", f"採点役が確認しています（{event.iteration + 1}回目）")
-            elif etype == "span.outcome_evaluation_end":
-                evaluations.append({"iteration": event.iteration, "result": event.result, "explanation": event.explanation})
-                notify("graded", f"採点役の確認：{RESULT_JA.get(event.result, event.result)}")
-            elif etype == "session.error":
-                notify("error", str(getattr(event, "error", event)))
-            elif etype == "session.status_idle":
-                if event.stop_reason.type != "requires_action":
-                    stop = event.stop_reason.type
-                    break
-            elif etype == "session.status_terminated":
-                stop = "terminated"
-                break
+    kickoff = {
+        "type": "user.define_outcome",
+        "description": description,
+        "rubric": {"type": "text", "content": RUBRIC + current_texts(handler.corpus, findings)},
+        "max_iterations": MAX_ITERATIONS,
+    }
+    stop = _drive(c, session.id, handler, notify, evaluations, started, deadline, plan, kickoff=kickoff)
+    return _finish(c, session.id, handler, findings, evaluations, started, stop, pre)
 
-    raw = _download_output(c, session.id)
+
+def resume_draft(
+    kiyaku: Kiyaku,
+    findings: list[Finding],
+    session_id: str,
+    on_event: Callable[[str, str], None] | None = None,
+    rules: dict[str, Kiyaku] | None = None,
+) -> DraftResult:
+    """途中で止まった改定案づくりを、AI のセッションにつなぎ直して続きから進める。
+
+    セッションは Anthropic 側に残っている。止まっている間に AI が待っていた道具の呼び出し（条文の読み出し・点検など）に
+    答えれば、続きから動く。すでに終わっていれば、出来上がった改定案を受け取るだけで、追加の費用はかからない。
+    """
+    c = client()
+    handler = DraftToolHandler(kiyaku, findings, rules)
+    notify = on_event or (lambda kind, text: None)
+    evaluations: list[dict] = []
+    started = time.monotonic()
+    plan = draft_plan(len(findings))
+    deadline = plan["deadline_min"] * 60  # 再開してからの時間で数える（費用の上限はセッション側で効いている）
+
+    from core.precedent import standard_drafts
+
+    pre = standard_drafts(handler.corpus.main, findings)
+    handler.attach(c, session_id, notify)
+    notify("session", session_id)
+    try:  # 採点役に渡した参照の条の資料が置いてあれば、置き直すときに古いものを外せるよう番号を引き継ぐ
+        for r in c.beta.sessions.resources.list(session_id, betas=[MA_BETA]):
+            if getattr(r, "mount_path", "") == REF_MOUNT:
+                handler._resource_id = r.id
+    except anthropic.APIError as e:  # 引き継げなくても続けられる（置き直すときに新しく置く）
+        notify("error", f"参照の条の資料の確認に失敗しました：{type(e).__name__}")
+    status = c.beta.sessions.retrieve(session_id=session_id).status
+    notify("resume", f"途中から再開します（AI の作業の状態：{STATUS_JA.get(status, status)}）")
+    if status == "terminated":
+        stop = "terminated"
+        _catch_up(c, session_id, handler, notify, evaluations, set(), quiet=True)  # 採点の結果だけ集める
+    else:
+        stop = _drive(c, session_id, handler, notify, evaluations, started, deadline, plan, quiet_history=True)
+    return _finish(c, session_id, handler, findings, evaluations, started, stop, pre)
+
+
+STATUS_JA = {"running": "作業中", "idle": "待機中", "rescheduling": "再開の準備中", "terminated": "終了"}
+
+
+class _StreamEnded(Exception):
+    """ストリームが、終わりの知らせなしに閉じた（つなぎ直す）。"""
+
+
+def _terminal(event) -> str:
+    """AI の作業が終わった（または止まった）知らせなら、その理由。続くなら空。"""
+    if event.type == "session.status_terminated":
+        return "terminated"
+    if event.type == "session.status_idle" and event.stop_reason.type != "requires_action":
+        return event.stop_reason.type
+    return ""
+
+
+def _handle(c, session_id: str, handler: DraftToolHandler, event, notify, evaluations: list[dict], quiet: bool = False) -> None:
+    """イベント1件に応じる：道具の呼び出しに答え、許可の確認には「許可しない」と返し、採点の結果を記録する。
+
+    quiet：途中から再開したとき、過去の出来事を作業の記録に二重に書かないようにする（答える必要のあるものは書く）。
+    """
+    etype = event.type
+    if etype == "agent.custom_tool_use":
+        notify("tool", describe_tool(event.name, dict(event.input or {})))
+        try:
+            result, is_error = handler.run(event.name, dict(event.input or {})), False
+        except Exception as e:
+            result, is_error = f"ツールの実行に失敗しました: {e}", True
+        c.beta.sessions.events.send(
+            session_id=session_id,
+            events=[{"type": "user.custom_tool_result", "custom_tool_use_id": event.id,
+                     "content": [{"type": "text", "text": result}], "is_error": is_error}],
+        )
+    elif etype == "agent.tool_use":
+        if not quiet:
+            notify("builtin", describe_builtin(getattr(event, "name", "")))
+        if getattr(event, "evaluated_permission", None) == "ask":
+            c.beta.sessions.events.send(
+                session_id=session_id,
+                events=[{"type": "user.tool_confirmation", "tool_use_id": event.id, "result": "deny"}],
+            )
+    elif etype == "span.outcome_evaluation_start":
+        if not quiet:
+            notify("grading", f"採点役が確認しています（{event.iteration + 1}回目）")
+    elif etype == "span.outcome_evaluation_end":
+        evaluations.append({"iteration": event.iteration, "result": event.result, "explanation": event.explanation})
+        if not quiet:
+            notify("graded", f"採点役の確認：{RESULT_JA.get(event.result, event.result)}")
+    elif etype == "session.error":
+        if not quiet:
+            notify("error", str(getattr(event, "error", event)))
+
+
+def _catch_up(c, session_id: str, handler: DraftToolHandler, notify, evaluations: list[dict], seen: set[str],
+              quiet: bool) -> str:
+    """これまでのイベントを読み、まだ応じていないもの（答えていない道具の呼び出しなど）に応じる。
+
+    通信が切れていた間の出来事を取りこぼさないため（ストリームは過去を送り直さない）。
+    すでに終わっていれば、その理由を返す（答えたものがあれば、AI がまた動き出すので空を返す）。
+    """
+    history = list(c.beta.sessions.events.list(session_id=session_id, order="asc"))
+    answered = {getattr(e, "custom_tool_use_id", "") for e in history if e.type == "user.custom_tool_result"}
+    confirmed = {getattr(e, "tool_use_id", "") for e in history if e.type == "user.tool_confirmation"}
+    acted, last = False, ""
+    for e in history:
+        if e.type.startswith("session.status_"):
+            last = _terminal(e)
+        if e.id in seen:
+            continue
+        seen.add(e.id)
+        if e.type == "agent.custom_tool_use" and e.id in answered:
+            continue
+        if e.type == "agent.tool_use" and (e.id in confirmed or getattr(e, "evaluated_permission", None) != "ask"):
+            if not quiet:
+                notify("builtin", describe_builtin(getattr(e, "name", "")))
+            continue
+        if e.type in ("agent.custom_tool_use", "agent.tool_use"):
+            acted = True
+            _handle(c, session_id, handler, e, notify, evaluations, quiet=False)  # 答えていない呼び出しには答える
+        else:
+            _handle(c, session_id, handler, e, notify, evaluations, quiet=quiet)
+    return "" if acted else last
+
+
+def _drive(c, session_id: str, handler: DraftToolHandler, notify, evaluations: list[dict], started: float,
+           deadline: float, plan: dict, kickoff: dict | None = None, quiet_history: bool = False) -> str:
+    """AI の作業のイベントを読み、道具の呼び出しに答えながら、終わるまで進める。止まった理由を返す。
+
+    通信が切れたら、これまでのイベントを読み直してつなぎ直す（同じイベントには二度応じない）。
+    kickoff があれば最初に送る（新しく始めるとき）。なければ、過去のイベントから続ける（途中から再開するとき）。
+    """
+    seen: set[str] = set()
+    tries = 0
+    while True:
+        try:
+            with c.beta.sessions.events.stream(session_id=session_id) as stream:  # 先にストリームを開いてから送る・読む
+                if kickoff is not None:
+                    c.beta.sessions.events.send(session_id=session_id, events=[kickoff])
+                    kickoff = None
+                else:
+                    done = _catch_up(c, session_id, handler, notify, evaluations, seen, quiet=quiet_history)
+                    quiet_history = False
+                    if done:
+                        return done
+                for event in stream:
+                    if time.monotonic() - started > deadline:
+                        notify("stopped", f"時間の上限（{plan['deadline_min']}分）に達したため、AI の作業を止めました")
+                        c.beta.sessions.events.send(session_id=session_id, events=[{"type": "user.interrupt"}])
+                        return "timeout"
+                    tries = 0
+                    if event.id not in seen:
+                        seen.add(event.id)
+                        _handle(c, session_id, handler, event, notify, evaluations)
+                    stop = _terminal(event)
+                    if stop:
+                        return stop
+                raise _StreamEnded
+        except (_StreamEnded, anthropic.APIConnectionError, anthropic.InternalServerError, httpx2.HTTPError) as e:
+            tries += 1
+            if tries > RECONNECTS:
+                raise
+            notify("error", f"AI との通信が切れました。つなぎ直します（{tries}回目）：{type(e).__name__}")
+            time.sleep(min(2 ** tries, 30))
+
+
+def _finish(c, session_id: str, handler: DraftToolHandler, findings: list[Finding], evaluations: list[dict],
+            started: float, stop: str, pre: dict) -> DraftResult:
+    """出来上がった改定案のファイルを受け取り、アプリ側でも検査して、結果をまとめる。"""
+    raw = _download_output(c, session_id)
     if raw is None:
-        draft, errors, warnings = None, [f"{OUTPUT_NAME} が見つかりませんでした。"], []
+        data, draft, errors, warnings = None, None, [f"{OUTPUT_NAME} が見つかりませんでした。"], []
     else:
         try:
             data = json.loads(raw)
             draft, errors, warnings = check(data, handler.corpus, findings)
         except json.JSONDecodeError as e:
             data, draft, errors, warnings = None, None, [f"{OUTPUT_NAME} が JSON として読めません: {e}"], []
-    info_after = c.beta.sessions.retrieve(session_id=session.id)
+    info_after = c.beta.sessions.retrieve(session_id=session_id)
     usage = info_after.usage.model_dump() if getattr(info_after, "usage", None) else {}
     return DraftResult(
-        session_id=session.id, draft=draft, raw=data if raw else None, errors=errors, warnings=warnings,
+        session_id=session_id, draft=draft, raw=data if raw else None, errors=errors, warnings=warnings,
         evaluations=evaluations, tool_calls=handler.calls, usage=usage,
         elapsed_sec=time.monotonic() - started, stop=stop,
         precedent={"count": len(pre["drafts"]), "articles": [d["article"] for d in pre["drafts"]], "ratio": pre["ratio"]},

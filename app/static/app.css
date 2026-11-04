@@ -109,7 +109,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .st.hold { color: var(--color-ink-2); } .st.no { color: var(--color-ink-3); }
 .body { margin: var(--space-4) 0 0 84px; }
 .body .facts { margin: 0 0 var(--space-4); }
-.facts dd .quote, .cmp .quote { white-space: pre-wrap; background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
+.facts dd .quote { white-space: pre-wrap; background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); }
 .choicebox { margin-top: var(--space-2); padding-left: var(--space-3); border-left: 3px solid var(--color-line-2); font-size: var(--text-sm); }
 .choicebox b { color: var(--color-must); }
 .cb-flow { color: var(--color-ink-2); margin-top: var(--space-1); }
@@ -120,7 +120,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .basis .src { font-size: var(--text-xs); color: var(--color-ink-3); text-decoration: none; display: inline-block; margin-right: 4px; }
 .basis .cap { color: var(--color-ink-2); }
 .basis .cap::before { content: "（"; } .basis .cap::after { content: "）"; }
-.btext { white-space: pre-wrap; font-size: var(--text-sm); background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); margin: var(--space-1) 0; max-height: 320px; overflow: auto; color: var(--color-ink); }
+.btext { white-space: pre-wrap; font-size: var(--text-sm); background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); margin: var(--space-1) 0; color: var(--color-ink); }
 .readnote { font-size: var(--text-sm); color: var(--color-ink-2); border-left: 3px solid var(--color-line-2); padding: 2px var(--space-3); margin-top: var(--space-2); }
 .refcap { color: var(--color-ink-2); font-size: .9em; }
 .fixed { display: flex; gap: var(--space-2); align-items: center; color: var(--color-ok); font-weight: 700; }
@@ -237,12 +237,33 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk { line-break: strict; }
 .tk p, .tk .help, .tk li, .tk dd, .tk .lead, .tk .note, .tk .srcnote, .tk .legend > div, .tk .pd-head { text-align: justify; }
 .tk h1, .tk h2, .tk h3, .tk .tt { text-wrap: balance; }
+/* 進み具合のステップ名は丸の真下に（上の両端揃えを受けない） */
+.tk .flow li { text-align: center; }
 
-/* ---- 開いた指摘の固定：上は絞り込みのタブの下、下は画面の下の帯の上に止める ---- */
-#findings { --sticky-top: 53px; --sticky-bottom: 0px; }
-html.js #findings { --sticky-bottom: 73px; }
+/* ---- 開いた指摘 ---- */
 .body > .facts:first-child { margin-top: var(--space-4); }
-.btext { max-height: 240px; }
-/* スマホの幅では固定しない（題名の行と判断の切り替えで画面の半分以上が埋まるため） */
-@media (max-width: 640px) { details.item[open] > summary, .decstrip { position: static; } }
 .decstrip .cardsave:empty { display: none; }
+/* 絞り込みのタブの帯を、開いた指摘の箱と同じ幅に（箱の角が帯の横からはみ出さないように） */
+@media (min-width: 641px) { .tabs.filters { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); padding: 0 var(--space-5); } }
+
+/* ---- 書き込みの反映（notes.html・作業の画面の読み込み欄） ---- */
+.noteform { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: var(--space-2) 0; }
+.notelist { margin: var(--space-2) 0; font-size: var(--text-sm); }
+.todos ul { font-size: var(--text-sm); }
+.notephoto .np-head { display: grid; grid-template-columns: 180px 1fr; gap: var(--space-4); align-items: start; margin-bottom: var(--space-3); }
+.np-thumb { width: 180px; border: 1px solid var(--color-line-2); border-radius: var(--radius-2); display: block; }
+.proposal-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-1); padding: var(--space-4) var(--space-5); margin: var(--space-3) 0; }
+.proposal-card.needcheck { border-left: 3px solid var(--color-must); }
+.proposal-card.settled { background: none; }
+.pc-head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: baseline; }
+.pc-hand { margin: var(--space-2) 0; }
+.pc-check { color: var(--color-must); font-size: var(--text-sm); display: flex; gap: var(--space-2); align-items: center; }
+.proposal-card .facts { margin-left: 0; }
+.proposal-card textarea, .proposal-card input[type=text] { max-width: none; }
+.pc-seg { margin-left: 0; grid-template-columns: repeat(2, 1fr); max-width: 420px; }
+.low { color: var(--color-must); font-weight: 700; }
+@media (max-width: 640px) { .notephoto .np-head { grid-template-columns: 1fr; } .np-thumb { width: 100%; } .pc-seg { grid-template-columns: 1fr; } }
+.chg { margin: var(--space-1) 0 var(--space-2); font-size: var(--text-sm); }
+.chg > div { display: grid; grid-template-columns: 5.5em 1fr; gap: var(--space-2); padding: 2px 0; }
+.chg del { color: var(--color-must); text-decoration-thickness: 1.5px; }
+.chg mark { background: var(--color-primary-soft); color: inherit; text-decoration: underline; text-decoration-color: var(--color-primary); text-underline-offset: 3px; }

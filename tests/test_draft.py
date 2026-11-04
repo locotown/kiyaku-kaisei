@@ -77,6 +77,30 @@ def test_taisho_marks_only_changes(kiyaku, findings):
     html = to_html(draft, kiyaku)
     assert "<mark>1週間</mark>" in html and "<del>5日間</del>" in html and "法的助言ではありません" in html
     assert "（新設）" in to_markdown(draft, kiyaku)
+    # 印刷：A4 横、各ページに資料名とページ番号。画面には「印刷する」「Word で保存」
+    assert "size: A4 landscape" in html and "counter(pages)" in html and 'href="taisho.docx"' in html
+
+
+def test_taisho_docx(kiyaku, findings):
+    """新旧対照表の Word：A4 横、表の見出しを各ページにくり返す、変えた語句に下線・取り消し線。"""
+    import io
+
+    from docx import Document
+
+    from core.wordout import taisho_docx
+
+    draft, _, _ = check({"amendments": [amendment(kiyaku)], "notes": "法的助言ではありません"}, kiyaku, findings)
+    doc = Document(io.BytesIO(taisho_docx(draft, kiyaku, "試験 新旧対照表（案）")))
+    sec = doc.sections[0]
+    assert sec.page_width > sec.page_height                       # 横
+    assert "総会提案の下書き" in sec.header.paragraphs[0].text
+    t = doc.tables[0]
+    assert [c.text for c in t.rows[0].cells] == ["改定案", "現行", "区分・変更の理由・根拠"]
+    assert t.rows[0]._tr.xpath("./w:trPr/w:tblHeader")             # 見出しの行をくり返す
+    new_runs, old_runs = t.rows[1].cells[0].paragraphs[0].runs, t.rows[1].cells[1].paragraphs[0].runs
+    assert any(r.text == "1週間" and r.font.underline for r in new_runs)
+    assert any(r.text == "5日間" and r.font.strike for r in old_runs)
+    assert not any("総会を招集するには" in r.text and r.font.underline for r in new_runs)
 
 
 def test_notes_sections():
@@ -131,3 +155,18 @@ def test_explanation_tiers_and_coverage():
     assert ex.items[0].tier == "法律の改正に合わせる変更" and ex.items[1].tier == "暮らしや運営に関わる変更"
     assert coverage(ex, draft)["missing"] == ["第48条"]
     assert "本文では取り上げていません" in to_html(ex, "", draft)
+
+
+def test_print_ident_tracks_draft_version(kiyaku, findings):
+    """印刷物・Word に入れる版の番号：保存した形でも作った直後の形でも同じ。改定案が変われば変わる。"""
+    import json
+
+    from app import main as M
+
+    draft, _, _ = check({"amendments": [amendment(kiyaku)], "notes": "法的助言ではありません"}, kiyaku, findings)
+    fresh = M._ident("20261104-000000-abcdef", {"draft": draft.to_dict()})
+    stored = M._ident("20261104-000000-abcdef", {"draft": json.loads(json.dumps(draft.to_dict(), ensure_ascii=False))})
+    assert fresh == stored and fresh.startswith("ID abcdef-")
+    other = draft.to_dict()
+    other["amendments"][0]["text"] += "（委員会で修正）"
+    assert M._ident("20261104-000000-abcdef", {"draft": other}) != fresh

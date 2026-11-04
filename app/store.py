@@ -63,6 +63,18 @@ def update(work_id: str, **changes) -> dict:
     return data
 
 
+def mutate(work_id: str, fn) -> dict:
+    """作業の記録を読み、fn で書き換えて保存する（読み・書きの間に、ほかの処理が割り込まないようにする）。"""
+    with _lock:
+        p = path(work_id) / "work.json"
+        data = json.loads(p.read_text(encoding="utf-8"))
+        fn(data)
+        tmp = path(work_id) / "work.json.tmp"
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(p)
+    return data
+
+
 def append_log(work_id: str, kind: str, text: str) -> None:
     with _lock:
         p = path(work_id) / "work.json"

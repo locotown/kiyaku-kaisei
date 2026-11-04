@@ -1,0 +1,28 @@
+{# 書き込みを読み込む欄（ステップ3：新旧対照表、ステップ4：検討資料）。note_doc に "taisho" か "board" を入れて読み込む #}
+{% from "_icons.html" import icon %}
+{% set note_name = {"taisho": "新旧対照表", "board": "理事会の検討資料"}[note_doc] %}
+{% set batches = (work.notes or [])|selectattr("doc", "equalto", note_doc)|list %}
+<details class="more notesbox" id="notes-{{ note_doc }}" {% if batches %}open{% endif %}>
+  <summary>委員会・理事会の書き込みを読み込む（{{ note_name }}の写真）</summary>
+  <form method="post" action="/works/{{ id }}/notes" enctype="multipart/form-data" class="noteform">
+    <input type="hidden" name="doc" value="{{ note_doc }}">
+    <label for="photos-{{ note_doc }}" class="sr">写真</label>
+    <input type="file" id="photos-{{ note_doc }}" name="photos" accept="image/*" multiple required>
+    <button type="submit" class="boxed">{{ icon("download") }}写真を読み込む</button>
+  </form>
+  <p class="small">書き込んだページを、ページ全体（右上の版の番号と、下のページ番号）が入るように、スマホで撮ってください。何枚でもまとめて選べます。
+    AI が書き込みを読み取り、反映の提案にします。<b>反映するかどうかは、提案ごとにあなたが選びます</b>（写真1枚あたり数セントほど）。</p>
+  {% if batches %}
+  <ul class="notelist">{% for b in batches|reverse %}
+    {% set left = b.proposals|selectattr("status", "equalto", "未確認")|list|length %}
+    <li><a href="/works/{{ id }}/notes/{{ b.id }}">{{ b.at }} の写真 {{ b.photos|length }}枚</a>
+      <span class="small">{{ b.status }}{% if b.status == "読み取り済み" %}・提案 {{ b.proposals|length }}件{% if left %}（未確認 {{ left }}件）{% endif %}{% endif %}</span></li>
+  {% endfor %}</ul>
+  {% endif %}
+</details>
+{% if work.todos %}
+<div class="todos sec">
+  <h2>宿題・メモ（書き込みから）</h2>
+  <ul>{% for t in work.todos|reverse %}<li><b>{{ t.where }}</b>：{{ t.text }} <span class="small">（{{ t.at }}）</span></li>{% endfor %}</ul>
+</div>
+{% endif %}

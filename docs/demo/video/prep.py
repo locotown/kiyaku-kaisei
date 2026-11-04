@@ -22,16 +22,16 @@ def relog(entries, span):
     return out
 # D1：最後まで済んだ作業
 w = clone(B, '20261103-200000-dm0001'); w.update(name='規約見直し（委員会案）', org=ORG); save('20261103-200000-dm0001', w)
-# D2：点検中
+# D2：点検中（demo_busy：サーバーの起動時に「途中で止まった」に切り替えない）
 w = clone(B, '20261103-200000-dm0002')
 log = relog(w['log'][0:17], 150)
 for k in ('findings', 'decisions', 'draft', 'board', 'board_decisions', 'explain', 'meeting', 'summary'): w.pop(k, None)
-w.update(name='規約見直し（委員会案）', org=ORG, status='点検中', status_since=now - 150, log=log); save('20261103-200000-dm0002', w)
+w.update(name='規約見直し（委員会案）', org=ORG, status='点検中', status_since=now - 150, log=log, demo_busy=True); save('20261103-200000-dm0002', w)
 # D3：改定案を作成中（採点役の2回目の確認中）
 w = clone(B, '20261103-200000-dm0003')
 log = relog(w['log'][42:82], 620)
 for k in ('draft', 'board', 'board_decisions', 'explain', 'meeting'): w.pop(k, None)
-w.update(name='規約見直し（委員会案）', org=ORG, status='改定案作成中', status_since=now - 620, log=log); save('20261103-200000-dm0003', w)
+w.update(name='規約見直し（委員会案）', org=ORG, status='改定案作成中', status_since=now - 620, log=log, demo_busy=True); save('20261103-200000-dm0003', w)
 # D4：理事会で〔選択〕を選ぶ前
 w = clone(W / '20261103-990000-054312', '20261103-200000-dm0004')
 w.update(name='規約見直し（委員会案）', org=ORG); save('20261103-200000-dm0004', w)
