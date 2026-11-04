@@ -151,6 +151,18 @@ def groups(all_rows: list[dict]) -> list[tuple[str, list[dict]]]:
     return [(d, [r for r in all_rows if r["amendment"].document == d]) for d in order]
 
 
+def numbered(all_rows: list[dict]) -> list[tuple[str, list[tuple[int, dict]]]]:
+    """表に出す順（文書ごと）に、行の番号（1から）を振る。画面・印刷・Word・書き込みの読み取りで同じ番号を使う。"""
+    out, n = [], 0
+    for document, group_rows in groups(all_rows):
+        items = []
+        for r in group_rows:
+            n += 1
+            items.append((n, r))
+        out.append((document, items))
+    return out
+
+
 def group_heading(document: str) -> str:
     from core.corpus import Corpus
 
@@ -165,16 +177,16 @@ RESOLUTION_GUIDE = ("規約の改定は総会の特別決議（組合員総数�
 def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> str:
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
-    grouped = groups(all_rows)
+    grouped = numbered(all_rows)
     sections = []
-    for document, group_rows in grouped:
-        sections.append(_html_table(group_rows, group_heading(document) if len(grouped) > 1 or document != "規約" else ""))
+    for document, items in grouped:
+        sections.append(_html_table(items, group_heading(document) if len(grouped) > 1 or document != "規約" else ""))
     return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1, ident=ident)
 
 
-def _html_table(group_rows: list[dict], heading: str) -> str:
+def _html_table(items: list[tuple[int, dict]], heading: str) -> str:
     body = []
-    for r in group_rows:
+    for n, r in items:
         a = r["amendment"]
         c = classify(a)
         caption = f"（{html.escape(a.caption)}）<br>" if a.caption else ""
@@ -185,14 +197,14 @@ def _html_table(group_rows: list[dict], heading: str) -> str:
         )
         body.append(
             f'<tr class="{"row-must" if c["is_required"] else "row-opt"}">'
-            f"<td>{caption}{_html_parts(r['new'], 'new')}</td>"
+            f'<td><span class="rowno">行{n}</span>{caption}{_html_parts(r["new"], "new")}</td>'
             f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td>{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
         )
-    head = f"<h2>{html.escape(heading)}（{len(group_rows)}条）</h2>" if heading else ""
+    head = f"<h2>{html.escape(heading)}（{len(items)}条）</h2>" if heading else ""
     return (f"{head}<table><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>")
 

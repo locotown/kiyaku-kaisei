@@ -139,7 +139,7 @@ def save(doc) -> bytes:
 
 def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> bytes:
     from core.taisho import (DISCLAIMER, GUIDE, OPTIONAL_LABEL, REQUIRED_LABEL, RESOLUTION_GUIDE, classify, group_heading,
-                             groups, notes_sections, rows)
+                             notes_sections, numbered, rows)
 
     doc = new_document(title, landscape=True, ident=ident)
     heading(doc, title, 0)
@@ -149,18 +149,19 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
     para(doc, f"改定 {len(all_rows)}条のうち、「{REQUIRED_LABEL}」を含む条 {n_required}条、「{OPTIONAL_LABEL}」だけの条 {len(all_rows) - n_required}条")
-    grouped = groups(all_rows)
+    grouped = numbered(all_rows)
     if len(grouped) > 1:
         note(doc, RESOLUTION_GUIDE)
     widths = [100, 90, 79]  # A4 横の本文の幅（約269mm）を 改定案・現行・理由で分ける
-    for document, group_rows in grouped:
+    for document, items in grouped:
         if len(grouped) > 1 or document != "規約":
-            heading(doc, f"{group_heading(document)}（{len(group_rows)}条）", 1)
+            heading(doc, f"{group_heading(document)}（{len(items)}条）", 1)
         t = table(doc, ["改定案", "現行", "区分・変更の理由・根拠"], widths)
-        for r in group_rows:
+        for n, r in items:
             a = r["amendment"]
             c = classify(a)
             new_cell, old_cell, why_cell = add_row(t, widths)
+            _font(new_cell.paragraphs[0].add_run(f"行{n}\n"), 9, bold=True, color=PRIMARY)  # 写真の書き込みから行を特定するため
             for cell, parts, side in ((new_cell, r["new"], "new"), (old_cell, r["old"], "old")):
                 p = cell.paragraphs[0]
                 if a.caption and not (side == "old" and a.kind == "新設"):

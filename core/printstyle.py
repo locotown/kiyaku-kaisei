@@ -77,6 +77,7 @@ tr.row-opt td:first-child { box-shadow: inset 3px 0 0 var(--color-line-2); }
 mark { background: var(--color-primary-soft); color: inherit; padding: 0 1px; text-decoration: underline; text-decoration-color: var(--color-primary); text-underline-offset: 3px; }
 del { color: var(--color-must); text-decoration-color: var(--color-must); text-decoration-thickness: 1.5px; }
 .refcap { color: var(--color-ink-2); font-size: .9em; }
+.rowno { display: block; font-weight: 700; color: var(--color-primary); font-size: .9rem; margin-bottom: 2px; }
 
 /* 最新の規約：変更した条は左の線で示す */
 .art { margin: .7em 0; padding: 2px 0 2px 14px; border-left: 3px solid transparent; }
@@ -128,4 +129,5 @@ def toolbar(word_href: str = "", landscape: bool = False) -> str:
     paper = "A4 横" if landscape else "A4 縦"
     return (f'<div class="toolbar"><button type="button" onclick="window.print()">印刷する</button>{word}'
             f'<span class="hint">{paper}で印刷します。各ページに資料名とページ番号が入ります。'
-            '変更箇所の色も印刷するには、印刷の設定で「背景のグラフィック」をオンにしてください。</span></div>')
+            '変更箇所の色も印刷するには、印刷の設定で「背景のグラフィック」をオンにしてください。'
+            '会議で書き込むときは、赤など色の付いたペンで書くと、写真から読み取りやすくなります。</span></div>')
