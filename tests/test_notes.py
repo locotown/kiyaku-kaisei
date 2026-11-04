@@ -118,3 +118,75 @@ def test_interrupted_reading_can_resume(work, monkeypatch):
          "ident": "", "cost_usd": 0.0, "skipped": 0}))
     M.recover_interrupted()
     assert M._note_batch(store.load(WID), "20261104000000")["status"] == "中断"
+
+
+def test_memo_and_manual_additions(work, monkeypatch):
+    """提案ごとの補足と、写真にない内容を手で足した分（会議のあとで見返して直す・足す）。"""
+    reading = N.PhotoReading(document="理事会の検討資料", ident="", page="", note="", annotations=[
+        ann(target="検討資料の議題", item=2, kind="判断", handwriting="☑採用", decision="採用"),
+    ])
+    monkeypatch.setattr(N, "read_photo", lambda jpeg, context, effort="high": (reading, {}))
+    batch = upload(work, "board")
+    b = read_until_done(batch)
+    page = work.get(f"/works/{WID}/notes/{batch}").text
+    assert "写真にない内容を足す" in page and "議題1 総会" in page
+    pid = b["proposals"][0]["id"]
+    form = {f"act_{pid}": "反映する", f"text_{pid}": "採用", f"memo_{pid}": "管理会社の説明を聞いて決めた",
+            "add_place": "item:0", "add_decision": "見送り", "add_text": "次回もう一度話す", "add_memo": "会議の最後に出た話"}
+    work.post(f"/works/{WID}/notes/{batch}/apply", data=form)
+    w = store.load(WID)
+    assert w["board_decisions"]["1"]["decision"] == "採用"
+    assert "管理会社の説明を聞いて決めた" in w["board_decisions"]["1"]["note"]       # 補足は議題のメモに残る
+    assert w["board_decisions"]["0"]["decision"] == ""                                 # ①に「見送り」は選べない → 記録しない
+    assert "☑見送り／次回もう一度話す" in w["board_decisions"]["0"]["note"]            # メモとして残す
+    assert "会議の最後に出た話" in w["board_decisions"]["0"]["note"]
+    bb = M._note_batch(w, batch)
+    assert bb["proposals"][0]["memo"] == "管理会社の説明を聞いて決めた"
+    manual = [p for p in bb["proposals"] if p.get("manual")]
+    assert [p["status"] for p in manual] == ["反映済み"]
+    assert "手で足した内容" in work.get(f"/works/{WID}/notes/{batch}").text
+    # 新旧対照表の書き込みに、行を選んで宿題を足す
+    reading2 = N.PhotoReading(document="新旧対照表", ident="", page="", note="", annotations=[])
+    monkeypatch.setattr(N, "read_photo", lambda jpeg, context, effort="high": (reading2, {}))
+    batch2 = upload(work, "taisho")
+    read_until_done(batch2)
+    work.post(f"/works/{WID}/notes/{batch2}/apply", data={"add_place": "row:2", "add_text": "理事長に確認", "add_memo": "委員会のあとで"})
+    t = store.load(WID)["todos"][-1]
+    assert t["text"] == "理事長に確認" and t["where"].startswith("行2 第20条") and t["memo"] == "委員会のあとで"
+
+
+def test_edit_articles_directly_and_revert(work):
+    """改定案の条の文を、写真を通さずに直す。開いたあとに改定案が変わっていたら上書きしない。AI の文に戻せる。"""
+    page = work.get(f"/works/{WID}/articles").text
+    assert "条の文を直す" in page and "行2" in page
+    ident = M._ident(WID, store.load(WID))
+    key = "規約|第20条"
+    r = work.post(f"/works/{WID}/articles", data={"ident": ident, f"text_{key}": "第20条　委員会で見返して直した文。",
+                                                  f"note_{key}": "11/4 の委員会の議論を踏まえて"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].endswith("saved=1")
+    w = store.load(WID)
+    am = next(a for a in w["draft"]["amendments"] if a["article"] == "第20条")
+    assert am["text"] == "第20条　委員会で見返して直した文。"
+    assert w["human_edits"][key] == {**w["human_edits"][key], "original": "第20条　…", "note": "11/4 の委員会の議論を踏まえて"}
+    assert "委員会で見返して直した文" in (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+    # 古い版の画面からの保存は断る（ほかの人が直した文を黙って上書きしない）
+    assert work.post(f"/works/{WID}/articles", data={"ident": ident, f"text_{key}": "古い画面から"}).status_code == 409
+    # AI が作った文に戻す
+    ident2 = M._ident(WID, store.load(WID))
+    work.post(f"/works/{WID}/articles", data={"ident": ident2, f"revert_{key}": "1"})
+    w = store.load(WID)
+    assert next(a for a in w["draft"]["amendments"] if a["article"] == "第20条")["text"] == "第20条　…"
+    assert key not in w["human_edits"]
+
+
+def test_todos_edit_done_delete_add(work):
+    store.update(WID, todos=[{"text": "古い宿題", "where": "行1", "at": "11月04日"},           # id のない古い形
+                             {"id": "abc", "text": "消す宿題", "where": "全体", "at": "11月04日"}])
+    assert "宿題・メモを保存する" in work.get(f"/works/{WID}").text
+    r = work.post(f"/works/{WID}/todos", data={"back": "board", "text_i0": "直した宿題", "memo_i0": "経緯", "done_i0": "1",
+                                               "text_abc": "消す宿題", "del_abc": "1", "new_text": "足した宿題", "new_where": "第25条"},
+                  follow_redirects=False)
+    assert r.headers["location"].endswith("#board")
+    todos = store.load(WID)["todos"]
+    assert [(t["text"], t.get("memo"), t.get("done"), t["where"]) for t in todos] == [
+        ("直した宿題", "経緯", True, "行1"), ("足した宿題", "", False, "第25条")]

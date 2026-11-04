@@ -3,6 +3,43 @@
 {% block title %}書き込みの読み取り｜{{ work.name }}｜ととのう規約{% endblock %}
 {% block head %}{% if b.status == "読み取り中" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
+{% macro proposal(p) %}
+      <div class="proposal-card{{ ' needcheck' if p.check }}{{ ' settled' if p.status != '未確認' }}">
+        <div class="pc-head"><span class="cat {{ 'must' if p.kind in ('文言の修正', '判断', '選択') else 'ref' }}">{{ p.kind }}</span>
+          <b>{{ p.where }}</b>
+          {% if p.manual %}<span class="small">手で足した内容</span>{% else %}<span class="small">読み取りの確かさ：<span class="{{ 'low' if p.confidence == '低' }}">{{ p.confidence }}</span></span>{% endif %}</div>
+        {% if not p.manual %}<p class="pc-hand">書き込み：「{{ p.handwriting }}」<span class="small">　{{ p.reason }}</span></p>{% endif %}
+        {% if p.check and p.status == "未確認" %}<p class="pc-check">{{ icon("alert") }}{% if p.confidence == "低" %}読み取りに自信がありません。{% endif %}数字・条番号・期間などは、写真と見比べてください。</p>{% endif %}
+        {% if p.kind == "文言の修正" %}
+          {# 変わるところだけを、前後の文脈つきで見せる（直したあとは下線、元の語句は取り消し線。新旧対照表と同じ印） #}
+          <dl class="facts"><dt>変わるところ</dt><dd>{% for ch in changes(p.current, p.proposed) %}
+            <div class="chg"><div class="chg-old"><span class="small">今</span><span>{{ ch.before[0] }}{% for t, c in ch.before[1] %}{% if c %}<del>{{ t }}</del>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.before[2] }}</span></div>
+              <div class="chg-new"><span class="small">直したあと</span><span>{{ ch.after[0] }}{% for t, c in ch.after[1] %}{% if c %}<mark>{{ t }}</mark>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.after[2] }}</span></div></div>
+          {% endfor %}</dd></dl>
+          <details class="more"><summary>条の全文を見る・直す</summary>
+            <dl class="facts"><dt>今の文</dt><dd><div class="quote">{{ p.current }}</div></dd>
+              <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="8" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.proposed }}</div>{% endif %}</dd></dl>
+          </details>
+        {% elif p.kind in ("判断", "選択") %}
+          <dl class="facts"><dt>今の記録</dt><dd>{{ p.current or "（未記録）" }}</dd>
+            <dt>反映する内容</dt><dd>{% if p.status == "未確認" %}<input type="text" name="text_{{ p.id }}" value="{{ p.proposed }}" aria-label="反映する内容">{% else %}{{ p.proposed }}{% endif %}</dd></dl>
+        {% else %}
+          <dl class="facts"><dt>{{ "議題のメモ" if p.kind == "理事会のメモ" else "宿題・メモ" }}</dt>
+            <dd>{% if p.status == "未確認" %}<input type="text" name="text_{{ p.id }}" value="{{ p.proposed or '' }}" placeholder="{{ '読めなかった書き込みの内容を入力' if p.kind == '読めない' }}" aria-label="内容">{% else %}{{ p.proposed }}{% endif %}</dd></dl>
+        {% endif %}
+        {% if p.status == "未確認" %}
+          <label class="pc-memo"><span class="small">補足（会議での経緯など。任意）</span>
+            <input type="text" name="memo_{{ p.id }}" value="{{ p.memo or '' }}" placeholder="例：管理会社に確認してから決める、という話になった"></label>
+          <div class="seg pc-seg" role="radiogroup" aria-label="反映するかどうか">
+            <label><input type="radio" name="act_{{ p.id }}" value="反映する">{{ icon("check", "icon ck") }}反映する</label>
+            <label><input type="radio" name="act_{{ p.id }}" value="反映しない">反映しない</label>
+          </div>
+        {% else %}
+          {% if p.memo %}<p class="pc-memo-done"><span class="small">補足</span>{{ p.memo }}</p>{% endif %}
+          <p class="small pc-done">{{ p.status }}（{{ p.decided_at }}）</p>
+        {% endif %}
+      </div>
+{% endmacro %}
 {% set done_n = b.photos|selectattr("status", "equalto", "読み取り済み")|list|length %}
 {% set back = "#next" if b.doc == "taisho" else "#board" %}
 <p class="eyebrow wk"><a href="/works/{{ id }}{{ back }}">{{ work.name }}</a>　<span class="muted">{{ b.at }} に読み込んだ写真 {{ b.photos|length }}枚</span></p>
@@ -42,42 +79,25 @@
         {% if ph.status == "読み取り済み" and not props %}<p class="muted">書き込みは見つかりませんでした。</p>{% endif %}
         <p class="small">写真を押すと、大きく表示します。</p></div>
     </div>
-    {% for p in props %}
-      <div class="proposal-card{{ ' needcheck' if p.check }}{{ ' settled' if p.status != '未確認' }}">
-        <div class="pc-head"><span class="cat {{ 'must' if p.kind in ('文言の修正', '判断', '選択') else 'ref' }}">{{ p.kind }}</span>
-          <b>{{ p.where }}</b>
-          <span class="small">読み取りの確かさ：<span class="{{ 'low' if p.confidence == '低' }}">{{ p.confidence }}</span></span></div>
-        <p class="pc-hand">書き込み：「{{ p.handwriting }}」<span class="small">　{{ p.reason }}</span></p>
-        {% if p.check and p.status == "未確認" %}<p class="pc-check">{{ icon("alert") }}{% if p.confidence == "低" %}読み取りに自信がありません。{% endif %}数字・条番号・期間などは、写真と見比べてください。</p>{% endif %}
-        {% if p.kind == "文言の修正" %}
-          {# 変わるところだけを、前後の文脈つきで見せる（直したあとは下線、元の語句は取り消し線。新旧対照表と同じ印） #}
-          <dl class="facts"><dt>変わるところ</dt><dd>{% for ch in changes(p.current, p.proposed) %}
-            <div class="chg"><div class="chg-old"><span class="small">今</span><span>{{ ch.before[0] }}{% for t, c in ch.before[1] %}{% if c %}<del>{{ t }}</del>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.before[2] }}</span></div>
-              <div class="chg-new"><span class="small">直したあと</span><span>{{ ch.after[0] }}{% for t, c in ch.after[1] %}{% if c %}<mark>{{ t }}</mark>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.after[2] }}</span></div></div>
-          {% endfor %}</dd></dl>
-          <details class="more"><summary>条の全文を見る・直す</summary>
-            <dl class="facts"><dt>今の文</dt><dd><div class="quote">{{ p.current }}</div></dd>
-              <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="8" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.proposed }}</div>{% endif %}</dd></dl>
-          </details>
-        {% elif p.kind in ("判断", "選択") %}
-          <dl class="facts"><dt>今の記録</dt><dd>{{ p.current or "（未記録）" }}</dd>
-            <dt>反映する内容</dt><dd>{% if p.status == "未確認" %}<input type="text" name="text_{{ p.id }}" value="{{ p.proposed }}" aria-label="反映する内容">{% else %}{{ p.proposed }}{% endif %}</dd></dl>
-        {% else %}
-          <dl class="facts"><dt>{{ "理事会のメモに足す" if p.kind == "理事会のメモ" else "宿題・メモとして残す" }}</dt>
-            <dd>{% if p.status == "未確認" %}<input type="text" name="text_{{ p.id }}" value="{{ p.proposed or '' }}" placeholder="{{ '読めなかった書き込みの内容を入力' if p.kind == '読めない' }}" aria-label="内容">{% else %}{{ p.proposed }}{% endif %}</dd></dl>
-        {% endif %}
-        {% if p.status == "未確認" %}
-          <div class="seg pc-seg" role="radiogroup" aria-label="反映するかどうか">
-            <label><input type="radio" name="act_{{ p.id }}" value="反映する">{{ icon("check", "icon ck") }}反映する</label>
-            <label><input type="radio" name="act_{{ p.id }}" value="反映しない">反映しない</label>
-          </div>
-        {% else %}
-          <p class="small pc-done">{{ p.status }}（{{ p.decided_at }}）</p>
-        {% endif %}
-      </div>
-    {% endfor %}
+    {% for p in props %}{{ proposal(p) }}{% endfor %}
   </section>
 {% endfor %}
+{% set manual = b.proposals|selectattr("manual")|list %}
+{% if manual %}<section class="notephoto sec"><h2>手で足した内容</h2>
+  {% for p in manual %}{{ proposal(p) }}{% endfor %}</section>{% endif %}
+<section class="addnote sec" id="add">
+  <h2>写真にない内容を足す</h2>
+  <p class="small">会議のあとで思い出したことや、紙に書かなかったことを足せます。下の「選んだものを反映する」を押すと、ほかの提案と一緒に記録します。
+    {% if b.doc == "taisho" %}条の文そのものを直すときは、<a href="/works/{{ id }}/articles">条の文を直す画面</a>を使ってください。{% endif %}</p>
+  <div class="addgrid">
+    <label><span class="small">場所</span><select name="add_place"><option value="">全体</option>
+      {% for v, label in places %}<option value="{{ v }}">{{ label }}</option>{% endfor %}</select></label>
+    {% if b.doc == "board" %}<label><span class="small">判断（任意）</span><select name="add_decision"><option value="">—</option>
+      {% for d in decision_options %}<option>{{ d }}</option>{% endfor %}</select></label>{% endif %}
+    <label class="wide"><span class="small">{{ "議題のメモ（議事録に残ります）" if b.doc == "board" else "宿題・メモ" }}</span><input type="text" name="add_text"></label>
+    <label class="wide"><span class="small">補足（会議での経緯など。任意）</span><input type="text" name="add_memo"></label>
+  </div>
+</section>
 </form>
 <p class="small">条の文を直すと、新旧対照表などの資料と版の番号が変わります。次の会議の前に、印刷し直してください。委員会で直した文は、あとで「改定案を作り直す」を押しても上書きされません。</p>
 <div class="bar"><div class="in"><div class="t"><b>選んだ提案を反映します</b>　反映は AI を使わずに行い、判断の履歴に残します</div>

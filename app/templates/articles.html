@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}条の文を直す｜{{ work.name }}｜ととのう規約{% endblock %}
+{% block content %}
+{# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
+<p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}</span></p>
+<div class="stepttl"><p class="eyebrow">改定案の手直し</p><h1 class="page-title">条の文を直す</h1>
+  <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、下の「直した文を保存する」を押してください。
+    <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>AI は使いません。</p></div>
+
+{% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
+{% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
+
+<form method="post" action="/works/{{ id }}/articles" id="artform">
+  <input type="hidden" name="ident" value="{{ ident }}">
+  {% for a in items %}
+  {% set key = a.document ~ "|" ~ a.article %}
+  <section class="artedit sec{{ ' edited' if a.edit }}" id="row{{ a.n }}">
+    <div class="pc-head"><span class="rowno">行{{ a.n }}</span><b>{{ a.article }}（{{ a.caption }}）</b>
+      {% if a.document != "規約" %}<span class="small">{{ a.document }}</span>{% endif %}
+      {% if a.edit %}<span class="cat must">委員会で直した文</span><span class="small">{{ a.edit.at }}</span>{% endif %}</div>
+    <details class="more"><summary>今の規定を見る</summary><div class="quote">{{ a.current if a.kind != "新設" else "（新しく設ける条）" }}</div></details>
+    <label class="artlabel"><span class="small">改定案の文</span>
+      <textarea name="text_{{ key }}" rows="{{ [4, (a.text|length // 40) + 2]|max }}" aria-label="{{ a.article }} の改定案の文">{{ a.text }}</textarea></label>
+    <label class="pc-memo"><span class="small">補足（直した理由・会議での経緯など。文を直したときに残ります）</span>
+      <input type="text" name="note_{{ key }}" value="{{ a.edit.note if a.edit and a.edit.note else '' }}"></label>
+    {% if a.edit %}
+      <details class="more"><summary>AI が作った文を見る</summary><div class="quote">{{ a.edit.original }}</div></details>
+      <label class="small revert"><input type="checkbox" name="revert_{{ key }}" value="1"> AI が作った文に戻す</label>
+    {% endif %}
+  </section>
+  {% endfor %}
+</form>
+<div class="bar"><div class="in"><div class="t"><b>直した文を保存します</b>　新旧対照表・検討資料などの資料も、AI を使わずに直します</div>
+  <a class="tbtn2" href="/works/{{ id }}#next">作業の画面に戻る</a>
+  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div></div>
+{% endblock %}
