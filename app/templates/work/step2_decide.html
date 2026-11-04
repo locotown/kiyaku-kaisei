@@ -1,0 +1,257 @@
+{# 作業の画面（work.html）のステップ 2：指摘の判断。work.html の変数をそのまま使う #}
+{% from "_icons.html" import icon %}
+{% set cat_cls = {"必須": "must", "推奨": "rec", "参考": "ref"} %}
+{% set n_choose = rows|length - summary.must %}
+{% set n_rec = rows|selectattr("1.category", "equalto", "推奨")|list|length %}
+{% set n_ref = rows|selectattr("1.category", "equalto", "参考")|list|length %}
+{% set decided = tally["採用"] + tally["不採用"] %}
+{# ===================== ステップ 2：指摘の判断 ===================== #}
+<section class="panel" data-step="decide" id="findings">
+  <div class="stepttl"><p class="eyebrow">ステップ 2 ／ 6</p><h1 class="page-title">指摘を判断する</h1>
+    <p class="lead">{% if summary.must %}法律で必要な{{ summary.must }}件は、もう改定案に入っています。{% endif %}{% if n_choose %}このステップでは、残りの{{ n_choose }}件を、改定案に入れるかどうか決めてください。{% else %}このステップで決めることはありません。{% endif %}</p></div>
+  {% if done == "点検中" %}<div class="justdone">{{ icon("check") }}<span>点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、改定案に入れるかどうか判断してください。</span></div>{% endif %}
+  {% if bulk %}<div class="justdone">{{ icon("check") }}<span>まとめて判断しました（判断が変わった指摘 {{ bulk }}件）。</span></div>{% endif %}
+  <div id="findings-fold">
+  <div class="stats">
+    <div><div class="k">改定案に入っている必須</div><div class="v">{{ summary.must }}<small>件</small></div></div>
+    <div><div class="k">このステップで決めること</div><div class="v">{{ n_choose }}<small>件（推奨{{ n_rec }}・参考{{ n_ref }}）</small></div></div>
+    <div><div class="k">判断済み</div><div class="v"><span data-decided>{{ decided }}</span><small>／ {{ n_choose }}</small></div>
+      <div class="meter"><i id="meter" style="width:{{ (100 * decided / n_choose)|round|int if n_choose else 100 }}%"></i></div></div>
+  </div>
+
+  {% set cats = {"必須": "改定案に必ず入れる箇所", "推奨": "法改正に関係し、見直しを勧められている箇所", "参考": "標準管理規約と違う箇所"} %}
+  {% set counts = {} %}{% for c in cats %}{% set _ = counts.update({c: rows|selectattr("1.category", "equalto", c)|list|length}) %}{% endfor %}
+  <div class="tabs filters" id="filters" role="tablist" aria-label="絞り込み">
+    {% if n_choose %}<button type="button" class="fbtn" data-filter="decide" role="tab">決めること <i class="n">{{ n_choose }}</i></button>{% endif %}
+    {% for c in cats %}{% if counts[c] %}<button type="button" class="fbtn f-{{ c }}" data-filter="{{ c }}" role="tab">{{ c }} <i class="n">{{ counts[c] }}</i></button>{% endif %}{% endfor %}
+    {% if n_choose %}<button type="button" class="fbtn f-保留" data-filter="保留" role="tab" title="推奨・参考のうち、まだ「あとで決める」のもの">あとで決める <i class="n" data-tally="保留">{{ tally["保留"] }}</i></button>{% endif %}
+    <button type="button" class="fbtn" data-filter="all" role="tab">すべて <i class="n">{{ rows|length }}</i></button>
+  </div>
+  {% if n_choose %}
+  <details class="bulk bulkbox" id="bulk"><summary>委員会でまとめて決めたときは、<span class="link">推奨・参考を、まとめて判断する</span>こともできます。</summary>
+    <div class="bk-row">
+      <select id="bk-scope" aria-label="範囲">{% for sc in ("推奨", "参考", "推奨・参考") %}{% set n = rows|selectattr("1.category", "in", sc.split("・"))|list|length %}{% if n %}<option value="{{ sc }}" data-n="{{ n }}">{{ sc }}の指摘すべて（{{ n }}件）</option>{% endif %}{% endfor %}</select>
+      を
+      <select id="bk-dec" aria-label="判断">{% for c in choice_help %}<option value="{{ c }}">{{ choice_help[c] }}</option>{% endfor %}</select>
+      <input type="text" id="bk-reason" placeholder="理由（任意）" class="field">
+      <button type="button" id="bk-go" class="boxed">まとめて確定する</button>
+    </div>
+    <div class="small">そのあと1件ずつ変えることもできます（判断を変えた指摘には履歴が残ります）。</div>
+  </details>
+  <script>
+  (function () {
+    var go = document.getElementById('bk-go'); if (!go) return;
+    go.addEventListener('click', function () {
+      var sc = document.getElementById('bk-scope'), dec = document.getElementById('bk-dec');
+      var n = sc.selectedOptions[0].dataset.n;
+      if (!window.confirm(sc.value + 'の指摘 ' + n + '件を、すべて「' + dec.selectedOptions[0].textContent + '」にします。よろしいですか？')) return;
+      var data = new FormData();
+      data.append('scope', sc.value); data.append('decision', dec.value); data.append('reason', document.getElementById('bk-reason').value);
+      go.disabled = true; go.textContent = '保存中…';
+      fetch('/works/{{ id }}/decisions/bulk', { method: 'POST', body: data })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (sum) { location.href = '/works/{{ id }}?bulk=' + sum.changed + '#findings'; })
+        .catch(function () { go.disabled = false; go.textContent = 'まとめて確定する'; alert('保存できませんでした。もう一度押してください。'); });
+    });
+  })();
+  </script>
+  {% endif %}
+  <details class="more"><summary>区分（必須・推奨・参考）と、改定に必要な決議について</summary>
+    <div class="legend">
+      <div><span class="cat must">必須</span>改正された区分所有法に合わず、そのままでは効力を失うおそれがある箇所です。改定案に必ず入れます。</div>
+      <div><span class="cat rec">推奨</span>今回の法改正に関係し、国の標準管理規約（2025年10月改正）が見直しを勧めている箇所です。</div>
+      <div><span class="cat ref">参考</span>法改正とは直接関係しませんが、標準管理規約と違う箇所です（古い用語、条番号のずれなど）。</div>
+      <div><span class="tag">法律上必要かは確認中</span>法律が見直しを求めているかを、国の資料でまだ確かめきれていない箇所です。いまは「推奨」として扱っています。</div>
+    </div>
+    {% set nres = {"特別": 0, "普通": 0} %}{% for i, f in rows %}{% set _ = nres.update({views[i].resolution.kind: nres[views[i].resolution.kind] + 1}) %}{% endfor %}
+    <p class="muted"><b>改定に必要な決議</b>は、内容ではなく、どの文書を変えるかで決まります。規約の変更は総会の特別決議（区分所有法第31条第1項）、細則の変更は総会の普通決議（標準管理規約第48条）です。
+      この一覧では、特別決議 {{ nres["特別"] }}件・普通決議 {{ nres["普通"] }}件です。{% if not nres["普通"] %}細則への指摘がないため、すべて規約の変更（特別決議）になっています。{% endif %}</p>
+  </details>
+
+  <div id="flist-top"></div>
+  <p class="muted fempty" id="fempty" hidden>この絞り込みの指摘はありません。</p>
+  <form action="/works/{{ id }}/decisions" method="post" id="decform">
+  {% set ns2 = namespace(cat="") %}
+  {% for i, f in rows %}
+  {% set d = decisions[i|string] %}{% set v = views[i] %}
+  {% if f.category != ns2.cat %}{% set ns2.cat = f.category %}
+  <h3 class="cathead ch-{{ f.category }}" data-cat="{{ f.category }}">{{ f.category }} {{ counts.get(f.category, 0) }}件：{{ cats.get(f.category, "") }}</h3>
+  {% endif %}
+  <details class="item finding fcard fc-{{ f.category }}" data-cat="{{ f.category }}" data-dec="{{ d.decision }}" id="f-{{ i }}">
+    <summary class="h">
+      <span class="cat {{ cat_cls.get(f.category, 'ref') }}">{{ f.category }}</span>
+      <span class="tt ftitle">{{ v.title }}{% if f.needs_confirmation %}<span class="tag">法律上必要かは確認中</span>{% endif %}
+        <span class="sub">対象：{{ v.target }}{% if v.chapter %}（{{ v.chapter }}）{% endif %}</span></span>
+      {% if f.category == "必須" %}<span class="st ok">{{ icon("check") }}改定案に入っています</span>
+      {% else %}<span class="st {{ {'採用': 'ok', '不採用': 'no'}.get(d.decision, 'hold') }}" id="st-{{ i }}">{% if d.decision == "採用" %}{{ icon("check") }}{% endif %}{{ choice_help.get(d.decision, "あとで決める") }}</span>{% endif %}
+      <span class="chev">{{ icon("chev-down") }}</span>
+    </summary>
+    <div class="body">
+      <dl class="facts">
+        <dt>何が問題か</dt><dd>{{ v.issue }}</dd>
+        <dt>今の規定</dt><dd>{% if f.current_excerpt %}<div class="quote">{{ f.current_excerpt }}</div>{% else %}今の規約に、この点の定めはありません。{% endif %}</dd>
+        <dt>改定の方向</dt><dd><div class="proposal">{{ v.proposal }}</div>
+          {% if f.choice_needed %}<div class="choicebox"><b>選ぶ必要があります：</b>{{ f.choice_note }}
+            <div class="cb-flow">{% if f.category == "必須" %}この指摘は改定案に入ります。改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。{% else %}改定案に入れると、改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。見送る・あとで決めるにすると、改定案にも理事会の資料にも出ません。{% endif %}</div></div>{% endif %}</dd>
+        <dt>決議</dt><dd>{{ v.resolution.label }}</dd>
+        <dt>根拠</dt><dd><ul class="basis">{% for b in v.basis %}
+          <li><details><summary><span class="src src-{{ b.kind }}">{{ b.source }}</span>{{ b.ref }}{% if b.caption %} <span class="cap">{{ b.caption }}</span>{% endif %}</summary>
+            {% if b.text %}<div class="btext">{{ b.text }}</div>{% else %}<div class="muted">本文を表示できませんでした。</div>{% endif %}</details></li>
+          {% endfor %}</ul><div class="small">根拠を押すと、条文の本文が開きます。</div>
+          {% if v.note %}<div class="readnote">{{ v.note }}</div>{% endif %}</dd>
+      </dl>
+      <div class="decide">
+      {% if f.category == "必須" %}
+        <div class="fixed">{{ icon("check") }}改定案に入れます<span class="muted">（改正法に合わせるため、必ず入れます。選ぶ必要はありません）</span></div>
+      {% else %}
+        <div class="decbox" id="db-{{ i }}" data-index="{{ i }}" data-saved="{{ d.decision }}">
+        <div class="seg choices" role="radiogroup" aria-label="改定案に入れるかどうか">{% for c in choice_help %}
+          <label class="c-{{ c }}"><input type="radio" name="decision_{{ i }}" value="{{ c }}" {% if d.decision == c %}checked{% endif %}>{{ icon("check", "icon ck") }}{{ choice_help[c] }}</label>
+        {% endfor %}</div>
+        <div class="current"><span class="muted">理由：</span><span id="cr-{{ i }}">{{ d.reason or "（未記入）" }}</span>
+          <button type="button" class="linkbtn" data-edit="{{ i }}">理由を書く・直す</button></div>
+        <div class="pending" id="pd-{{ i }}" hidden>
+          <div class="pd-head" id="ph-{{ i }}"></div>
+          <div class="reason"><input type="text" name="reason_{{ i }}" id="rs-{{ i }}" value="{{ d.reason }}" class="field" placeholder="理由（任意。議事録や引き継ぎに残ります）">
+            <button type="button" class="btn" data-confirm="{{ i }}">確定する</button>
+            <button type="button" data-cancel="{{ i }}">取り消す</button></div>
+          <p class="note">「確定する」で保存し、履歴に残ります。</p>
+        </div>
+        <div class="cardsave" id="cs-{{ i }}" role="status"></div>
+        {% set h = d.history or [] %}
+        <details class="hist" id="hs-{{ i }}" {% if not h %}hidden{% endif %}><summary>判断の履歴（<span id="hn-{{ i }}">{{ h|length }}</span>件）</summary>
+          <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ finding_line(e) }}</li>{% endfor %}</ul></details>
+        </div>
+      {% endif %}
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+  <noscript><p><button type="submit" class="boxed">判断を保存する</button></p></noscript>
+  </form>
+  </div>
+  <div class="bar"><div class="in"><div class="t"><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}「あとで決める」のままでも先へ進めます{% endif %}</span></div>
+    {% if work.draft and not work.draft_stale %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
+    {% else %}<button type="submit" form="draftform" class="btn" {% if busy %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "改定案を作る" }}{{ icon("arrow-right") }}</button>{% endif %}
+  </div></div>
+  <script>
+  (function () {
+    var form = document.getElementById('decform'), st = document.getElementById('savestate');
+    if (!form) return;
+    var $ = function (id) { return document.getElementById(id); };
+    var LABEL = {{ choice_help|tojson }}, N = {{ n_choose }};
+    var lastSaved = st.textContent;
+    function pendingCount() { return form.querySelectorAll('.pending:not([hidden])').length; }
+    function bar() {
+      var n = pendingCount();
+      if (n) { st.textContent = '確定していない判断が ' + n + '件あります'; st.className = 'unsaved'; }
+      else { st.textContent = lastSaved; st.className = 'muted'; }
+    }
+    function show(sum) {
+      document.querySelectorAll('[data-tally]').forEach(function (e) { e.textContent = sum.tally[e.dataset.tally]; });
+      document.querySelectorAll('[data-sum]').forEach(function (e) { e.textContent = sum[e.dataset.sum]; });
+      var dn = sum.tally['採用'] + sum.tally['不採用'];
+      document.querySelectorAll('[data-decided]').forEach(function (e) { e.textContent = dn; });
+      if ($('meter')) $('meter').style.width = (N ? Math.round(100 * dn / N) : 100) + '%';
+      lastSaved = '最後に保存：' + sum.saved_at;
+    }
+    function label(v) { return LABEL[v] || 'あとで決める'; }
+    function open(i, text, reason) {
+      $('f-' + i).open = true;
+      $('ph-' + i).textContent = text; $('rs-' + i).value = reason;
+      $('pd-' + i).hidden = false; $('cs-' + i).textContent = 'まだ保存していません'; $('cs-' + i).className = 'cardsave pend';
+      $('rs-' + i).focus(); bar();
+    }
+    function close(i) { $('pd-' + i).hidden = true; bar(); }
+    function checked(i) { var r = form.querySelector('input[name="decision_' + i + '"]:checked'); return r ? r.value : ''; }
+    function cancel(i) {
+      var saved = $('db-' + i).dataset.saved;
+      form.querySelectorAll('input[name="decision_' + i + '"]').forEach(function (r) { r.checked = r.value === saved; });
+      $('cs-' + i).textContent = ''; close(i);
+    }
+    function state(i, v) {
+      var s = $('st-' + i); if (!s) return;
+      s.className = 'st ' + ({'採用': 'ok', '不採用': 'no'}[v] || 'hold');
+      s.innerHTML = (v === '採用' ? '{{ icon("check")|replace("\n", "") }}' : '');
+      s.appendChild(document.createTextNode(label(v)));
+    }
+    function confirm(i) {
+      var data = new FormData(), box = $('cs-' + i);
+      data.append('decision', checked(i)); data.append('reason', $('rs-' + i).value);
+      box.textContent = '保存中…'; box.className = 'cardsave';
+      fetch('/works/{{ id }}/decisions/' + i, { method: 'POST', body: data })
+        .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
+        .then(function (sum) {
+          var it = sum.item;
+          $('db-' + i).dataset.saved = it.decision;
+          $('f-' + i).dataset.dec = it.decision;
+          state(i, it.decision);
+          if (window.kiyakuFilter) window.kiyakuFilter();
+          $('cr-' + i).textContent = it.reason || '（未記入）';
+          $('hn-' + i).textContent = it.lines.length; $('hs-' + i).hidden = !it.lines.length;
+          $('hl-' + i).innerHTML = '';
+          it.lines.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('hl-' + i).appendChild(li); });
+          box.textContent = '保存しました（' + label(it.decision) + '）'; box.className = 'cardsave ok';
+          show(sum); close(i);
+        })
+        .catch(function () { box.textContent = '保存できませんでした。もう一度「確定する」を押してください'; box.className = 'cardsave ng'; });
+    }
+    form.addEventListener('change', function (e) {  // 選んだだけでは保存しない。理由を書いて「確定する」で保存
+      var m = (e.target.name || '').match(/^decision_(\d+)$/);
+      if (!m) return;
+      var i = m[1], saved = $('db-' + i).dataset.saved;
+      if (e.target.value === saved) { cancel(i); return; }
+      open(i, '「' + label(saved) + '」から「' + label(e.target.value) + '」に変えます。理由を書いて「確定する」を押してください（理由は空でも確定できます）。', '');
+    });
+    form.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); var t = (b && b.dataset) || {};
+      if (t.confirm) confirm(t.confirm);
+      else if (t.cancel) cancel(t.cancel);
+      else if (t.edit) {
+        var i = t.edit;
+        cancel(i);
+        open(i, '理由を書き直します（判断は「' + label($('db-' + i).dataset.saved) + '」のまま）。', $('cr-' + i).textContent === '（未記入）' ? '' : $('cr-' + i).textContent);
+      }
+    });
+    form.addEventListener('keydown', function (e) {  // 理由の欄で Enter を押したら確定
+      var m = (e.target.id || '').match(/^rs-(\d+)$/);
+      if (m && e.key === 'Enter' && !e.isComposing) { e.preventDefault(); confirm(m[1]); }
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); });
+    window.addEventListener('beforeunload', function (e) { if (pendingCount()) { e.preventDefault(); e.returnValue = ''; } });
+  })();
+  </script>
+  <script>
+  (function () {  // 絞り込み（決めること／必須／推奨／参考／あとで決める／すべて）
+    var bar = document.getElementById('filters'), current = '{{ "decide" if n_choose else "all" }}';
+    if (!bar) return;
+    try { current = sessionStorage.getItem('kiyaku-filter-{{ id }}') || current; } catch (e) {}
+    if (!bar.querySelector('[data-filter="' + current + '"]')) current = 'all';
+    function apply() {
+      var shown = 0, cats = {};
+      document.querySelectorAll('.fcard').forEach(function (c) {
+        var ok = current === 'all' || c.dataset.cat === current ||
+                 (current === 'decide' && c.dataset.cat !== '必須') ||
+                 (current === '保留' && c.dataset.cat !== '必須' && c.dataset.dec !== '採用' && c.dataset.dec !== '不採用');
+        // 確定前の選択中の指摘は、絞り込みで消さない
+        if (!ok && c.querySelector('.pending:not([hidden])')) ok = true;
+        c.hidden = !ok; if (ok) { shown++; cats[c.dataset.cat] = 1; }
+      });
+      document.querySelectorAll('.cathead').forEach(function (h) { h.hidden = !cats[h.dataset.cat]; });
+      bar.querySelectorAll('.fbtn').forEach(function (b) { var on = b.dataset.filter === current; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      document.getElementById('fempty').hidden = shown > 0;
+    }
+    window.kiyakuFilter = apply;
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('.fbtn'); if (!b) return;
+      current = b.dataset.filter;
+      try { sessionStorage.setItem('kiyaku-filter-{{ id }}', current); } catch (e2) {}
+      apply();
+      // 一覧の先頭へ移る（絞り込みは上に固定表示なので、その高さの分だけずらす）
+      var top = document.getElementById('flist-top').getBoundingClientRect().top + window.scrollY;
+      if (top < window.scrollY) window.scrollTo(0, top - bar.offsetHeight - 8);
+    });
+    apply();
+  })();
+  </script>
+</section>

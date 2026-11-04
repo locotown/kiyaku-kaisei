@@ -1,0 +1,36 @@
+{# 作業の画面（work.html）のステップ 1：読み込み。work.html の変数をそのまま使う #}
+{% from "_icons.html" import icon %}
+<section class="panel" data-step="review" id="documents">
+  <div class="stepttl"><p class="eyebrow">ステップ 1 ／ 6</p><h1 class="page-title">読み込んだ規約</h1>
+    <p class="lead">{% if work.findings %}規約を読み込み、点検が済みました。次は、指摘を判断します。{% elif busy %}規約を読み込み、点検しています。終わると、指摘の判断の画面に移ります。{% else %}規約を読み込みました。{% endif %}</p></div>
+  <div class="stats">
+    <div><div class="k">規約の型</div><div class="v">{{ work.info["型"] }}</div></div>
+    <div><div class="k">規約本体</div><div class="v">{{ work.articles }}<small>条</small></div></div>
+    <div><div class="k">見つかった指摘</div><div class="v">{{ work.findings|length }}<small>件</small></div></div>
+  </div>
+  <details class="orgedit" {% if done == "org" %}open{% endif %}><summary>マンション名・管理組合名：<b>{{ work.org or "（未入力）" }}</b>{% if done == "org" %} <span class="ok">{{ icon("check") }}保存しました</span>{% endif %}</summary>
+    <form action="/works/{{ id }}/org" method="post">
+      <input type="text" name="org" value="{{ work.org or '' }}" placeholder="例：〇〇マンション管理組合" aria-label="マンション名・管理組合名">
+      <button type="submit" class="boxed">保存する</button>
+      <div class="help">住民向けの説明・理事会の検討資料・新旧対照表の題名に入ります（作業の名前「{{ work.name }}」は資料に出ません）。保存すると、作ってある資料も書き直します。</div>
+    </form></details>
+  {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>{{ source_note.label }}から読み込みました。</b>{{ source_note.text }}</div>{% endif %}
+  {% if work.documents and work.documents|length > 1 %}
+  {% set docs = work.documents|selectattr("kind", "in", ["規約", "細則"])|list %}
+  <details class="fold" {% if not work.findings %}open{% endif %}><summary>読み込んだ文書：全{{ work.documents|length }}件（規約・細則 {{ docs|length }}件、その他 {{ work.documents|length - docs|length }}件）</summary>
+  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
+  <table>
+    <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
+    {% for d in work.documents %}
+    <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
+        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "条" }}{% else %}—{% endif %}</td>
+        <td>{{ d.annotations }}件</td></tr>
+    {% endfor %}
+  </table>
+  </details>
+  {% endif %}
+  {% if work.findings %}
+  <div class="bar"><div class="in"><div class="t"><b>点検が済みました</b>　次は、指摘の判断です</div>
+    <a class="btn" href="#findings">指摘を判断する{{ icon("arrow-right") }}</a></div></div>
+  {% endif %}
+</section>

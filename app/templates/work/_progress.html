@@ -1,0 +1,64 @@
+{# 作業の画面（work.html）の処理中の進み具合（AI が作業しているあいだ、ステップの画面の上に出す）。work.html の変数をそのまま使う #}
+{% from "_icons.html" import icon %}
+{% if busy and progress %}
+{% set what = {"点検中": "AI が規約の条文を一つずつ取り寄せ、標準管理規約・区分所有法と照らし合わせています。",
+               "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（採点役）が確認しています。",
+               "検討資料作成中": "AI が改定案を3段（理解する・判断する・確認する）に分けて、理事会の検討資料を書いています。",
+               "説明文作成中": "AI が改定案と理事会の判断をもとに、住民向けの説明を書いています。"} %}
+<section class="card progress" id="progress">
+  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
+  <p class="muted">{{ what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます）。</p>
+  <ol class="steps" id="steps">{% for st in progress.steps %}
+    <li class="{{ 'done' if loop.index0 < progress.stage else ('now' if loop.index0 == progress.stage else '') }}">{{ st }}</li>{% endfor %}</ol>
+  <div class="pgrid">
+    <div><div class="plbl">経過時間</div><div class="pval"><span id="elapsed" class="num">{{ progress.elapsed // 60 }}分{{ "%02d"|format(progress.elapsed % 60) }}秒</span>
+      <span class="muted">（目安 {{ progress.estimate }}）</span></div></div>
+    <div><div class="plbl">いまの作業</div><div class="pval" id="current">{{ progress.current }}</div></div>
+    <div><div class="plbl">最後の動き</div><div class="pval"><span class="pulse"></span><span id="lastage">{{ progress.last_age }}秒前</span></div>
+      <div class="small" id="quiet"></div></div>
+  </div>
+  {% if work.status == "点検中" %}
+  <div class="pcounts" id="counts">確認した規約の条 <b data-c="規約の条">{{ progress.counts["規約の条"] }}</b>回・標準管理規約との照合 <b data-c="標準管理規約">{{ progress.counts["標準管理規約"] }}</b>回・区分所有法との照合 <b data-c="区分所有法">{{ progress.counts["区分所有法"] }}</b>回・受け付けた指摘 <b data-c="指摘">{{ progress.counts["指摘"] }}</b>件</div>
+  {% endif %}
+  <details class="plog" open><summary>作業の記録</summary>
+    <div class="log" id="log">{% for l in progress.lines %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div></details>
+</section>
+<script>
+(function () {
+  var BUSY = ["点検中", "改定案作成中", "検討資料作成中", "説明文作成中"];
+  var elapsed = {{ progress.elapsed }}, lastAge = {{ progress.last_age }};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (t) { return String(t).replace(/[<>&]/g, function (c) { return {"<": "&lt;", ">": "&gt;", "&": "&amp;"}[c]; }); };
+  function fmt(sec) { return Math.floor(sec / 60) + '分' + String(sec % 60).padStart(2, '0') + '秒'; }
+  function tick() {
+    elapsed++; lastAge++;
+    $('elapsed').textContent = fmt(elapsed);
+    $('lastage').textContent = lastAge < 60 ? lastAge + '秒前' : fmt(lastAge) + '前';
+    $('quiet').textContent = lastAge >= 600 ? '10分以上動きがありません。しばらく待っても変わらなければ、ページを再読み込みしてください。'
+      : (lastAge >= 90 ? 'AI が考えています（長い条文の照合や文章を書くときは、しばらく動きがないことがあります）' : '');
+  }
+  setInterval(tick, 1000);
+  async function poll() {
+    try {
+      var r = await fetch("/works/{{ id }}/status"); var s = await r.json();
+      $('status').textContent = s.status;
+      if (!BUSY.includes(s.status)) {  // 終わったら、結果の画面へ移って知らせる
+        var to = s.status.indexOf('エラー') >= 0 ? 'error'
+          : {"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"];
+        location.href = '/works/{{ id }}?done=' + encodeURIComponent('{{ work.status }}') + '#' + to;
+        return;
+      }
+      var p = s.progress;
+      elapsed = p.elapsed; lastAge = p.last_age;
+      $('current').textContent = p.current;
+      $('steps').querySelectorAll('li').forEach(function (li, i) { li.className = i < p.stage ? 'done' : (i === p.stage ? 'now' : ''); });
+      document.querySelectorAll('[data-c]').forEach(function (b) { b.textContent = p.counts[b.dataset.c]; });
+      $('log').innerHTML = p.lines.map(function (l) { return '<div>' + l.t + ' [' + esc(l.kind) + '] ' + esc(l.text) + '</div>'; }).join('');
+      $('log').scrollTop = $('log').scrollHeight;
+    } catch (e) {}
+    setTimeout(poll, 2000);
+  }
+  setTimeout(poll, 2000);
+})();
+</script>
+{% endif %}

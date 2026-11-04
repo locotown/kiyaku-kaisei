@@ -1,0 +1,76 @@
+{# 作業の画面（work.html）のステップ 3：改定案。work.html の変数をそのまま使う #}
+{% from "_icons.html" import icon %}
+<section class="panel" data-step="draft" id="next">
+  <div class="stepttl"><p class="eyebrow">ステップ 3 ／ 6</p><h1 class="page-title">{{ "改定案を確かめる" if work.draft else "改定案を作る" }}</h1>
+    <p class="lead">{% if work.draft %}改定案ができました。規約の改定は総会の特別決議、細則の改定は普通決議です。{% else %}判断した指摘から、改定案と新旧対照表を作ります。{% endif %}</p></div>
+  {% if done == "改定案作成中" and work.draft %}
+    {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}条）。「新旧対照表を開く」で中身を確認し、次は理事会での検討です。</span></div>
+    {% else %}<div class="justdone warn">{{ icon("alert") }}<span>改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}条）。下の「確かめた結果」を読んでから進んでください。</span></div>{% endif %}
+  {% endif %}
+  <div class="done{{ ' stale' if work.draft_stale else '' }}">
+    <div class="stats">
+      <div><div class="k">改定案に入れる指摘</div><div class="v"><span data-sum="total">{{ summary.total }}</span><small>件（必須 {{ summary.must }}＋改定案に入れる <span data-tally="採用">{{ tally["採用"] }}</span>）</small></div></div>
+      <div><div class="k">あとで決める</div><div class="v"><span data-tally="保留">{{ tally["保留"] }}</span><small>件</small></div></div>
+      <div><div class="k">今回は見送る</div><div class="v"><span data-tally="不採用">{{ tally["不採用"] }}</span><small>件</small></div></div>
+    </div>
+    <p class="nextstep{{ ' stale-note' if work.draft_stale else '' }}"><span data-sum="next">{{ summary.next }}</span>
+      <span class="muted">「あとで決める」にした指摘は、あとで判断を変えて改定案を作り直せます。{% if summary.saved_at %}（判断の最後の保存：<span data-sum="saved_at">{{ summary.saved_at }}</span>）{% endif %}</span></p>
+  </div>
+  {% if work.draft %}
+    {% set q = quality %}
+    <div class="stats">
+      <div><div class="k">改定する条</div><div class="v">{{ q.count }}<small>条</small></div></div>
+      <div><div class="k">規約 ／ 細則</div><div class="v">{{ q.by_doc.get("規約", 0) }}<small>条 ／ </small>{{ q.count - q.by_doc.get("規約", 0) }}<small>条</small></div></div>
+      <div><div class="k">作成にかかった時間</div><div class="v">{% if q.elapsed_min %}{{ q.elapsed_min }}<small>分</small>{% else %}—{% endif %}</div></div>
+    </div>
+    <div class="quality q-{{ q.level }} sec">
+      <h2>確かめた結果</h2>
+      <div class="q-head">{{ icon("check") if q.level == "ok" else icon("alert") }}{{ q.head }}</div>
+      <div class="q-body">
+        <div class="small">{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
+        <ul class="q-list">
+          <li><span class="mk {{ 'ok' if q.checks_ok else 'ng' }}">{{ icon("check") if q.checks_ok else icon("alert") }}</span> <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
+            <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
+          <li><span class="mk {{ 'ok' if q.level == 'ok' else 'ng' }}">{{ icon("check") if q.level == "ok" else icon("alert") }}</span> <b>採点役（別の AI）による確認</b>：{% for r in q.rounds %}{{ r.n }}回目 {{ r.result }}{% if not loop.last %} → {% endif %}{% else %}行われませんでした{% endfor %}
+            <details><summary>確認した項目（{{ q.checklist|length }}項目）</summary>
+            <ol class="checklist">{% for c in q.checklist %}
+              <li class="{{ 'ok' if c.ok else 'ng' }}"><span class="ck">{{ "✓" if c.ok else "—" }}</span><div><b>{{ c.label }}</b>{% if c.note %}<div class="ck-note">{{ c.note }}</div>{% endif %}</div></li>{% endfor %}</ol></details>
+            {% if q.limits %}<div class="limits"><b>採点役が確認できなかった点</b><ul>{% for l in q.limits %}<li>{{ l }}</li>{% endfor %}</ul>
+              <div class="small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
+            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
+        </ul>
+        {% if q.precedent.count %}<div class="small">標準どおりの条 <b>{{ q.precedent.count }}条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
+        {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
+          <ul>{% for c in q.costs.lines %}<li>{{ c.step }}：約${{ "%.2f"|format(c.usd) }}{% if c.at %} <span class="muted">（{{ c.at }}）</span>{% endif %}</li>{% endfor %}</ul>
+          <div class="small">公開価格での概算です。住民向け説明と検討資料の費用（1回 数セント〜数十セント）は含みません。</div></details>{% endif %}
+      </div>
+    </div>
+    <div class="q-human sec">
+      <h2>理事会の前に、人が確かめること</h2>
+      <div class="check"><span class="num small">1</span><div>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。
+        {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
+      {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。次の「理事会で検討」で、どちらの案にするか選びます。</div></div>{% endif %}
+      {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
+      <div class="acts">
+        <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表を開く</a>
+        <a class="tbtn2" href="/works/{{ id }}/taisho.md">{{ icon("download") }}Markdown で保存</a>
+        <a class="tbtn2" href="#findings">指摘の判断に戻る</a>
+      </div>
+    </div>
+  {% endif %}
+  <form action="/works/{{ id }}/draft" method="post" id="draftform">
+    {% if work.draft and not work.draft_stale %}<button type="submit" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}改定案を作り直す</button>{% endif %}
+  </form>
+  <div class="bar"><div class="in">
+    {% if not work.draft or work.draft_stale %}
+      <div class="t"><b>{{ "判断が変わりました" if work.draft_stale else "改定案を作ります" }}</b>　<span class="muted">{{ summary.next }}</span></div>
+      <button type="submit" form="draftform" class="btn" {% if busy %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "改定案を作る" }}{{ icon("arrow-right") }}</button>
+    {% elif not board %}
+      <div class="t"><b>次は、理事会での検討です</b>　印刷用の検討資料を作り、議題ごとに判断を記録します</div>
+      <button type="submit" form="boardmake" class="btn" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% else %}
+      <div class="t"><b>次は、理事会での検討です</b>　検討資料はできています</div>
+      <a class="btn" href="#board">理事会の検討へ{{ icon("arrow-right") }}</a>
+    {% endif %}
+  </div></div>
+</section>

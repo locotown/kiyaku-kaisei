@@ -56,9 +56,11 @@
 - APIキー：手元のPCでは `.env` の `ANTHROPIC_API_KEY`（コミットしない）。Claude Code のクラウド環境では環境変数 `KIYAKU_ANTHROPIC_API_KEY`（`ANTHROPIC_API_KEY` という名前は Claude Code 自身の認証用に扱われ、セッションに渡らないため）。読み込みは core/config.py
 - 11/2 に、この構成のキーで Messages API の呼び出しと Managed Agents（ベータ）の利用ができることを確認済み
 
-## ディレクトリ構成（予定）
+## ディレクトリ構成
 ```
 app/           画面とAPI（FastAPI）
+  templates/   画面（Jinja2）。作業の画面は work.html が骨組みで、ステップごとの中身は work/step1_review.html〜step6_meeting.html
+  static/      デザインシステムの正本（tokens.css・components.css）と、アプリ固有の見た目（app.css）
 core/          取り込み・条文分割・新旧対照表の組み立て（決定的な処理）
 agents/        Managed Agents の定義ファイル（ant apply で同期）
 skills/        改正知識のスキル（DOMAIN の論点表、条文の引き方）
@@ -67,6 +69,8 @@ data/public/   公開資料（出典は SOURCES.md）
 private/       非公開データ（.gitignore 済み、コミットしない）
 ```
 
+## 決めたこと（11/4）
+- 画面は、サーバーで組み立てる HTML（Jinja2）と CSS、少しの JavaScript（判断の保存・絞り込み・ステップの切り替え）。htmx や React は使わない
+
 ## 未確定
-- 画面の作り方（素の HTML ＋ htmx か、React などを使うか）。MVP は素の HTML ＋ htmx を想定
 - デプロイ先（11/7 の公式セッションの内容を見て決める）
