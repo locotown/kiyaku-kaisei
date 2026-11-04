@@ -65,7 +65,7 @@ def test_meeting_flow(monkeypatch):
     try:
         c = TestClient(M.app)
         page = c.get(f"/works/{wid}").text
-        assert "6. 総会の結果と最新の規約" in page and "議案：管理規約の改定" in page
+        assert "総会の結果と、最新の規約" in page and "管理規約の改定（" in page
         form = {"m_name": "第25期定期総会", "m_date": "2026-05-24", "m_effective": "",
                 "m_result_0": "修正して可決", "m_edit_0_0": "第45条　総会で修正した招集手続。",
                 "m_result_1": "否決", "m_result_2": "可決"}

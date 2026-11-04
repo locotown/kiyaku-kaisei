@@ -48,7 +48,8 @@ SAMPLES = {
              "point": "Word で管理している規約集を、そのまま読み込めるかを確認できます。"},
 }
 DECISIONS = ("採用", "不採用", "保留")
-CHOICE_HELP = {"採用": "改定案に入れる", "保留": "まだ決めない（改定案には入れない）", "不採用": "今回は改定しない"}
+# 画面に出す言葉（保存する値は 採用／不採用／保留 のまま）。並びは画面の並び
+CHOICE_HELP = {"採用": "改定案に入れる", "不採用": "今回は見送る", "保留": "あとで決める"}
 BUSY = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
 
 
@@ -250,12 +251,13 @@ STEP_OF_ERROR = {"エラー": "review", "改定案エラー": "draft", "検討�
 
 def journey(work: dict, bstate: dict | None) -> dict:
     """ページ上部の進め方の案内（済んだ段階・いまの段階・次にすること）。"""
-    steps = [{"key": "review", "label": "点検", "anchor": "findings"},
-             {"key": "decide", "label": "指摘の判断", "anchor": "findings"},
-             {"key": "draft", "label": "改定案", "anchor": "next"},
-             {"key": "board", "label": "理事会での検討", "anchor": "board"},
-             {"key": "explain", "label": "住民向けの説明", "anchor": "explain"},
-             {"key": "meeting", "label": "総会後の最新規約", "anchor": "meeting"}]
+    # who：人が判断するステップ（済んだら「済」の判子）か、AI が作るステップ（済んだらチェック）か
+    steps = [{"key": "review", "label": "読み込み", "anchor": "documents", "who": "ai"},
+             {"key": "decide", "label": "指摘の判断", "anchor": "findings", "who": "human"},
+             {"key": "draft", "label": "改定案", "anchor": "next", "who": "ai"},
+             {"key": "board", "label": "理事会で検討", "anchor": "board", "who": "human"},
+             {"key": "explain", "label": "住民への説明", "anchor": "explain", "who": "ai"},
+             {"key": "meeting", "label": "総会のあと", "anchor": "meeting", "who": "human"}]
     draft_ok = bool(work.get("draft")) and not work.get("draft_stale")
     done = {"review": bool(work.get("findings")), "decide": bool(work.get("draft")), "draft": draft_ok,
             "board": draft_ok and bool(bstate and bstate.get("ready")), "explain": bool(work.get("explain")),
@@ -264,21 +266,21 @@ def journey(work: dict, bstate: dict | None) -> dict:
     current = STEP_OF_BUSY.get(status) or STEP_OF_ERROR.get(status) or next(
         (st["key"] for st in steps if not done[st["key"]]), "")
     if status in STEP_OF_BUSY:
-        text = "AI が作業しています。下の進み具合で状況を確認できます。"
+        text = "AI が作業しています。この画面で進み具合を確認できます。"
     elif status in STEP_OF_ERROR:
-        text = "うまくいきませんでした。下の内容を確認して、もう一度ボタンを押してください。"
+        text = "うまくいきませんでした。内容を確認して、もう一度ボタンを押してください。"
     elif current == "decide":
-        text = "「2. 対応が必要な箇所」で推奨・参考の指摘を判断し、「3. 改定案」の「改定案を作る」を押してください。"
+        text = "推奨・参考の指摘を、改定案に入れるかどうか判断し、「改定案を作る」を押してください。"
     elif current == "draft":
-        text = "「3. 改定案」で「改定案を作り直す」を押してください（判断が変わったため）。" if work.get("draft") \
-            else "「3. 改定案」で「採用した指摘から改定案を作る」を押してください。"
+        text = "判断が変わったため、「改定案を作り直す」を押してください。" if work.get("draft") \
+            else "「改定案を作る」を押してください。"
     elif current == "board":
-        text = ("「4. 理事会での検討」で「理事会の検討資料を作る」を押してください。" if not (bstate and work.get("board"))
-                else "「4. 理事会での検討」で" + (bstate.get("reason") or "議題ごとの判断を記録してください。"))
+        text = ("「理事会の検討資料を作る」を押してください。" if not (bstate and work.get("board"))
+                else (bstate.get("reason") or "議題ごとの判断を記録してください。"))
     elif current == "explain":
-        text = "「5. 住民向けの説明」で「住民向けの説明を作る」を押してください。"
+        text = "「住民向けの説明を作る」を押してください。"
     elif current == "meeting":
-        text = "総会が終わったら、「6. 総会の結果と最新の規約」に結果を記録すると、最新の規約を作れます。"
+        text = "総会が終わったら、議案ごとの結果を記録すると、最新の規約を作れます。"
     else:
         text = "すべての段階が済みました。最新の規約を元の規約集の体裁に整え、規約原本と一緒に保管してください。"
     for st in steps:
@@ -456,10 +458,10 @@ def next_step(work: dict) -> str:
     if plan["large"]:
         cost += "。採用が多いと時間がかかるので、急ぐ場合は推奨・参考を絞ってください"
     if not work.get("draft"):
-        return f"判断が終わったら、下の「採用した指摘から改定案を作る」を押してください（改定案に入れる指摘 {plan['adopted']}件で{cost}）。"
+        return f"判断が終わったら「改定案を作る」を押してください（改定案に入れる指摘 {plan['adopted']}件で{cost}）。"
     if work.get("draft_stale"):
-        return f"今の改定案を作った後に判断が変わりました。下の「改定案を作り直す」を押してください（{cost}）。"
-    return "判断は今の改定案に反映されています。「4. 理事会での検討」に進めます。"
+        return f"今の改定案を作った後に判断が変わりました。「改定案を作り直す」を押してください（{cost}）。"
+    return "判断は今の改定案に反映されています。次は理事会での検討です。"
 
 
 def decision_summary(work: dict) -> dict:

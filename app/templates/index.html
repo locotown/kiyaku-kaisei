@@ -50,7 +50,7 @@
     </ul>
     国の標準管理規約には、「利用する場合」と「利用しない場合」の2つの条文案があります。ここで選んだ方針で改定案を作ります。
     <b>迷ったら「未定・分からない」を選んでください。</b>両方の案を示し、理事会で決められるようにします。</div>
-  <p style="margin-top:1.2em"><button type="submit">点検を始める</button></p>
+  <p style="margin-top:var(--space-6)"><button type="submit" class="btn">点検を始める</button></p>
   <p class="muted">読み込んだ規約と判断の記録は、このツールを動かしている環境の private/ フォルダに保存され、GitHub にはコミットされません（Codespaces で動かしている場合は、GitHub 上のあなた専用の作業環境の中です）。点検では、必要な条だけを AI に渡します。</p>
 </form>
 </div>
@@ -66,14 +66,14 @@
     <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
     <div class="s-contents">{{ s.contents }}</div>
     <div class="muted s-point">{{ s.point }}</div>
-    <button class="secondary" type="submit">このサンプルで試す</button>
+    <button class="boxed" type="submit">このサンプルで試す</button>
   </form>
 {% endfor %}
 </div>
 </div>
 
 {% if works %}
-<div class="card">
+<div class="card" id="works">
 <h2>これまでの作業</h2>
 <table>
 <tr><th>作業</th><th>状態</th><th>指摘</th></tr>

@@ -95,7 +95,7 @@ def test_explain_requires_board(monkeypatch):
         assert c.post(f"/works/{wid}/explain", follow_redirects=False).status_code == 303
         assert started == [wid]
         page = c.get(f"/works/{wid}").text
-        assert "4. 理事会での検討" in page and "5. 住民向けの説明" in page
+        assert "理事会で検討する" in page and "住民への説明を作る" in page
     finally:
         shutil.rmtree(d)
 
