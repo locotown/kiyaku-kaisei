@@ -13,7 +13,7 @@ import io
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -60,6 +60,10 @@ def new_document(title: str, landscape: bool = False, ident: str = "") -> Docume
     normal.element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), FONT)
     normal.paragraph_format.space_after = Pt(4)
     normal.paragraph_format.line_spacing = 1.25
+    # 新しい形式の Word として開く（「互換モード」と出さない。Word 2013 以降の配置で表示する）
+    for cs in doc.settings.element.iter(qn("w:compatSetting")):
+        if cs.get(qn("w:name")) == "compatibilityMode":
+            cs.set(qn("w:val"), "15")
     sec = doc.sections[0]
     sec.page_width, sec.page_height = (Mm(297), Mm(210)) if landscape else (Mm(210), Mm(297))
     sec.orientation = WD_ORIENT.LANDSCAPE if landscape else WD_ORIENT.PORTRAIT
@@ -124,6 +128,9 @@ def table(doc, headers: list[str], widths_mm: list[float]):
         pf = cell.paragraphs[0].paragraph_format
         pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
         pf.space_before = pf.space_after = Pt(0)
+        pf.line_spacing = 1.0  # 本文の行間（1.25倍）を見出しにかけると、増えた分が文字の下に付いて上に寄って見える
+    t.rows[0].height = Mm(7)  # 見出しの行に少し高さを持たせ、文字を上下の中央に置く
+    t.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     repeat_header(t.rows[0])
     return t
 

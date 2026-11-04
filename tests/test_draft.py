@@ -103,6 +103,10 @@ def test_taisho_docx(kiyaku, findings):
     for c in t.rows[0].cells:                                       # 見出しは枠の中央に（人の確認 第1回：上に寄って見えた）
         assert c.vertical_alignment == WD_CELL_VERTICAL_ALIGNMENT.CENTER
         assert c.paragraphs[0].paragraph_format.alignment == WD_ALIGN_PARAGRAPH.CENTER
+        assert c.paragraphs[0].paragraph_format.line_spacing == 1.0     # 行間を広げると上に寄って見える（Word for Mac で確認）
+    from docx.oxml.ns import qn
+    modes = [x.get(qn("w:val")) for x in doc.settings.element.iter(qn("w:compatSetting")) if x.get(qn("w:name")) == "compatibilityMode"]
+    assert modes == ["15"]                                          # 「互換モード」で開かない
     new_runs, old_runs = t.rows[1].cells[0].paragraphs[0].runs, t.rows[1].cells[1].paragraphs[0].runs
     assert any(r.text == "1週間" and r.font.underline for r in new_runs)
     assert any(r.text == "5日間" and r.font.strike for r in old_runs)
