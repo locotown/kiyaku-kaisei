@@ -13,9 +13,10 @@ from difflib import SequenceMatcher
 from core.draft import Draft
 from core.model import Kiyaku
 from core.sources import normalize_article_ref
+from core.printstyle import PRINT_CSS
 
 DISCLAIMER = "この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。"
-LEGEND = "改定案の列の<mark>黄色のマーカー</mark>は追加・変更した語句、現行の列の<del>赤の取り消し線</del>は削除・変更前の語句です。"
+LEGEND = "改定案の列の<mark>下線と薄い色の印</mark>は追加・変更した語句、現行の列の<del>赤の取り消し線</del>は削除・変更前の語句です。"
 LEGEND_MD = "改定案の列の **太字** は追加・変更した語句、現行の列の ~~取り消し線~~ は削除・変更前の語句です。"
 
 
@@ -200,26 +201,7 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>
-body {{ font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; margin: 24px; line-height: 1.7; color: #222; }}
-h1 {{ font-size: 1.3rem; }}
-h2 {{ font-size: 1.1rem; margin-top: 1.6em; border-left: 6px solid #1f5fae; padding-left: 8px; }}
-.note {{ background: #fff6e0; border-left: 4px solid #e0a000; padding: 8px 12px; }}
-table {{ border-collapse: collapse; width: 100%; table-layout: fixed; }}
-th, td {{ border: 1px solid #888; padding: 8px; vertical-align: top; font-size: 0.92rem; word-break: break-all; }}
-th {{ background: #f0f0f0; }}
-td:nth-child(3) {{ font-family: sans-serif; font-size: 0.85rem; }}
-mark {{ background: #fff1a8; padding: 0 1px; }}
-.tag {{ display: inline-block; font-family: sans-serif; font-size: .78rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin: 2px 0; }}
-.tag.must {{ background: #fde8e7; color: #b42318; }}
-.tag.opt {{ background: #e8eef7; color: #1f5fae; }}
-.topics {{ font-size: .8rem; color: #444; margin-bottom: 6px; }}
-tr.row-must td:first-child {{ border-left: 5px solid #b42318; }}
-tr.row-opt td:first-child {{ border-left: 5px solid #9db5d6; }}
-.summary {{ font-family: sans-serif; }}
-del {{ color: #b42318; text-decoration-color: #b42318; text-decoration-thickness: 1.5px; }}
-.legend {{ font-family: sans-serif; font-size: .9rem; }}
-</style></head><body>
+<style>{PRINT_CSS}</style></head><body class="wide">
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>

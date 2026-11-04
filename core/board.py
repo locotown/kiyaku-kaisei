@@ -21,6 +21,7 @@ from core.config import MODEL, client
 from core.draft import CHOICE_MARK, Draft
 from core.explain import _ref_key, ref_name
 from core.review import ENFORCED, JST
+from core.printstyle import PRINT_CSS
 
 TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
 TIER_TASK = {
@@ -332,21 +333,7 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(paper.title)}</title>
-<style>
-body {{ font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; max-width: 820px; margin: 24px auto; padding: 0 16px; line-height: 1.8; color: #1f2328; }}
-h1 {{ font-size: 1.4rem; border-bottom: 3px solid #1f5fae; padding-bottom: 6px; }}
-.tier {{ margin-top: 2em; padding: 6px 14px; border-radius: 8px; }} .tier h2 {{ margin: .3em 0 .1em; font-size: 1.15rem; }} .tier p {{ margin: 0 0 .4em; font-size: .92rem; }}
-.tier1 {{ background: #fde8e7; }} .tier2 {{ background: #e8eef7; }} .tier3 {{ background: #f1f3f5; }}
-.item {{ border-top: 1px solid #d6dbe1; padding-top: 4px; }} h3 {{ font-size: 1.05rem; margin: 1em 0 .2em; }}
-h4 {{ font-size: .95rem; color: #1f5fae; margin: .6em 0 .1em; }} ul {{ margin: .2em 0; }}
-.arts {{ font-size: .82rem; color: #5b636e; margin: 0; }}
-.decide {{ font-size: .9rem; background: #f7f8fa; padding: 4px 8px; border-radius: 4px; }}
-.rec {{ font-size: .9rem; color: #0b6b2b; }}
-.choose {{ border: 1.5px dashed #b54708; border-radius: 6px; padding: 4px 12px; margin: .6em 0; }} .choose h4 {{ color: #93370d; }}
-.choose ul {{ list-style: none; padding-left: .6em; }} .cnote {{ font-size: .85rem; color: #5b636e; }}
-.note {{ font-size: .85rem; color: #5b636e; border-top: 1px solid #d6dbe1; margin-top: 2em; padding-top: 8px; }}
-@media print {{ body {{ margin: 0; font-size: 10.5pt; }} }}
-</style></head><body>
+<style>{PRINT_CSS}</style></head><body>
 <h1>{html.escape(paper.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 <p>{html.escape(paper.intro)}</p>

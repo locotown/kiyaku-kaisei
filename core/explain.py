@@ -19,6 +19,7 @@ from core.config import MODEL, client
 from core.draft import Draft
 from core.readability import JARGON
 from core.review import ENFORCED, JST
+from core.printstyle import PRINT_CSS
 
 TIERS = ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"]
 TIER_GUIDE = {
@@ -205,25 +206,7 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None) -> str:
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(ex.title)}</title>
-<style>
-body {{ font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; line-height: 1.9; color: #1f2328; font-size: 17px; }}
-h1 {{ font-size: 1.45rem; border-bottom: 3px solid #1f5fae; padding-bottom: 6px; }}
-h2 {{ font-size: 1.2rem; margin: 1.6em 0 .3em; }}
-h3.title {{ font-size: 1.12rem; color: #1f2328; margin: 1.2em 0 .2em; }}
-h4 {{ font-size: 1rem; color: #1f5fae; margin: .8em 0 .1em; }}
-.tier {{ margin-top: 2em; padding: 6px 14px; border-radius: 8px; }}
-.tier h2 {{ margin: .3em 0 .1em; }} .tier p {{ margin: 0 0 .4em; font-size: .9rem; }}
-.tier1 {{ background: #fde8e7; }} .tier2 {{ background: #e8eef7; }} .tier3 {{ background: #f1f3f5; }}
-table.list {{ border-collapse: collapse; width: 100%; font-size: .85rem; }}
-table.list th, table.list td {{ border: 1px solid #d6dbe1; padding: 4px 6px; text-align: left; }}
-.item {{ border-top: 1px solid #d6dbe1; padding-top: 4px; }}
-.tag {{ display: inline-block; font-size: .8rem; padding: 1px 8px; border-radius: 999px; background: #eef2f7; margin-right: 8px; }}
-.tag.must {{ background: #fde8e7; color: #b42318; font-weight: 700; }}
-.arts {{ font-size: .8rem; color: #5b636e; }}
-.box {{ background: #f7f8fa; border-radius: 8px; padding: 10px 16px; }}
-.note {{ font-size: .85rem; color: #5b636e; border-top: 1px solid #d6dbe1; margin-top: 2em; padding-top: 8px; }}
-@media print {{ body {{ margin: 0; font-size: 12pt; }} }}
-</style></head><body>
+<style>{PRINT_CSS}</style></head><body>
 <h1>{html.escape(ex.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 {p(ex.intro)}

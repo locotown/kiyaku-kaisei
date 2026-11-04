@@ -18,6 +18,7 @@ from datetime import date
 from core.draft import Amendment
 from core.model import Article, Kiyaku
 from core.sources import normalize_article_ref
+from core.printstyle import PRINT_CSS
 
 
 @dataclass
@@ -161,19 +162,11 @@ def to_html(blocks: list[Block], note: str = "") -> str:
         else:
             tag = f'<span class="tag t-{b.changed}">{labels[b.changed]}</span>' if b.changed else ""
             body = "<br>".join(html.escape(x) for x in b.lines)
-            parts.append(f'<div class="art{" ch" if b.changed else ""}">{tag}{body}</div>')
+            parts.append(f'<div class="art{" ch changed" if b.changed else ""}">{tag}{body}</div>')
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(blocks[0].lines[0] if blocks else "最新の規約")}</title>
-<style>
-body {{ font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; max-width: 820px; margin: 24px auto; padding: 0 16px; line-height: 1.85; color: #1f2328; }}
-h1 {{ font-size: 1.35rem; text-align: center; }} h2 {{ font-size: 1.05rem; margin-top: 1.6em; }}
-.art {{ margin: .7em 0; padding: 2px 8px; }} .art.ch {{ background: #fffbe6; border-left: 4px solid #e0a000; }}
-.tag {{ font-size: .75rem; font-weight: 700; border-radius: 4px; padding: 0 6px; margin-right: 6px; color: #fff; background: #b54708; }}
-.t-新設 {{ background: #067647; }} .t-削除 {{ background: #667085; }} .t-附則 {{ background: #1f5fae; }}
-.note {{ font-size: .88rem; color: #5b636e; background: #f7f8fa; border-radius: 6px; padding: 8px 12px; }}
-@media print {{ .art.ch {{ background: none; border-left: 0; }} .tag, .note {{ display: none; }} }}
-</style></head><body>
+<style>{PRINT_CSS}</style></head><body class="final">
 {f'<p class="note">{html.escape(note)}</p>' if note else ''}
 {''.join(parts)}
 </body></html>
