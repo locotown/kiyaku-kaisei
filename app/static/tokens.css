@@ -1,0 +1,59 @@
+/* ととのう規約 デザイントークン（デザインシステムの正本。説明は docs/DESIGN_SYSTEM.md）
+   第3案（11/4 承認）。明るい表示のみ。値を変えるときは、コントラスト 4.5:1 以上を計算で確かめる */
+@import url("https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap");
+
+:root {
+  /* 色：地と面 */
+  --color-bg: #f6f5f2;          /* 地（生成りの灰） */
+  --color-surface: #ffffff;     /* 面（開いたカード・入力欄・ヘッダー） */
+  /* 色：文字（3段） */
+  --color-ink: #1b1d20;         /* 本文・見出し（地に 15.5:1） */
+  --color-ink-2: #474c53;       /* 補足（地に 7.9:1） */
+  --color-ink-3: #61666d;       /* いちばん薄い文字：ラベル・件数（地に 5.3:1） */
+  /* 色：線（2段） */
+  --color-line: #e2dfd8;        /* 行の区切り */
+  --color-line-2: #cfcbc2;      /* 部品の枠・強い区切り */
+  /* 色：主の色（藍の1色だけ） */
+  --color-primary: #24456b;     /* ボタンの地・リンク・選んだ状態（地に 9.0:1） */
+  --color-primary-soft: #edf1f6;/* 選んだ判断の地 */
+  /* 色：区分（彩度を落とす。色だけに頼らず、文字のラベルと一緒に使う） */
+  --color-must: #9a3324;        /* 必須（6.7:1） */
+  --color-rec: #2b4f7a;         /* 推奨（7.7:1） */
+  --color-ref: #5d6167;         /* 参考（5.7:1） */
+  /* 色：状態 */
+  --color-ok: #2d6a4f;          /* 済んだ・合格（5.9:1） */
+  --color-shu: #c8102e;         /* 朱：判子だけに使う（5.4:1） */
+
+  /* 文字：UD 書体。大きさは6段（14/16/18/22/28/36px 相当。rem なので「文字を大きく」で一緒に大きくなる）、太さは 400 と 700 だけ */
+  --font-sans: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+  --text-xs: 0.875rem;   /* ラベル・件数・注記 */
+  --text-sm: 1rem;       /* 補足・部品の文字 */
+  --text-md: 1.125rem;   /* 本文（最小） */
+  --text-lg: 1.375rem;   /* 節の見出し・ロゴ */
+  --text-xl: 1.75rem;   /* ページの見出し */
+  --text-2xl: 2.25rem;  /* 要約の数字 */
+  --weight-regular: 400;
+  --weight-bold: 700;
+  --leading-body: 1.8;
+  --leading-heading: 1.4;
+
+  /* 余白：4 と 8 の倍数 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* 丸み：2種類だけ。影は使わない */
+  --radius-1: 6px;   /* ボタン・入力欄・開いたカード */
+  --radius-2: 4px;   /* 小さな部品 */
+
+  /* 押す場所の最小の高さ */
+  --hit-min: 44px;
+  --layout-max: 960px;
+}
+
+/* 文字を大きく（ヘッダーの切り替えで html に付ける） */
+:root.text-large { font-size: 112.5%; }

@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -25,6 +26,7 @@ from core.taisho import to_html, to_markdown
 
 app = FastAPI(title="ととのう規約")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")  # デザイントークンなど
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 # 画面で選べるサンプル（すべて公開資料か架空のデータ）
 SAMPLES = {
