@@ -104,10 +104,11 @@ del { color: var(--color-must); text-decoration-color: var(--color-must); text-d
 """
 
 
-def page_css(title: str, landscape: bool = False) -> str:
+def page_css(title: str, landscape: bool = False, ident: str = "") -> str:
     """印刷の用紙（A4。新旧対照表は横）、余白、上の欄の資料名、下の欄のページ番号。
 
     会議で「何ページの何条」と言えるように、すべてのページに資料名とページ番号を入れる。
+    ident（作業と改定案の版の番号）を右上に入れ、書き込んだ紙を戻したときに、どの版の紙かを見分けられるようにする。
     """
     name = " ".join(title.split()).replace("\\", "").replace('"', "”")
     font = '"BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif'
@@ -115,7 +116,7 @@ def page_css(title: str, landscape: bool = False) -> str:
 @page {{
   size: A4{" landscape" if landscape else ""}; margin: 16mm 14mm 16mm;
   @top-left {{ content: "{name}"; font-family: {font}; font-size: 8pt; color: #61666d; }}
-  @top-right {{ content: "総会提案の下書き"; font-family: {font}; font-size: 8pt; color: #61666d; }}
+  @top-right {{ content: "総会提案の下書き{('　' + ident) if ident else ''}"; font-family: {font}; font-size: 8pt; color: #61666d; }}
   @bottom-center {{ content: counter(page) " / " counter(pages); font-family: {font}; font-size: 9pt; color: #474c53; }}
 }}
 """

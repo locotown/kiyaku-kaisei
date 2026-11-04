@@ -162,14 +162,14 @@ RESOLUTION_GUIDE = ("規約の改定は総会の特別決議（組合員総数�
                     "細則の改定は普通決議（出席者の議決権の過半数）で決めます。総会では別の議案になります。")
 
 
-def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）") -> str:
+def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> str:
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
     grouped = groups(all_rows)
     sections = []
     for document, group_rows in grouped:
         sections.append(_html_table(group_rows, group_heading(document) if len(grouped) > 1 or document != "規約" else ""))
-    return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1)
+    return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1, ident=ident)
 
 
 def _html_table(group_rows: list[dict], heading: str) -> str:
@@ -197,11 +197,11 @@ def _html_table(group_rows: list[dict], heading: str) -> str:
             f"<tbody>{''.join(body)}</tbody></table>")
 
 
-def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, tables: str, multi: bool) -> str:
+def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, tables: str, multi: bool, ident: str = "") -> str:
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>{PRINT_CSS}{page_css(title, landscape=True)}</style></head><body class="wide">
+<style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}</style></head><body class="wide">
 {toolbar("taisho.docx", landscape=True)}
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>

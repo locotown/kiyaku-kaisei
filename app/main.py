@@ -204,10 +204,25 @@ def _org(work: dict) -> str:
     return str(work.get("org", "")).strip()
 
 
+def _ident(work_id: str, work: dict) -> str:
+    """印刷物・Word に入れる、作業と改定案の版の番号（例：ID 0d9663-a1b2c3）。
+
+    書き込んだ紙や直した Word を戻したときに、どの作業の、どの版の改定案から作った資料かを見分けるため。
+    改定案が変われば番号も変わる。
+    """
+    import hashlib
+    import json
+
+    draft = _draft(work)  # 保存した形と、作った直後の形がずれないよう、同じ形に整えてから数える
+    payload = json.dumps(draft.to_dict(), sort_keys=True, ensure_ascii=False) if draft else ""
+    h = hashlib.sha1(payload.encode()).hexdigest()[:6] if draft else "000000"
+    return f"ID {work_id[-6:]}-{h}"
+
+
 def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
     d = store.path(work_id)
-    (d / "taisho.html").write_text(to_html(draft, corpus, title), encoding="utf-8")
+    (d / "taisho.html").write_text(to_html(draft, corpus, title, ident=_ident(work_id, work | {"draft": draft.to_dict()})), encoding="utf-8")
     (d / "taisho.md").write_text(to_markdown(draft, corpus, title), encoding="utf-8")
 
 
@@ -224,11 +239,13 @@ def _rerender(work_id: str) -> None:
     if draft and (d / "taisho.html").exists():
         _write_taisho(work_id, work, draft, _corpus(work_id))
     if paper and (d / "board.html").exists():
-        (d / "board.html").write_text(board_html(paper, work.get("board_decisions") or None, _org(work), _points(work)),
+        (d / "board.html").write_text(board_html(paper, work.get("board_decisions") or None, _org(work), _points(work),
+                                                 ident=_ident(work_id, work)),
                                       encoding="utf-8")
     if work.get("explain") and draft and (d / "explain.html").exists():
         shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
-        (d / "explain.html").write_text(explain_html(Explanation.model_validate(work["explain"]), _org(work), shown),
+        (d / "explain.html").write_text(explain_html(Explanation.model_validate(work["explain"]), _org(work), shown,
+                                                     ident=_ident(work_id, work)),
                                         encoding="utf-8")
 
 
@@ -286,7 +303,8 @@ def _run_explain(work_id: str) -> None:
         paper, decisions = _board(work), work.get("board_decisions", {})
         draft = apply_to_draft(draft, paper, decisions)  # 理事会が見送りにした改定は説明しない
         ex, _ = generate(draft, work["info"], board=decisions_text(paper, decisions))
-        (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft), encoding="utf-8")
+        (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft, ident=_ident(work_id, work)),
+                                                         encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
@@ -307,7 +325,7 @@ def _run_board(work_id: str) -> None:
         from core.board import choice_points
 
         (store.path(work_id) / "board.html").write_text(
-            board_html(paper, None, _org(work), choice_points(paper, draft)), encoding="utf-8")
+            board_html(paper, None, _org(work), choice_points(paper, draft), ident=_ident(work_id, work)), encoding="utf-8")
         store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
                      draft_reflects_board=False)
     except Exception as e:
@@ -861,7 +879,8 @@ def final_html(work_id: str, n: int):
 
     d = _final(work_id, n)
     return HTMLResponse(final_to_html(d["blocks"], "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
-                                                   "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx"))
+                                                   "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx",
+                                      ident=_ident(work_id, store.load(work_id))))
 
 
 @app.get("/works/{work_id}/final/{n}.docx")
@@ -872,7 +891,7 @@ def final_docx(work_id: str, n: int):
 
     d = _final(work_id, n)
     name = quote(f"{d['title']}（最新）.docx")
-    return Response(to_docx(d["blocks"]), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
 @app.get("/works/{work_id}/taisho", response_class=HTMLResponse)
@@ -903,7 +922,7 @@ def taisho_docx(work_id: str):
     if not draft:
         raise HTTPException(404, "新旧対照表はまだありません")
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
-    return _docx_response(build(draft, _corpus(work_id), title), "shinkyu_taisho.docx", f"{title}.docx")
+    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work)), "shinkyu_taisho.docx", f"{title}.docx")
 
 
 @app.get("/works/{work_id}/board.docx")
@@ -915,7 +934,7 @@ def board_docx(work_id: str):
     paper = _board(work)
     if not paper:
         raise HTTPException(404, "理事会の検討資料はまだありません")
-    return _docx_response(build(paper, work.get("board_decisions") or None, _org(work), _points(work)),
+    return _docx_response(build(paper, work.get("board_decisions") or None, _org(work), _points(work), ident=_ident(work_id, work)),
                           "rijikai_kentou.docx", f"{paper.title}.docx")
 
 
@@ -932,7 +951,7 @@ def explain_docx(work_id: str):
         raise HTTPException(404, "住民向けの説明はまだありません")
     ex = Explanation.model_validate(work["explain"])
     shown = apply_to_draft(draft, paper, work.get("board_decisions", {})) if paper else draft
-    return _docx_response(build(ex, _org(work), shown), "jumin_setsumei.docx", f"{ex.title}.docx")
+    return _docx_response(build(ex, _org(work), shown, ident=_ident(work_id, work)), "jumin_setsumei.docx", f"{ex.title}.docx")
 
 
 @app.get("/works/{work_id}/taisho.md")
@@ -1019,7 +1038,8 @@ async def save_board_decisions(request: Request, work_id: str):
     if changed_redraft:
         changes["draft_reflects_board"] = False
     store.update(work_id, **changes)
-    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points), encoding="utf-8")
+    (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points, ident=_ident(work_id, work)),
+                                                    encoding="utf-8")
     return RedirectResponse(f"/works/{work_id}#board", status_code=303)
 
 

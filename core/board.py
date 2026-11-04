@@ -289,7 +289,7 @@ def decisions_text(paper: BoardPaper, decisions: dict[str, dict]) -> str:
 
 
 def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: str = "",
-            points: dict[int, list[dict]] | None = None) -> str:
+            points: dict[int, list[dict]] | None = None, ident: str = "") -> str:
     decisions = decisions or {}
     points = points or {}
 
@@ -333,7 +333,7 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(paper.title)}</title>
-<style>{PRINT_CSS}{page_css(paper.title)}</style></head><body>
+<style>{PRINT_CSS}{page_css(paper.title, ident=ident)}</style></head><body>
 {toolbar("board.docx")}
 <h1>{html.escape(paper.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}

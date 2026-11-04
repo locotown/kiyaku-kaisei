@@ -52,7 +52,7 @@ def _field(paragraph, code: str) -> None:
         run._r.append(el)
 
 
-def new_document(title: str, landscape: bool = False) -> Document:
+def new_document(title: str, landscape: bool = False, ident: str = "") -> Document:
     doc = Document()
     normal = doc.styles["Normal"]
     normal.font.name, normal.font.size = FONT, Pt(10.5)
@@ -66,7 +66,7 @@ def new_document(title: str, landscape: bool = False) -> Document:
     sec.left_margin = sec.right_margin = Mm(14)
     head = sec.header.paragraphs[0]
     _font(head.add_run(" ".join(title.split())), 8, color=INK_3)
-    _font(head.add_run("\t\t総会提案の下書き"), 8, color=INK_3)
+    _font(head.add_run("\t\t総会提案の下書き" + (f"　{ident}" if ident else "")), 8, color=INK_3)
     foot = sec.footer.paragraphs[0]
     foot.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _field(foot, "PAGE")
@@ -137,11 +137,11 @@ def save(doc) -> bytes:
 
 # ---- 新旧対照表 ----
 
-def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）") -> bytes:
+def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> bytes:
     from core.taisho import (DISCLAIMER, GUIDE, OPTIONAL_LABEL, REQUIRED_LABEL, RESOLUTION_GUIDE, classify, group_heading,
                              groups, notes_sections, rows)
 
-    doc = new_document(title, landscape=True)
+    doc = new_document(title, landscape=True, ident=ident)
     heading(doc, title, 0)
     note(doc, DISCLAIMER)
     note(doc, "改定案の列の下線は追加・変更した語句、現行の列の取り消し線は削除・変更前の語句です。")
@@ -202,11 +202,11 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
 
 # ---- 理事会の検討資料 ----
 
-def board_docx(paper, decisions: dict | None = None, name: str = "", points: dict | None = None) -> bytes:
+def board_docx(paper, decisions: dict | None = None, name: str = "", points: dict | None = None, ident: str = "") -> bytes:
     from core.board import DECISIONS, DISCLAIMER, TIER_TASK, TIERS
 
     decisions, points = decisions or {}, points or {}
-    doc = new_document(paper.title)
+    doc = new_document(paper.title, ident=ident)
     heading(doc, paper.title, 0)
     if name:
         note(doc, name)
@@ -257,10 +257,10 @@ def board_docx(paper, decisions: dict | None = None, name: str = "", points: dic
 
 # ---- 住民向けの説明 ----
 
-def explain_docx(ex, name: str = "", draft=None) -> bytes:
+def explain_docx(ex, name: str = "", draft=None, ident: str = "") -> bytes:
     from core.explain import DISCLAIMER, TIER_GUIDE, TIERS, coverage
 
-    doc = new_document(ex.title)
+    doc = new_document(ex.title, ident=ident)
     heading(doc, ex.title, 0)
     if name:
         note(doc, name)

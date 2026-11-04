@@ -155,3 +155,18 @@ def test_explanation_tiers_and_coverage():
     assert ex.items[0].tier == "法律の改正に合わせる変更" and ex.items[1].tier == "暮らしや運営に関わる変更"
     assert coverage(ex, draft)["missing"] == ["第48条"]
     assert "本文では取り上げていません" in to_html(ex, "", draft)
+
+
+def test_print_ident_tracks_draft_version(kiyaku, findings):
+    """印刷物・Word に入れる版の番号：保存した形でも作った直後の形でも同じ。改定案が変われば変わる。"""
+    import json
+
+    from app import main as M
+
+    draft, _, _ = check({"amendments": [amendment(kiyaku)], "notes": "法的助言ではありません"}, kiyaku, findings)
+    fresh = M._ident("20261104-000000-abcdef", {"draft": draft.to_dict()})
+    stored = M._ident("20261104-000000-abcdef", {"draft": json.loads(json.dumps(draft.to_dict(), ensure_ascii=False))})
+    assert fresh == stored and fresh.startswith("ID abcdef-")
+    other = draft.to_dict()
+    other["amendments"][0]["text"] += "（委員会で修正）"
+    assert M._ident("20261104-000000-abcdef", {"draft": other}) != fresh
