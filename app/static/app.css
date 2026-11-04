@@ -14,7 +14,7 @@ main { width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: var(-
 .tk ul, .tk ol { padding-left: 1.4em; }
 .muted { color: var(--color-ink-2); font-size: var(--text-sm); }
 .small { font-size: var(--text-xs); color: var(--color-ink-3); }
-.help { color: var(--color-ink-2); font-size: var(--text-sm); margin: var(--space-1) 0 var(--space-2); max-width: 44em; }
+.help { color: var(--color-ink-2); font-size: var(--text-sm); margin: var(--space-1) 0 var(--space-2); }
 .help ul { margin: var(--space-1) 0; }
 
 /* ---- 入力欄 ---- */
@@ -233,8 +233,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .tabs.filters .fbtn { white-space: nowrap; flex: none; }
 }
 
-/* ---- 日本語の折り返し：文節の切れ目で折り返し（「作｜業」のような分かれ方をしない）、行末に1〜2文字だけ残さない。
-   対応していないブラウザ（Safari など）は、これまでどおり文字単位で折り返す ---- */
-.tk { word-break: auto-phrase; text-wrap: pretty; }
-.tk h1, .tk h2, .tk h3, .tk .tt, .tk .lead { text-wrap: balance; }
-.tk pre, .tk .log, .tk .btext, .tk .quote, .tk input, .tk textarea, .tk select { word-break: normal; text-wrap: wrap; }
+/* ---- 日本語の組み方：行の右端まで文字を詰め（禁則処理つき）、文章は両端をそろえる。見出しだけは行の長さを整える ---- */
+.tk { line-break: strict; }
+.tk p, .tk .help, .tk li, .tk dd, .tk .lead, .tk .note, .tk .srcnote, .tk .legend > div, .tk .pd-head { text-align: justify; }
+.tk h1, .tk h2, .tk h3, .tk .tt { text-wrap: balance; }
