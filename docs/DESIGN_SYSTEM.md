@@ -3,8 +3,8 @@
 管理組合の理事・規約見直しの担当者（年配の人を含む、専門家ではない人）が、迷わず、落ち着いて使える画面にするための約束。
 11/4 に決めた第3案（docs/plans/デザイン見直し.md）をもとにしている。
 
-- **トークンの正本は `app/static/tokens.css`**。値を変えるときはそのファイルだけを変え、このページの表も合わせる
-- Claude のデザインシステム（Design System の型の Artifact）は、このファイルを写したもの。食い違ったら、リポジトリのほうが正しい
+- **トークンの正本は `app/static/tokens.css`、部品の見た目の正本は `app/static/components.css`**。値を変えるときはそのファイルだけを変え、このページの表も合わせる
+- Claude のデザインシステム（Design System の型の Artifact、非公開：https://claude.ai/artifact/3hMhGegDNYLML5jUFVD6F8 ）は、この2つを写したもの。部品11個の見本・ブランドブック・ロゴ・表紙を持つ。食い違ったら、リポジトリのほうが正しい。変えたら写し直す
 - 部品の見た目の見本：docs/plans/design/v3/（指摘の判断・スマホの幅・改定案・総会）、作り方は docs/plans/design/mock3.py
 
 ## 原則
