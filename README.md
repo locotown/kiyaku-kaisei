@@ -12,7 +12,7 @@
 1. 初回だけ、API キーを Codespaces のシークレットに登録する
    GitHub の Settings → Codespaces → Secrets → New secret
    名前 `KIYAKU_ANTHROPIC_API_KEY`、値に API キー、Repository access でこのリポジトリを選ぶ
-2. リポジトリのページで Code → Codespaces → 「Create codespace on （ブランチ名）」
+2. リポジトリのページで Code → Codespaces → 「Create codespace on main」（すでに作ってある codespace は、開くだけで最新版を取り込みます）
 3. 準備（2〜3分）が終わると画面が自動で起動し、ブラウザの新しいタブで開く
    開かないときは、下のパネルの「ポート」タブで 8000 の地球儀アイコンを押す
 
