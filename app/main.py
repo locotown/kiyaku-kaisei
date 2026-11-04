@@ -1236,6 +1236,8 @@ async def apply_notes(request: Request, work_id: str, batch: str):
         if act not in ("反映する", "反映しない"):
             continue
         text = str(form.get(f"text_{p['id']}", p.get("proposed", ""))).strip()
+        if act == "反映する" and not text:  # 中身のない提案（文字を入れていない「読めない」など）は、反映済みにせず残す
+            continue
         chosen.append((p, act, text))
     memos = {p["id"]: str(form.get(f"memo_{p['id']}", "")).strip() for p, _, _ in chosen}
     added = _manual_proposals(work_id, work, b, form)  # 写真にない内容を手で足した分は、そのまま反映する

@@ -91,6 +91,7 @@ del { color: var(--color-must); text-decoration-color: var(--color-must); text-d
 .toolbar button { background: var(--color-primary); color: #fff; border: 0; }
 .toolbar a { color: var(--color-primary); border: 1px solid var(--color-line-2); background: var(--color-surface); }
 .toolbar .hint { color: var(--color-ink-3); font-size: .85rem; }
+.toolbar .safari { flex-basis: 100%; margin: 0; color: var(--color-must); font-weight: 700; font-size: .9rem; }
 
 @media print {
   .toolbar { display: none !important; }
@@ -128,6 +129,10 @@ def toolbar(word_href: str = "", landscape: bool = False) -> str:
     word = f'<a href="{word_href}">Word で保存（直して使う）</a>' if word_href else ""
     paper = "A4 横" if landscape else "A4 縦"
     return (f'<div class="toolbar"><button type="button" onclick="window.print()">印刷する</button>{word}'
-            f'<span class="hint">{paper}で印刷します。各ページに資料名とページ番号が入ります。'
+            '<p class="safari" hidden>Safari では、各ページの上下に資料名・版の番号・ページ番号が出ません。'
+            'Chrome か Edge で開いて印刷してください。</p>'
+            '<script>if (/^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent))'
+            ' document.querySelector(".toolbar .safari").hidden = false;</script>'
+            f'<span class="hint">{paper}で印刷します（Chrome か Edge で印刷すると、各ページに資料名とページ番号が入ります）。'
             '変更箇所の色も印刷するには、印刷の設定で「背景のグラフィック」をオンにしてください。'
             '会議で書き込むときは、赤など色の付いたペンで書くと、写真から読み取りやすくなります。</span></div>')

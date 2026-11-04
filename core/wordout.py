@@ -13,7 +13,7 @@ import io
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -118,6 +118,11 @@ def table(doc, headers: list[str], widths_mm: list[float]):
         cell.width = Mm(w)
         cell.paragraphs[0].text = ""
         _font(cell.paragraphs[0].add_run(h), 9, bold=True, color=INK_2)
+        # 見出しの文字は、枠の上下・左右の中央に（段落の前後の余白で上に寄らないように）
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+        pf = cell.paragraphs[0].paragraph_format
+        pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pf.space_before = pf.space_after = Pt(0)
     repeat_header(t.rows[0])
     return t
 

@@ -190,3 +190,19 @@ def test_todos_edit_done_delete_add(work):
     todos = store.load(WID)["todos"]
     assert [(t["text"], t.get("memo"), t.get("done"), t["where"]) for t in todos] == [
         ("直した宿題", "経緯", True, "行1"), ("足した宿題", "", False, "第25条")]
+
+
+def test_bulk_pick_and_empty_unreadable_stays(work, monkeypatch):
+    """まとめて「反映する」を選べる。中身のない「読めない」提案は、反映を選んでも反映済みにせず残す（人の確認 第1回）。"""
+    reading = N.PhotoReading(document="理事会の検討資料", ident="", page="", note="", annotations=[
+        ann(target="検討資料の議題", item=2, kind="判断", handwriting="☑採用", decision="採用"),
+        ann(kind="読めない", handwriting="？？"),
+    ])
+    monkeypatch.setattr(N, "read_photo", lambda jpeg, context, effort="high": (reading, {}))
+    batch = upload(work, "board")
+    b = read_until_done(batch)
+    assert "すべて「反映する」にする" in work.get(f"/works/{WID}/notes/{batch}").text
+    form = {f"act_{p['id']}": "反映する" for p in b["proposals"]} | {f"text_{p['id']}": p.get("proposed") or "" for p in b["proposals"]}
+    work.post(f"/works/{WID}/notes/{batch}/apply", data=form)
+    left = {p["kind"]: p["status"] for p in M._note_batch(store.load(WID), batch)["proposals"]}
+    assert left == {"判断": "反映済み", "読めない": "未確認"}
