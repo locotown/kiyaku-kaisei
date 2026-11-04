@@ -89,10 +89,15 @@
     <div class="body">
       <dl class="facts">
         <dt>何が問題か</dt><dd>{{ v.issue }}</dd>
-        <dt>今の規定</dt><dd>{% if f.current_excerpt %}<div class="quote">{{ f.current_excerpt }}</div>{% else %}今の規約に、この点の定めはありません。{% endif %}</dd>
-        <dt>改定の方向</dt><dd><div class="proposal">{{ v.proposal }}</div>
+      </dl>
+      {# 改定の方向と今の規定を左右に並べる（新旧対照表と同じ順：改定後が左、現行が右）。狭い画面では上下 #}
+      <div class="cmp">
+        <div class="cmp-col"><div class="cmp-h">改定の方向</div><div class="proposal">{{ v.proposal }}</div>
           {% if f.choice_needed %}<div class="choicebox"><b>選ぶ必要があります：</b>{{ f.choice_note }}
-            <div class="cb-flow">{% if f.category == "必須" %}この指摘は改定案に入ります。改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。{% else %}改定案に入れると、改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。見送る・あとで決めるにすると、改定案にも理事会の資料にも出ません。{% endif %}</div></div>{% endif %}</dd>
+            <div class="cb-flow">{% if f.category == "必須" %}この指摘は改定案に入ります。改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。{% else %}改定案に入れると、改定案では両方の案を示し、「4. 理事会で検討」でどちらにするか決めます。見送る・あとで決めるにすると、改定案にも理事会の資料にも出ません。{% endif %}</div></div>{% endif %}</div>
+        <div class="cmp-col"><div class="cmp-h">今の規定</div>{% if f.current_excerpt %}<div class="quote">{{ f.current_excerpt }}</div>{% else %}<div class="muted">今の規約に、この点の定めはありません。</div>{% endif %}</div>
+      </div>
+      <dl class="facts">
         <dt>決議</dt><dd>{{ v.resolution.label }}</dd>
         <dt>根拠</dt><dd><ul class="basis">{% for b in v.basis %}
           <li><details><summary><span class="src src-{{ b.kind }}">{{ b.source }}</span>{{ b.ref }}{% if b.caption %} <span class="cap">{{ b.caption }}</span>{% endif %}</summary>
@@ -100,10 +105,13 @@
           {% endfor %}</ul><div class="small">根拠を押すと、条文の本文が開きます。</div>
           {% if v.note %}<div class="readnote">{{ v.note }}</div>{% endif %}</dd>
       </dl>
-      <div class="decide">
       {% if f.category == "必須" %}
+      <div class="decide">
         <div class="fixed">{{ icon("check") }}改定案に入れます<span class="muted">（改正法に合わせるため、必ず入れます。選ぶ必要はありません）</span></div>
+      </div>
       {% else %}
+      {# 判断の切り替え：開いた指摘の下端に固定し、読みながら選べるようにする #}
+      <div class="decide decstrip">
         <div class="decbox" id="db-{{ i }}" data-index="{{ i }}" data-saved="{{ d.decision }}">
         <div class="seg choices" role="radiogroup" aria-label="改定案に入れるかどうか">{% for c in choice_help %}
           <label class="c-{{ c }}"><input type="radio" name="decision_{{ i }}" value="{{ c }}" {% if d.decision == c %}checked{% endif %}>{{ icon("check", "icon ck") }}{{ choice_help[c] }}</label>
@@ -118,12 +126,12 @@
           <p class="note">「確定する」で保存し、履歴に残ります。</p>
         </div>
         <div class="cardsave" id="cs-{{ i }}" role="status"></div>
-        {% set h = d.history or [] %}
-        <details class="hist" id="hs-{{ i }}" {% if not h %}hidden{% endif %}><summary>判断の履歴（<span id="hn-{{ i }}">{{ h|length }}</span>件）</summary>
-          <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ finding_line(e) }}</li>{% endfor %}</ul></details>
         </div>
-      {% endif %}
       </div>
+      {% set h = d.history or [] %}
+      <details class="hist" id="hs-{{ i }}" {% if not h %}hidden{% endif %}><summary>判断の履歴（<span id="hn-{{ i }}">{{ h|length }}</span>件）</summary>
+        <ul id="hl-{{ i }}">{% for e in h|reverse %}<li>{{ finding_line(e) }}</li>{% endfor %}</ul></details>
+      {% endif %}
     </div>
   </details>
   {% endfor %}
