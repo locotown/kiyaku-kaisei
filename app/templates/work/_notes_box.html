@@ -2,24 +2,40 @@
 {% from "_icons.html" import icon %}
 {% set note_name = {"taisho": "新旧対照表", "board": "理事会の検討資料"}[note_doc] %}
 {% set batches = (work.notes or [])|selectattr("doc", "equalto", note_doc)|list %}
-<details class="more notesbox" id="notes-{{ note_doc }}" {% if batches %}open{% endif %}>
-  <summary>委員会・理事会の書き込みを読み込む（{{ note_name }}の写真）</summary>
-  <form method="post" action="/works/{{ id }}/notes" enctype="multipart/form-data" class="noteform">
+<section class="notesbox sec" id="notes-{{ note_doc }}" aria-labelledby="notes-h-{{ note_doc }}">
+  <div class="nb-head">{{ icon("camera", "icon nb-icon") }}
+    <div><h2 id="notes-h-{{ note_doc }}">委員会・理事会の書き込みを、写真で戻す</h2>
+      <p class="small">印刷した{{ note_name }}に書き込んだページを、スマホで撮って読み込みます。AI が書き込みを読み取り、反映の提案にします。<b>反映するかどうかは、提案ごとにあなたが選びます</b>（写真1枚あたり数セントほど）。</p></div></div>
+  <form method="post" action="/works/{{ id }}/notes" enctype="multipart/form-data" class="noteform" data-noteform>
     <input type="hidden" name="doc" value="{{ note_doc }}">
-    <label for="photos-{{ note_doc }}" class="sr">写真</label>
-    <input type="file" id="photos-{{ note_doc }}" name="photos" accept="image/*" multiple required>
-    <button type="submit" class="boxed">{{ icon("download") }}写真を読み込む</button>
+    <label class="nb-pick">{{ icon("camera") }}写真を選ぶ
+      <input type="file" id="photos-{{ note_doc }}" name="photos" accept="image/*" multiple required class="sr" data-photos></label>
+    <span class="small nb-count" data-count>まだ選んでいません</span>
+    <button type="submit" class="btn nb-go" data-go disabled>{{ icon("download") }}読み込む</button>
   </form>
-  <p class="small">書き込んだページを、ページ全体（右上の版の番号と、下のページ番号）が入るように、スマホで撮ってください。何枚でもまとめて選べます。
-    AI が書き込みを読み取り、反映の提案にします。<b>反映するかどうかは、提案ごとにあなたが選びます</b>（写真1枚あたり数セントほど）。</p>
+  <p class="small">撮るときは、ページ全体（右上の版の番号と、下のページ番号）が入るようにしてください。何枚でもまとめて選べます。</p>
   {% if batches %}
+  <h3 class="nb-sub">読み込んだ写真</h3>
   <ul class="notelist">{% for b in batches|reverse %}
     {% set left = b.proposals|selectattr("status", "equalto", "未確認")|list|length %}
     <li><a href="/works/{{ id }}/notes/{{ b.id }}">{{ b.at }} の写真 {{ b.photos|length }}枚</a>
       <span class="small">{{ b.status }}{% if b.status == "読み取り済み" %}・提案 {{ b.proposals|length }}件{% if left %}（未確認 {{ left }}件）{% endif %}{% endif %}</span></li>
   {% endfor %}</ul>
   {% endif %}
-</details>
+</section>
+<script>
+// 写真を選ぶまで「読み込む」は押せない。選んだ枚数を出す
+document.querySelectorAll("[data-noteform]").forEach((f) => {
+  const input = f.querySelector("[data-photos]"), go = f.querySelector("[data-go]"), count = f.querySelector("[data-count]");
+  if (!input || input.dataset.wired) return;
+  input.dataset.wired = "1";
+  input.addEventListener("change", () => {
+    const n = input.files ? input.files.length : 0;
+    go.disabled = n === 0;
+    count.textContent = n ? `${n}枚 選びました` : "まだ選んでいません";
+  });
+});
+</script>
 {% if work.todos or note_doc %}
 <form method="post" action="/works/{{ id }}/todos" class="todos sec">
   <input type="hidden" name="back" value="{{ note_doc }}">

@@ -4,7 +4,7 @@
   <div class="stepttl"><p class="eyebrow">ステップ 3 ／ 6</p><h1 class="page-title">{{ "改定案を確かめる" if work.draft else "改定案を作る" }}</h1>
     <p class="lead">{% if work.draft %}改定案ができました。規約の改定は総会の特別決議、細則の改定は普通決議です。{% else %}判断した指摘から、改定案と新旧対照表を作ります。{% endif %}</p></div>
   {% if done == "改定案作成中" and work.draft %}
-    {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}条）。「新旧対照表を開く」で中身を確認し、次は理事会での検討です。</span></div>
+    {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}条）。下の「新旧対照表で確かめる」で中身を確認し、次は理事会での検討です。</span></div>
     {% else %}<div class="justdone warn">{{ icon("alert") }}<span>改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}条）。下の「確かめた結果」を読んでから進んでください。</span></div>{% endif %}
   {% endif %}
   <div class="done{{ ' stale' if work.draft_stale else '' }}">
@@ -47,19 +47,31 @@
     </div>
     <div class="q-human sec">
       <h2>理事会の前に、人が確かめること</h2>
-      <div class="check"><span class="num small">1</span><div>AI の確認は下書きの品質の目安です。「新旧対照表を開く」で、改定後の条文が委員会の意図どおりかを確認してください。
+      <div class="check"><span class="num small">1</span><div>AI の確認は下書きの品質の目安です。下の「新旧対照表で確かめる」で、改定後の条文が委員会の意図どおりかを確認してください。
         {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
       {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。次の「理事会で検討」で、どちらの案にするか選びます。</div></div>{% endif %}
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       {% set ec = edit_counts(work) %}
       {% if ec.total %}<div class="check"><span class="num small">！</span><div>委員会で直した条が<b>{{ ec.total }}条</b>あります{% if ec.unchecked %}（そのうち AI の確認前 <b>{{ ec.unchecked|length }}条</b>：{{ ec.unchecked|join("、") }}）。人が直した文は、法律や標準管理規約に合っているかをまだ確かめていません。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で AI に確かめてもらえます</a>{% else %}。すべて AI が確かめました{% endif %}。
         {% if ec.flagged %}<div class="flagged">AI が気になる点を挙げた条：<b>{{ ec.flagged|join("、") }}</b>。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で内容を確かめ</a>、必要なら直すか AI の文に戻してください。</div>{% endif %}</div></div>{% endif %}
-      <div class="acts">
-        <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表を開く</a>
-        <a class="tbtn2" href="/works/{{ id }}/articles">{{ icon("edit") }}条の文を直す</a>
-        <a class="tbtn2" href="/works/{{ id }}/taisho.docx">{{ icon("download") }}Word で保存（直して使う）</a>
-        <a class="tbtn2" href="#findings">指摘の判断に戻る</a>
+      {# 役割の違う操作を、同じ形で並べない：①新旧対照表を見る・持ち出す ②条の文を直す ③前のステップに戻る（人の確認の気づき） #}
+      <div class="draftacts">
+        <div class="da-card">
+          <div class="da-head">{{ icon("file", "icon da-icon") }}<div><h3>新旧対照表で確かめる</h3>
+            <p class="small">改定後の条文を、今の規約と並べて見ます。印刷して会議で使えます。</p></div></div>
+          <div class="da-btns">
+            <a class="tbtn2 boxed" href="/works/{{ id }}/taisho" target="_blank">{{ icon("printer") }}開く（印刷用）</a>
+            <a class="tbtn2" href="/works/{{ id }}/taisho.docx">{{ icon("download") }}Word で保存（直して使う）</a></div>
+        </div>
+        <div class="da-card">
+          <div class="da-head">{{ icon("edit", "icon da-icon") }}<div><h3>条の文を直す</h3>
+            <p class="small">委員会・理事会のあとで、改定案の文を画面で書き換えます。直した文は、作り直しても残ります。</p></div></div>
+          <div class="da-btns">
+            <a class="tbtn2 boxed" href="/works/{{ id }}/articles">{{ icon("edit") }}直す画面を開く</a></div>
+        </div>
       </div>
+      <p class="da-back"><a class="tbtn2" href="#findings">{{ icon("arrow-left") }}ステップ2「指摘の判断」に戻る</a>
+        <span class="small muted">判断を変えたときは、改定案を作り直します。</span></p>
     </div>
   {% endif %}
   {% if work.draft %}{% set note_doc = "taisho" %}{% include "work/_notes_box.html" %}{% endif %}
