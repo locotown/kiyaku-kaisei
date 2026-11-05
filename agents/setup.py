@@ -1,8 +1,9 @@
 """Managed Agents の Skill・環境・エージェントを登録（または更新）する。
 
 エージェントは「1回作って、ID を使い回す」。実行のたびに作らない。
-作成した ID は agents/state.json に保存する（ID は秘密情報ではない）。
+作成した ID は agents/state.json に保存する（ID は秘密情報ではない）。開発者のワークスペースのもの。
 設定を変えたら、このスクリプトを再実行すると新しい版として更新される。
+ほかの管理組合が自分の API キーで使うときは、初めて AI を使うときに自動で登録される（agents/registry.py）。
 
 使い方:  uv run python -m agents.setup
 """
@@ -70,18 +71,21 @@ def load_state() -> dict:
     return json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {}
 
 
-def main() -> None:
-    c = client()
-    state = load_state()
+def ensure(c, state: dict, log=print) -> dict:
+    """Skill・環境・2つのエージェントを、なければ作り、あれば今の設定に更新する。更新後の state を返す。
+
+    開発者の手元（main）と、利用者の API キーでの自動登録（agents/registry.py）の両方から使う。
+    """
+    state = dict(state)
 
     # 1. Skill（改正知識）
     if state.get("skill_id"):
         version = c.skills.versions.create(skill_id=state["skill_id"], files=skill_files())
-        print(f"Skill を更新: {state['skill_id']}（版 {version.id}）")
+        log(f"Skill を更新: {state['skill_id']}（版 {version.id}）")
     else:
         skill = c.skills.create(files=skill_files(), display_name="管理規約 改正対応チェック")
         state["skill_id"] = skill.id
-        print(f"Skill を作成: {skill.id}")
+        log(f"Skill を作成: {skill.id}")
 
     # 2. 環境（外部ネットワークなし。ツールはアプリ側で実行する）
     if not state.get("environment_id"):
@@ -90,16 +94,31 @@ def main() -> None:
             config={"type": "cloud", "networking": {"type": "limited", "allow_package_managers": False, "allow_mcp_servers": False}},
         )
         state["environment_id"] = env.id
-        print(f"環境を作成: {env.id}")
+        log(f"環境を作成: {env.id}")
 
-    # 3. エージェント
-    params = dict(
-        name=AGENT_NAME,
-        model=MODEL,
-        system=SYSTEM,
-        description="管理規約を改正区分所有法・標準管理規約に照らして点検し、根拠付きで指摘する",
-        skills=[{"type": "custom", "skill_id": state["skill_id"], "version": "latest"}],
-        tools=[
+    # 3. 点検のエージェント、4. 改定案を作るエージェント（Outcomes で使う。kaitei.json を書くために write を有効にする）
+    for id_key, ver_key, params, label in (("agent_id", "agent_version", reviewer_params(state), "エージェント"),
+                                           ("drafter_id", "drafter_version", drafter_params(state), "改定案エージェント")):
+        if state.get(id_key):
+            current = c.beta.agents.retrieve(state[id_key])
+            agent = c.beta.agents.update(state[id_key], version=current.version, **params)
+            log(f"{label}を更新: {agent.id}（版 {agent.version}）")
+        else:
+            agent = c.beta.agents.create(**params)
+            log(f"{label}を作成: {agent.id}（版 {agent.version}）")
+        state[id_key] = agent.id
+        state[ver_key] = agent.version
+    return state
+
+
+def reviewer_params(state: dict) -> dict:
+    return {
+        "name": AGENT_NAME,
+        "model": MODEL,
+        "system": SYSTEM,
+        "description": "管理規約を改正区分所有法・標準管理規約に照らして点検し、根拠付きで指摘する",
+        "skills": [{"type": "custom", "skill_id": state["skill_id"], "version": "latest"}],
+        "tools": [
             {
                 "type": "agent_toolset_20260401",
                 "default_config": {"enabled": False},
@@ -112,27 +131,19 @@ def main() -> None:
             },
             *TOOL_DEFS,
         ],
-    )
-    if state.get("agent_id"):
-        current = c.beta.agents.retrieve(state["agent_id"])
-        agent = c.beta.agents.update(state["agent_id"], version=current.version, **params)
-        print(f"エージェントを更新: {agent.id}（版 {agent.version}）")
-    else:
-        agent = c.beta.agents.create(**params)
-        print(f"エージェントを作成: {agent.id}（版 {agent.version}）")
-    state["agent_id"] = agent.id
-    state["agent_version"] = agent.version
+    }
 
-    # 4. 改定案を作るエージェント（Outcomes で使う。kaitei.json を書くために write を有効にする）
+
+def drafter_params(state: dict) -> dict:
     from core.drafting import DRAFTER_TOOLS
 
-    drafter_params = dict(
-        name=DRAFTER_NAME,
-        model=MODEL,
-        system=DRAFTER_SYSTEM,
-        description="点検の指摘をもとに、管理規約の改定案（条文）を作る",
-        skills=[{"type": "custom", "skill_id": state["skill_id"], "version": "latest"}],
-        tools=[
+    return {
+        "name": DRAFTER_NAME,
+        "model": MODEL,
+        "system": DRAFTER_SYSTEM,
+        "description": "点検の指摘をもとに、管理規約の改定案（条文）を作る",
+        "skills": [{"type": "custom", "skill_id": state["skill_id"], "version": "latest"}],
+        "tools": [
             {
                 "type": "agent_toolset_20260401",
                 "default_config": {"enabled": False},
@@ -143,17 +154,21 @@ def main() -> None:
             },
             *DRAFTER_TOOLS,
         ],
-    )
-    if state.get("drafter_id"):
-        current = c.beta.agents.retrieve(state["drafter_id"])
-        drafter = c.beta.agents.update(state["drafter_id"], version=current.version, **drafter_params)
-        print(f"改定案エージェントを更新: {drafter.id}（版 {drafter.version}）")
-    else:
-        drafter = c.beta.agents.create(**drafter_params)
-        print(f"改定案エージェントを作成: {drafter.id}（版 {drafter.version}）")
-    state["drafter_id"] = drafter.id
-    state["drafter_version"] = drafter.version
+    }
 
+
+def config_hash() -> str:
+    """スキル・指示文・道具・モデルの指紋。アプリを更新して設定が変わったら、自動登録したエージェントも更新する。"""
+    import hashlib
+
+    probe = {"skill_id": "-"}
+    payload = json.dumps([reviewer_params(probe), drafter_params(probe), [(n, b.decode("utf-8")) for n, b, _ in skill_files()]],
+                         ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def main() -> None:
+    state = ensure(client(), load_state())
     STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"保存: {STATE.relative_to(ROOT)}")
 
