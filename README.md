@@ -23,6 +23,16 @@
 - 使い終わったら codespace を停止する（放置すると無料枠の利用時間を使う）
 - 読み込んだ規約は codespace の中の `private/work/` に保存され、コミットされません
 
+## 費用と、自分の API キーで使う仕組み
+
+AI の部分は Anthropic の API で動き、費用は `.env` に入れた API キーの持ち主（Claude Console のアカウント）に、使った分だけかかります（Claude のサブスクリプションとは別）。
+管理組合ごとに自分の API キーを入れて使う形を前提にしています。一通り使って約 $2〜10 が目安で、処理ごとの費用は画面に出ます。
+
+- 初めてのキーで点検や改定案づくりをすると、そのキーのワークスペースに AI の設定（スキル・環境・エージェント）を自動で登録します。登録した ID は `private/agents/` に保存し、コミットしません。キーそのものは保存しません
+- アプリを更新してスキルや指示文が変わると、次に AI を使うときに登録も自動で更新します
+- 開発者のキーでは、リポジトリの `agents/state.json` の登録をそのまま使います（設定を変えたときは `uv run python -m agents.setup` で更新）
+- サービスとして提供する形（利用者が API キーを用意しなくてよい形）は、ハッカソン後の計画にしています（docs/plans/今後の展開.md）
+
 ## 動かし方（手元のPC。実物の規約で使うときのおすすめ）
 
 読み込んだ規約が自分の PC から外に出ず、Codespaces のポート転送の不具合（中では動いているのに外から 404 になる）も起きません。Mac の例です。
@@ -33,7 +43,7 @@
    `git clone https://github.com/locotown/kiyaku-kaisei.git && cd kiyaku-kaisei`
 3. API キーを置く：`cp .env.example .env && open -e .env` で開き、`ANTHROPIC_API_KEY=` の後ろにキーを貼って保存する（`.env` はコミットしない）
    - キーは [Claude Console](https://platform.claude.com/settings/keys) の「キーを作成」→「API キーで続ける」で作る。作ったときに一度だけ表示される。ワークスペースは、エージェントを登録したもの（`agents/state.json`）と同じにする
-   - 新しいワークスペースで使うときだけ、エージェントを登録する：`uv run python -m agents.setup`
+   - AI の準備（Managed Agents のエージェントの登録）は、初めて点検や改定案づくりをするときに自動で行う（1分ほど）。コマンドは要らない
 4. 画面を起動する：`bash scripts/codespace_serve.sh`（30秒ごとに最新版を取り込み、サーバーも自動で再起動する。止めるときは Ctrl+C）
 5. ブラウザで `http://127.0.0.1:8000` を開く
 

@@ -19,7 +19,7 @@ from datetime import datetime
 import anthropic
 import httpx2
 
-from core.config import ROOT, client
+from core.config import client
 from core.draft import DRAFT_SCHEMA, Draft, check
 from core.findings import Finding
 from core.model import Kiyaku
@@ -28,7 +28,6 @@ from core.quality import RESULT_JA
 from core.review import ENFORCED, JST
 from core.tools import TOOL_DEFS, ToolHandler
 
-STATE = ROOT / "agents/state.json"
 OUTPUT_NAME = "kaitei.json"
 MAX_ITERATIONS = 3
 RECONNECTS = 6  # 通信が切れたときに、つなぎ直す回数の上限
@@ -239,10 +238,12 @@ def run_draft(
     rules: dict[str, Kiyaku] | None = None,
     board: str = "",
 ) -> DraftResult:
-    state = json.loads(STATE.read_text(encoding="utf-8"))
+    from agents.registry import agent_state
+
+    notify = on_event or (lambda kind, text: None)
+    state = agent_state(notify)  # この API キーで使うエージェント（初めてのキーなら、ここで登録する）
     c = client()
     handler = DraftToolHandler(kiyaku, findings, rules)
-    notify = on_event or (lambda kind, text: None)
     evaluations: list[dict] = []
     started = time.monotonic()
     plan = draft_plan(len(findings))  # 採用が多いほど、時間と費用の上限を広げる

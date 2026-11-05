@@ -9,19 +9,17 @@
 
 from __future__ import annotations
 
-import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
-from core.config import ROOT, client
+from core.config import client
 from core.findings import Finding
 from core.model import Kiyaku
 from core.progress import describe_builtin, describe_tool
 from core.tools import ToolHandler
 
-STATE = ROOT / "agents/state.json"
 BUDGET_CENTS = "500"  # 1セッションの上限 $5.00（公開価格ベース）
 DEADLINE_SEC = 30 * 60
 JST = timezone(timedelta(hours=9))
@@ -91,10 +89,12 @@ def run_review(
     rules: dict[str, Kiyaku] | None = None,
 ) -> ReviewResult:
     """点検を実行する。on_event(種類, 内容) で進み具合を受け取れる。"""
-    state = json.loads(STATE.read_text(encoding="utf-8"))
+    from agents.registry import agent_state
+
+    notify = on_event or (lambda kind, text: None)
+    state = agent_state(notify)  # この API キーで使うエージェント（初めてのキーなら、ここで登録する）
     c = client()
     handler = ToolHandler(kiyaku, rules)
-    notify = on_event or (lambda kind, text: None)
     texts: list[str] = []
     started = time.monotonic()
 

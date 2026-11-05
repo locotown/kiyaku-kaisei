@@ -694,7 +694,7 @@ def progress_view(work: dict) -> dict:
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
              "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き",
-             "resume": "再開"}
+             "resume": "再開", "setup": "準備"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"
