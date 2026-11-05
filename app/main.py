@@ -385,7 +385,7 @@ def _redraft_reason(paper, decisions: dict, titles: list[str], draft) -> str:
             parts.append(f"「{it.title}」を「{d['decision']}」にしました。メモの内容を改定案に入れます")
         else:
             parts.append(f"「{it.title}」で、組合が選ぶ点の案を選びました。選んだ案を改定案に入れます")
-    return "。".join(parts) + "。下の「対象の条だけ作り直す」を押してください。"
+    return "。".join(parts) + "。ステップ4の「対象の条だけ作り直す」で、改定案を作り直してください。"
 
 
 def board_state(work: dict) -> dict:
