@@ -20,7 +20,7 @@
         説明なしの専門用語：<b>{{ m["説明なしの専門用語"]|join("、") or "なし" }}</b>（本文で言い換えていれば問題ありません）</p></details>
     <div class="doc">{{ icon("file") }}<div style="flex:1;min-width:0"><div class="tt">住民向けの説明資料</div><div class="d">総会提案の下書きです。理事会で読み合わせてから配ってください。</div></div>
       <a class="tbtn2" href="/works/{{ id }}/explain.docx">{{ icon("download") }}Word で保存</a>
-      <a class="tbtn2 boxed" href="/works/{{ id }}/explain" target="_blank">説明資料を開く（印刷用）</a></div>
+      <a class="tbtn2 boxed" href="/works/{{ id }}/explain">説明資料を開く（印刷用）</a></div>
   {% endif %}
   <form action="/works/{{ id }}/explain" method="post" id="explainform">
     {% if not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}

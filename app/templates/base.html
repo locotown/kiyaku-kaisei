@@ -31,5 +31,12 @@
   sync();
 })();
 </script>
+<script>
+// AI を動かすボタンは、何をするか・時間・費用の目安を確かめてから動かす（押し間違いで費用がかからないように。想定ユーザーでの確認で分かった）
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-ai]');
+  if (b && !b.disabled && !window.confirm(b.dataset.ai)) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+</script>
 </body>
 </html>

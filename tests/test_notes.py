@@ -390,7 +390,7 @@ def test_photo_box_is_a_distinct_card_with_buttons(work):
     """写真を読み込む欄は、操作の並びと見分けられる枠の欄で、ボタンの形で置く（折りたたまない。人の確認の気づき）。"""
     page = work.get(f"/works/{WID}").text
     assert "委員会・理事会の書き込みを、写真で戻す" in page and "写真を選ぶ" in page
-    assert 'class="btn nb-go" data-go disabled' in page                    # 写真を選ぶまで「読み込む」は押せない
+    assert 'class="btn nb-go" data-go data-ai=' in page and 'disabled>' in page                    # 写真を選ぶまで「読み込む」は押せない
     assert '<details class="more notesbox"' not in page
 
 

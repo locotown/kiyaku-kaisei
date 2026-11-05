@@ -200,7 +200,7 @@
           $('hn-' + i).textContent = it.lines.length; $('hs-' + i).hidden = !it.lines.length;
           $('hl-' + i).innerHTML = '';
           it.lines.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('hl-' + i).appendChild(li); });
-          box.textContent = '保存しました（' + label(it.decision) + '）。理由は「理由を書く・直す」から書けます'; box.className = 'cardsave ok';
+          box.textContent = '保存しました（' + label(it.decision) + '）。' + (it.reason ? '理由も保存しました' : '理由は「理由を書く・直す」から書けます'); box.className = 'cardsave ok';
           show(sum); close(i);
         })
         .catch(function () { box.textContent = '保存できませんでした。もう一度「確定する」を押してください'; box.className = 'cardsave ng'; });

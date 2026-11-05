@@ -265,6 +265,7 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>
 <p class="legend">{GUIDE}</p>
+<p class="legend">「行1」「行2」…は、印刷した表に書き込んだ写真から、どの行かを見分けるための番号です。</p>
 <p class="summary">{line}</p>
 {('<p class="legend">' + RESOLUTION_GUIDE + '</p>') if multi else ''}
 {tables}

@@ -51,7 +51,7 @@
     </ul>
     国の標準管理規約には、「利用する場合」と「利用しない場合」の2つの条文案があります。ここで選んだ方針で改定案を作ります。
     <b>迷ったら「未定・分からない」を選んでください。</b>両方の案を示し、理事会で決められるようにします。</div>
-  <p style="margin-top:var(--space-6)"><button type="submit" class="btn">点検を始める</button></p>
+  <p style="margin-top:var(--space-6)"><button type="submit" class="btn" data-ai="規約を読み込んで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1〜2ほど。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">点検を始める</button></p>
   <p class="muted">読み込んだ規約と判断の記録は、このツールを動かしているパソコン（またはあなた専用の作業環境）の中だけに保存され、公開されません。点検では、必要な条だけを AI に渡します。</p>
 </form>
 </div>
@@ -67,7 +67,7 @@
     <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
     <div class="s-contents">{{ s.contents }}</div>
     <div class="muted s-point">{{ s.point }}</div>
-    <button class="boxed" type="submit">このサンプルで試す</button>
+    <button class="boxed" type="submit" data-ai="このサンプルで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1ほど（約150円）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">このサンプルで試す</button>
   </form>
 {% endfor %}
 </div>
@@ -82,7 +82,7 @@
 {# 同じ名前の作業が並んでも見分けられるよう、作った日時（作業の番号の頭）を出す #}
 {% set ts = w.id[:13] %}
 <tr><td><a href="/works/{{ w.id }}">{{ w.name }}</a></td>
-  <td class="nowrap">{% if ts[:8]|int(0) %}{{ ts[4:6]|int }}/{{ ts[6:8]|int }} {{ ts[9:11] }}:{{ ts[11:13] }}{% endif %}</td>
+  <td class="nowrap">{% if ts[:8]|int(0) and ts[9:11]|int(99) < 24 and ts[11:13]|int(99) < 60 %}{{ ts[4:6]|int }}/{{ ts[6:8]|int }} {{ ts[9:11] }}:{{ ts[11:13] }}{% endif %}</td>
   <td class="nowrap">{{ w.status }}</td><td class="nowrap">{{ w.findings }}件</td></tr>
 {% endfor %}
 </table>

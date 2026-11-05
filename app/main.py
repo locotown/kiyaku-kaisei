@@ -619,6 +619,8 @@ def create_work(
 
 def next_step(work: dict) -> str:
     """指摘の判断のあとに、次にすることの案内。"""
+    if work.get("status") in BUSY:
+        return "AI が作業しています。終わると、画面が自動で切り替わります。"
     from core.progress import draft_plan
 
     plan = draft_plan(_adopted_count(work))
@@ -1823,7 +1825,7 @@ def ai_note(kind: str, work: dict) -> str:
     from core.progress import draft_plan
 
     plan = draft_plan(_adopted_count(work))
-    tail = "\n費用は APIキーの持ち主に請求されます。画面を閉じても処理は続きます。始めますか？"
+    tail = "\n費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？"
     notes = {
         "draft": f"改定案を作ります（AI が動きます）。\n改定案に入れる指摘 {plan['adopted']}件：目安 {plan['estimate']}・AI の費用 {plan['cost']}ほど。",
         "redraft": f"改定案を最初から全部作り直します（AI が動きます）。\n目安 {plan['estimate']}・AI の費用 {plan['cost']}ほど。委員会で直した文は残ります。",

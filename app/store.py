@@ -93,6 +93,9 @@ def list_works() -> list[dict]:
         f = d / "work.json"
         if f.exists():
             data = json.loads(f.read_text(encoding="utf-8"))
-            out.append({"id": d.name, "name": data.get("name", ""), "status": data.get("status", ""),
+            status = data.get("status", "")
+            if status == "説明文あり" and any(((data.get("meeting") or {}).get("results") or {}).values()):
+                status = "総会の結果あり"  # 作業の画面の表示とそろえる
+            out.append({"id": d.name, "name": data.get("name", ""), "status": status,
                         "findings": len(data.get("findings", []))})
     return out

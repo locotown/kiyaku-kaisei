@@ -20,7 +20,7 @@
     {%- if st.key in avail %}</a>{% else %}</span>{% endif %}</li>{% endfor %}
 </ol>
 <p class="small muted flow-legend"><span class="m-demo">{{ icon("check") }}</span>＝AI が作り終えた　<span class="hanko-demo">済</span>＝人が決め終えた（エラーではありません）</p>
-<p class="j-next" id="j-next">{% if journey.current %}いま：<b>{% for st in journey.steps %}{% if st.key == journey.current %}{{ loop.index }}. {{ st.label }}{% endif %}{% endfor %}</b>（全6ステップ）　{% endif %}{{ journey.next }}</p>
+<p class="j-next" id="j-next">{% if journey.current %}次にすること：<b>{% for st in journey.steps %}{% if st.key == journey.current %}{{ loop.index }}. {{ st.label }}{% endif %}{% endfor %}</b>（全6ステップ）　{% endif %}{{ journey.next }}</p>
 
 {% include "work/_progress.html" %}
 
@@ -43,13 +43,6 @@
 {% endif %}
 {% endif %}
 
-<script>
-// AI を動かすボタンは、何をするか・時間・費用の目安を確かめてから動かす（押し間違いで費用がかからないように。想定ユーザーでの確認で分かった）
-document.addEventListener('click', function (e) {
-  var b = e.target.closest('[data-ai]');
-  if (b && !b.disabled && !window.confirm(b.dataset.ai)) { e.preventDefault(); e.stopPropagation(); }
-}, true);
-</script>
 <script>
 (function () {  // ステップの切り替え：URL の #… が指す要素のステップを1つだけ見せる。なければ、いまのステップ
   var panels = Array.prototype.slice.call(document.querySelectorAll('.panel[data-step]'));

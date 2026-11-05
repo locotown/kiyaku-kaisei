@@ -49,7 +49,7 @@
   (() => { const el = document.querySelector(".reviewing .elapsed"); if (!el) return;
     let n = Number(el.dataset.elapsed) || 0; setInterval(() => { el.textContent = ++n; }, 1000); })();
   </script>
-  {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
+  {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed" data-ai="直した条を、AI に確かめてもらいます。&#10;1条あたり 20〜60秒・数セント〜十数セント（数円〜二十円ほど）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
   {% else %}<p class="muted">まだ直した条はありません。</p>{% endif %}
 </div>
 <form method="post" action="/works/{{ id }}/articles/review" id="reviewform"></form>
@@ -100,7 +100,7 @@ document.addEventListener("click", (e) => {
         {% elif r.status == "中断" %}<p class="small">AI の確認が途中で止まりました（サーバーの再起動などで処理が消えました）。費用はほとんどかかっていません。もう一度押してください。</p>
         {% elif r.status == "失敗" %}<p class="small">AI が確かめられませんでした。もう一度押してください。</p>
         {% endif %}
-        {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
+        {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed" data-ai="この条を、AI に確かめてもらいます。&#10;20〜60秒・数セント〜十数セント（数円〜二十円ほど）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
       </div>
       <details class="more"><summary>AI が作った文を見る</summary><div class="quote">{{ a.edit.original }}</div></details>
       <button type="submit" form="revertform" name="key" value="{{ key }}" class="boxed revertbtn" data-twostep

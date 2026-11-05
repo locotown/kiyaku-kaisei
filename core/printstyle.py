@@ -98,6 +98,7 @@ tr.row-skip td { background: #f1f0ec; color: var(--color-ink-2); }
 .toolbar .hint { color: var(--color-ink-3); font-size: .85rem; }
 .toolbar .safari { flex-basis: 100%; margin: 0; color: var(--color-must); font-weight: 700; font-size: .9rem; }
 
+h1, h2, h3, h4 { text-align: left; }
 /* スマホ：新旧対照表は条ごとのカード（改定案／現行／理由）に並べ替える。帯は固定せず、印刷の説明は畳む */
 @media screen and (max-width: 720px) {
   p, li, .note { text-align: left; }

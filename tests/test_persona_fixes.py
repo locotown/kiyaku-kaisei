@@ -74,7 +74,7 @@ def test_ai_buttons_confirm_cost_and_time(board_work):
     M, store, c, wid, _, _ = board_work
     page = c.get(f"/works/{wid}").text
     assert 'data-ai="対象の条（第47条）だけを作り直します' in page
-    assert "費用は APIキーの持ち主に請求されます" in page and "window.confirm(b.dataset.ai)" in page
+    assert "AI の利用料（APIキー）として請求されます" in page and "window.confirm(b.dataset.ai)" in page
     assert "改定案は 約" not in page or "AI の費用" in page
 
 

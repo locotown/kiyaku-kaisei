@@ -6,16 +6,16 @@
     {% set tiers = (board or {}).get("items", [])|map(attribute="tier")|unique|list if board else [] %}
     {% if board %}この改定案の議題は {% for t in tiers %}{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(t)] }}{% endfor %} の段にあります。{% endif %}
     ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p></div>
-  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選び、「理事会の判断を保存する」を押してください。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選んでください（選ぶとすぐ保存します）。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
   {% if board %}
     <div class="acts">
-      <a class="tbtn2" href="/works/{{ id }}/board" target="_blank">{{ icon("printer") }}検討資料を開く（印刷用）</a>
+      <a class="tbtn2" href="/works/{{ id }}/board">{{ icon("printer") }}検討資料を開く（印刷用）</a>
       <a class="tbtn2" href="/works/{{ id }}/board.docx">{{ icon("download") }}Word で保存</a>
-      <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表</a>
+      <a class="tbtn2" href="/works/{{ id }}/taisho">{{ icon("file") }}新旧対照表</a>
     </div>
     {# ステップ2で書いた判断の理由を、理事会で見られるようにする（どこで見られるか分からない、という声から） #}
-    {% set reasons = [] %}{% for i, f in rows %}{% set d = decisions.get(i|string, {}) %}{% if d.reason %}{% set _ = reasons.append((i, f, d)) %}{% endif %}{% endfor %}
-    {% if reasons %}<details class="more decreasons"><summary>ステップ2で書いた、指摘の判断の理由（{{ reasons|length }}件）</summary>
+    {% set reasons = [] %}{% for i, f in rows %}{% set d = decisions.get(i|string, {}) %}{% if d.reason and not d.reason.startswith("まとめて") %}{% set _ = reasons.append((i, f, d)) %}{% endif %}{% endfor %}
+    {% if reasons %}<details class="more decreasons"><summary>ステップ2で、理由を書いた判断（{{ reasons|length }}件。まとめて決めたものは除く）</summary>
       <ul>{% for i, f, d in reasons %}<li><b>{{ views[i].title if views and i in views else f.issue[:30] }}</b>：{{ choice_help.get(d.decision, d.decision) }}　<span class="small">理由：{{ d.reason }}</span></li>{% endfor %}</ul>
       <p class="small">議事録や引き継ぎに使えます。判断や理由は、ステップ2で直せます。</p></details>{% endif %}
     <div id="board-state">
@@ -23,7 +23,7 @@
       {% include "work/_partial_result.html" %}
       {% if board_state.needs_redraft %}
         {% set tg = redraft_targets(work) %}
-        <form action="/works/{{ id }}/board/redraft" method="post" class="warn redraftbox">
+        <form action="/works/{{ id }}/board/redraft" method="post" class="warn redraftbox" id="redraftform">
           <p><b class="w">改定案の作り直しが必要です。</b>{{ board_state.reason }}{% if board_state.redraft %}（対象の議題：{{ board_state.redraft|join("、") }}）{% endif %}</p>
           {% if tg.amendments %}
           <div class="rd-opt rd-main">
@@ -113,6 +113,7 @@
       };
       let timer = null, busy = false, again = false;
       const save = async () => {
+        timer = null;
         if (busy) { again = true; return; }
         busy = true;
         try {
@@ -131,10 +132,17 @@
         } finally { busy = false; if (again) { again = false; save(); } }
       };
       const later = (ms) => { clearTimeout(timer); timer = setTimeout(save, ms); };
-      form.addEventListener("change", () => { show(); later(300); });
-      form.addEventListener("input", (e) => { show(); if (e.target.type === "text") later(1500); });
+      form.addEventListener("change", () => { show(); later(150); });
+      form.addEventListener("input", (e) => { show(); if (e.target.type === "text") later(800); });
+      form.addEventListener("focusout", (e) => { if (e.target.type === "text") later(0); });
+      // 画面を離れる・隠れる直前に、保存していない内容をすぐ送る（選んで直後に移ると消えた、という声から）
+      const flush = () => { if (!timer && !busy) return; clearTimeout(timer); timer = null;
+        try { navigator.sendBeacon ? navigator.sendBeacon(form.action, new FormData(form))
+              : fetch(form.action, { method: "POST", body: new FormData(form), keepalive: true }); } catch (e) {} };
+      window.addEventListener("pagehide", flush);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+      document.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a && timer) flush(); }, true);
       window.addEventListener("pageshow", show); show();
-      window.addEventListener("beforeunload", (e) => { if (timer && busy) { e.preventDefault(); e.returnValue = ""; } });
     })();
     </script>
     {% if board_state and not board_state.ready and not board_state.needs_redraft %}<p class="muted">{{ board_state.reason }}</p>{% endif %}
@@ -150,9 +158,12 @@
     {% elif board_state and board_state.ready %}
       <div class="t"><b>理事会での検討が済みました</b>　<span class="unsaved" id="board-unsaved" hidden></span>判断を変えると、すぐ保存します。<button type="submit" form="boarddec">判断を保存し直す</button></div>
       <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.needs_redraft and redraft_targets(work).amendments %}
+      {# 作り直しが必要なときは、次にすること（対象の条だけ作り直す）を主のボタンにする（「保存する」を押し続けて先へ進めない、という声から） #}
+      <div class="t"><b>次は、対象の条だけ作り直します</b>　<span class="unsaved" id="board-unsaved" hidden></span>作り直す条：{{ redraft_targets(work).refs|join("、") }}</div>
+      <button type="submit" form="redraftform" name="mode" value="partial" class="btn" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>対象の条だけ作り直す{{ icon("arrow-right") }}</button>
     {% else %}
       <div class="t"><b>議題ごとに判断を選びます（選ぶとすぐ保存します）</b>　<span class="unsaved" id="board-unsaved" hidden></span>{{ board_state.reason if board_state else "" }}</div>
-      <button type="submit" form="boarddec" class="btn">理事会の判断を保存する</button>
     {% endif %}
   </div></div>
 </section>
