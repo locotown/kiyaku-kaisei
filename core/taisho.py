@@ -174,6 +174,30 @@ RESOLUTION_GUIDE = ("規約の改定は総会の特別決議（組合員総数�
                     "細則の改定は普通決議（出席者の議決権の過半数）で決めます。総会では別の議案になります。")
 
 
+SKIP_LABEL = "理事会で見送り（総会には出しません）"
+
+
+def is_skipped(skipped: set | None, a) -> bool:
+    """理事会で見送りにした改定か（行の番号は変えずに、印を付けて示す。書き込みの写真の行番号とずれないように）。"""
+    if not skipped:
+        return False
+    from core.explain import _ref_key, ref_name
+
+    return _ref_key(ref_name(a)) in skipped
+
+
+def edit_note(edits: dict | None, a) -> str:
+    """委員会で直した条の補足（直した理由・経緯）。理由の欄に添え、AI の理由だけが残って食い違わないようにする。"""
+    e = (edits or {}).get(f"{a.document or '規約'}|{a.article}") or {}
+    return str(e.get("note") or "").strip() if e.get("text") == a.text else ""
+
+
+def summary_line(all_rows: list[dict], n_required: int, skipped: set | None) -> str:
+    n_skip = sum(1 for r in all_rows if is_skipped(skipped, r["amendment"]))
+    tail = f"。このうち{n_skip}条は理事会で見送りにしたため、総会には出しません（表には行の番号を変えずに残しています）" if n_skip else ""
+    return f"改定 {len(all_rows)}条のうち、{{must}}を含む条 {n_required}条、{{opt}}だけの条 {len(all_rows) - n_required}条{tail}"
+
+
 def edit_label(edits: dict | None, a) -> str:
     """委員会で直した条の印（「委員会で直した文（AI の確認前）」など）。直していない条は空。"""
     from core.editcheck import label
@@ -181,14 +205,15 @@ def edit_label(edits: dict | None, a) -> str:
     return label((edits or {}).get(f"{a.document or '規約'}|{a.article}"), a.text) if edits else ""
 
 
-def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None) -> str:
+def to_html(draft: Draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None,
+            skipped: set | None = None) -> str:
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
     grouped = numbered(all_rows)
     sections = []
     for document, items in grouped:
-        sections.append(_html_table(items, group_heading(document) if len(grouped) > 1 or document != "規約" else "", edits))
-    return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1, ident=ident)
+        sections.append(_html_table(items, group_heading(document) if len(grouped) > 1 or document != "規約" else "", edits, skipped))
+    return _html_page(draft, title, all_rows, n_required, "".join(sections), multi=len(grouped) > 1, ident=ident, skipped=skipped)
 
 
 def _edit_html(text: str) -> str:
@@ -198,7 +223,7 @@ def _edit_html(text: str) -> str:
     return f'<span class="{kind}">{html.escape(text)}</span>'
 
 
-def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None = None) -> str:
+def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None = None, skipped: set | None = None) -> str:
     body = []
     for n, r in items:
         a = r["amendment"]
@@ -209,11 +234,15 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
             f"<li>〔選択〕{html.escape(c.get('point', ''))}：{html.escape(' ／ '.join(c.get('options', [])))}"
             f"{('（' + html.escape(c['note']) + '）') if c.get('note') else ''}</li>" for c in a.choices
         )
+        skip = is_skipped(skipped, a)
+        enote = edit_note(edits, a)
         body.append(
-            f'<tr class="{"row-must" if c["is_required"] else "row-opt"}">'
-            f'<td><span class="rowno">行{n}</span>{_edit_html(edit_label(edits, a))}{caption}{_html_parts(r["new"], "new")}</td>'
+            f'<tr class="{"row-must" if c["is_required"] else "row-opt"}{" row-skip" if skip else ""}">'
+            f'<td><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
+            f'{_edit_html(edit_label(edits, a))}{caption}{_html_parts(r["new"], "new")}</td>'
             f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td>{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
+            f"{('<div class=editnote><b>委員会で直した点：</b>' + html.escape(enote) + '</div>') if enote else ''}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
@@ -223,7 +252,10 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
             f"<tbody>{''.join(body)}</tbody></table>")
 
 
-def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, tables: str, multi: bool, ident: str = "") -> str:
+def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, tables: str, multi: bool, ident: str = "",
+               skipped: set | None = None) -> str:
+    line = summary_line(all_rows, n_required, skipped).format(must=f'<span class="tag must">{REQUIRED_LABEL}</span>',
+                                                              opt=f'<span class="tag opt">{OPTIONAL_LABEL}</span>')
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
@@ -233,7 +265,7 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>
 <p class="legend">{GUIDE}</p>
-<p class="summary">改定 {len(all_rows)}条のうち、<span class="tag must">{REQUIRED_LABEL}</span>を含む条 {n_required}条、<span class="tag opt">{OPTIONAL_LABEL}</span>だけの条 {len(all_rows) - n_required}条</p>
+<p class="summary">{line}</p>
 {('<p class="legend">' + RESOLUTION_GUIDE + '</p>') if multi else ''}
 {tables}
 <h2>申し送り</h2>{_notes_html(draft.notes)}

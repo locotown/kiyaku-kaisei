@@ -135,9 +135,10 @@
   <noscript><p><button type="submit" class="boxed">判断を保存する</button></p></noscript>
   </form>
   </div>
-  <div class="bar"><div class="in"><div class="t"><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}「あとで決める」のままでも先へ進めます{% endif %}</span></div>
+  <div class="bar"><div class="in"><div class="t"><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}「あとで決める」のままでも先へ進めます{% endif %}</span>
+    {% if not (work.draft and not work.draft_stale) %}{% set pl = draft_plan_for(work) %}<span class="muted">　改定案は 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど</span>{% endif %}</div>
     {% if work.draft and not work.draft_stale %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
-    {% else %}<button type="submit" form="draftform" class="btn" {% if busy %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "改定案を作る" }}{{ icon("arrow-right") }}</button>{% endif %}
+    {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>{% endif %}
   </div></div>
   <script>
   (function () {
@@ -196,17 +197,20 @@
           $('hn-' + i).textContent = it.lines.length; $('hs-' + i).hidden = !it.lines.length;
           $('hl-' + i).innerHTML = '';
           it.lines.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; $('hl-' + i).appendChild(li); });
-          box.textContent = '保存しました（' + label(it.decision) + '）'; box.className = 'cardsave ok';
+          box.textContent = '保存しました（' + label(it.decision) + '）。理由は「理由を書く・直す」から書けます'; box.className = 'cardsave ok';
           show(sum); close(i);
         })
         .catch(function () { box.textContent = '保存できませんでした。もう一度「確定する」を押してください'; box.className = 'cardsave ng'; });
     }
-    form.addEventListener('change', function (e) {  // 選んだだけでは保存しない。理由を書いて「確定する」で保存
+    form.addEventListener('change', function (e) {
+      // 選んだらすぐ保存する（「確定する」を押し忘れて、選んだつもりの判断が改定案から抜けるのを防ぐ。想定ユーザーでの確認で分かった）
+      // 理由は、あとから「理由を書く・直す」で書ける
       var m = (e.target.name || '').match(/^decision_(\d+)$/);
       if (!m) return;
-      var i = m[1], saved = $('db-' + i).dataset.saved;
-      if (e.target.value === saved) { cancel(i); return; }
-      open(i, '「' + label(saved) + '」から「' + label(e.target.value) + '」に変えます。理由を書いて「確定する」を押してください（理由は空でも確定できます）。', '');
+      var i = m[1];
+      if (e.target.value === $('db-' + i).dataset.saved) return;
+      $('rs-' + i).value = $('cr-' + i).textContent === '（未記入）' ? '' : $('cr-' + i).textContent;
+      confirm(i);
     });
     form.addEventListener('click', function (e) {
       var b = e.target.closest('button'); var t = (b && b.dataset) || {};
@@ -224,6 +228,12 @@
     });
     form.addEventListener('submit', function (e) { e.preventDefault(); });
     window.addEventListener('beforeunload', function (e) { if (pendingCount()) { e.preventDefault(); e.returnValue = ''; } });
+    document.addEventListener('click', function (e) {  // 理由を書きかけのまま改定案を作り始めない
+      var b = e.target.closest('button[form="draftform"]');
+      if (b && pendingCount()) { e.preventDefault(); e.stopImmediatePropagation();
+        var p = form.querySelector('.pending:not([hidden])'); p.scrollIntoView({ block: 'center' });
+        bar(); alert('書きかけの理由があります。「確定する」か「取り消す」を押してから、改定案を作ってください。'); }
+    }, true);
   })();
   </script>
   <script>

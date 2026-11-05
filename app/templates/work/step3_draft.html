@@ -42,7 +42,7 @@
         {% if q.precedent.count %}<div class="small">標準どおりの条 <b>{{ q.precedent.count }}条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
         {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
           <ul>{% for c in q.costs.lines %}<li>{{ c.step }}：約${{ "%.2f"|format(c.usd) }}{% if c.at %} <span class="muted">（{{ c.at }}）</span>{% endif %}</li>{% endfor %}</ul>
-          <div class="small">公開価格での概算です。住民向け説明と検討資料の費用（1回 数セント〜数十セント）は含みません。</div></details>{% endif %}
+          <div class="small">公開価格での概算です（APIキーの持ち主に請求されます）。11/5 より前に作った検討資料・住民向け説明の費用（1回 数セント〜数十セント）は記録していません。</div></details>{% endif %}
       </div>
     </div>
     <div class="q-human sec">
@@ -78,20 +78,20 @@
   {# 途中で止まった改定案づくりは、AI のセッションにつなぎ直して続きから進められる（最初から作り直すより費用を抑えられる） #}
   {% set resumable = work.status == "改定案エラー" and work.interrupted_session %}
   <form action="/works/{{ id }}/draft" method="post" id="draftform">
-    {% if work.draft and not work.draft_stale and not resumable %}<button type="submit" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}改定案を作り直す</button>{% endif %}
+    {% if work.draft and not work.draft_stale and not resumable %}<button type="submit" data-ai="{{ ai_note('redraft', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}改定案を作り直す</button>{% endif %}
   </form>
   <form action="/works/{{ id }}/draft/resume" method="post" id="resumeform"></form>
   <div class="bar"><div class="in">
     {% if resumable %}
       <div class="t"><b>改定案づくりが途中で止まりました</b>　続きから進めると、最初から作り直すより費用を抑えられます。
-        <button type="submit" form="draftform" {% if work.draft_with_board %}formaction="/works/{{ id }}/board/redraft"{% endif %}>最初から作り直す</button></div>
-      <button type="submit" form="resumeform" class="btn">途中から再開する{{ icon("arrow-right") }}</button>
+        <button type="submit" form="draftform" data-ai="{{ ai_note('redraft', work) }}" {% if work.draft_with_board %}formaction="/works/{{ id }}/board/redraft"{% endif %}>最初から作り直す</button></div>
+      <button type="submit" form="resumeform" class="btn" data-ai="{{ ai_note('resume', work) }}">途中から再開する{{ icon("arrow-right") }}</button>
     {% elif not work.draft or work.draft_stale %}
       <div class="t"><b>{{ "判断が変わりました" if work.draft_stale else "改定案を作ります" }}</b>　<span class="muted">{{ summary.next }}</span></div>
-      <button type="submit" form="draftform" class="btn" {% if busy %}disabled{% endif %}>{{ "改定案を作り直す" if work.draft else "改定案を作る" }}{{ icon("arrow-right") }}</button>
+      <button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>
     {% elif not board %}
       <div class="t"><b>次は、理事会での検討です</b>　印刷用の検討資料を作り、議題ごとに判断を記録します</div>
-      <button type="submit" form="boardmake" class="btn" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
     {% else %}
       <div class="t"><b>次は、理事会での検討です</b>　検討資料はできています</div>
       <a class="btn" href="#board">理事会の検討へ{{ icon("arrow-right") }}</a>

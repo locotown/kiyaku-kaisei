@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import threading
 import traceback
@@ -238,11 +239,19 @@ def _ident(work_id: str, work: dict) -> str:
     return f"ID {work_id[-6:]}-{h}"
 
 
+def _skipped(work: dict) -> set:
+    """理事会で見送りにした改定（新旧対照表では、行の番号を変えずに印を付ける）。"""
+    from core.board import skipped_refs
+
+    paper = _board(work)
+    return skipped_refs(paper, work.get("board_decisions", {})) if paper else set()
+
+
 def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
     d = store.path(work_id)
     (d / "taisho.html").write_text(to_html(draft, corpus, title, ident=_ident(work_id, work | {"draft": draft.to_dict()}),
-                                           edits=work.get("human_edits")), encoding="utf-8")
+                                           edits=work.get("human_edits"), skipped=_skipped(work)), encoding="utf-8")
     (d / "taisho.md").write_text(to_markdown(draft, corpus, title), encoding="utf-8")
 
 
@@ -325,10 +334,11 @@ def _run_explain(work_id: str) -> None:
         draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
         paper, decisions = _board(work), work.get("board_decisions", {})
         draft = apply_to_draft(draft, paper, decisions)  # 理事会が見送りにした改定は説明しない
-        ex, _ = generate(draft, work["info"], board=decisions_text(paper, decisions))
+        ex, usage = generate(draft, work["info"], board=decisions_text(paper, decisions), edits=work.get("human_edits"))
         (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft, ident=_ident(work_id, work)),
                                                          encoding="utf-8")
-        store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex))
+        store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex),
+                     costs=store.load(work_id).get("costs", []) + [_usd_cost_entry("住民向け説明", usage)])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="説明文エラー", error=traceback.format_exc(limit=3))
@@ -344,13 +354,13 @@ def _run_board(work_id: str) -> None:
     try:
         store.append_log(work_id, "session", "理事会の検討資料を作っています")
         draft = Draft(amendments=[Amendment(**a) for a in work["draft"]["amendments"]], notes=work["draft"]["notes"])
-        paper, _ = board_generate(draft, work["info"])
+        paper, usage = board_generate(draft, work["info"], edits=work.get("human_edits"))
         from core.board import choice_points
 
         (store.path(work_id) / "board.html").write_text(
             board_html(paper, None, _org(work), choice_points(paper, draft), ident=_ident(work_id, work)), encoding="utf-8")
         store.update(work_id, status="検討資料あり", board=paper.model_dump(), board_decisions=default_decisions(paper),
-                     draft_reflects_board=False)
+                     draft_reflects_board=False, costs=store.load(work_id).get("costs", []) + [_usd_cost_entry("理事会の検討資料", usage)])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
         store.update(work_id, status="検討資料エラー", error=traceback.format_exc(limit=3))
@@ -364,7 +374,7 @@ def board_state(work: dict) -> dict:
     if not paper:
         return {"ready": False, "needs_redraft": False, "reason": "理事会の検討資料をまだ作っていません。"}
     decisions = work.get("board_decisions", {})
-    st = status(paper, decisions, _points(work))
+    st = status(paper, decisions, _points(work), _draft(work))
     if not st["done"]:
         reason = f"まだ判断していない議題が{len(st['undecided'])}つあります。"
         if st["needs_choice"]:
@@ -718,6 +728,8 @@ def progress_view(work: dict) -> dict:
         elif kind == "grading" and text.startswith("採点 "):
             text = "採点役が確認しています（" + text.removeprefix("採点 ") + "）"
         elif kind == "message":  # AI のメモは内部の言葉が混じるので、短くして記録にだけ残す
+            if not re.search(r"[ぁ-んァ-ヶ一-龥]", text):  # 英語だけのメモは出さない（画面はすべて日本語。想定ユーザーでの確認で見つかった）
+                continue
             text = text.replace("\n", " ")[:80] + ("…" if len(text) > 80 else "")
         lines.append({"t": e.get("t", ""), "kind": label.get(kind, kind), "text": text[:300]})
         if kind != "message":
@@ -735,6 +747,13 @@ def _adopted_count(work: dict) -> int:
 
 def _cost_entry(step: str, cost) -> dict:
     return {"step": step, "cost": cost, "at": _now()}
+
+
+def _usd_cost_entry(step: str, usage: dict) -> dict:
+    """Messages API の使用量から、費用の記録を作る（公開価格での概算。合計に入れるため）。"""
+    from core.notes import cost_usd
+
+    return _cost_entry(step, {"amount": max(1, round(cost_usd(usage or {}) * 100)), "currency": "USD"})
 
 
 @app.get("/works/{work_id}/status")
@@ -794,7 +813,8 @@ async def save_bulk_decisions(request: Request, work_id: str):
     scope, decision = str(form.get("scope", "")), str(form.get("decision", ""))
     if scope not in BULK_SCOPES or decision not in DECISIONS:
         raise HTTPException(400, "まとめて判断する範囲か判断の値が正しくありません。")
-    reason = str(form.get("reason", "")).strip() or f"まとめて{decision}"
+    # 理由が空なら、画面の言葉（「今回は見送る」など）で残す
+    reason = str(form.get("reason", "")).strip() or f"まとめて「{CHOICE_HELP.get(decision, decision)}」"
     work = store.load(work_id)
     decisions = work.get("decisions", {})
     now, changed = _now(), 0
@@ -946,7 +966,8 @@ def taisho_docx(work_id: str):
     if not draft:
         raise HTTPException(404, "新旧対照表はまだありません")
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
-    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work), edits=work.get("human_edits")),
+    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work), edits=work.get("human_edits"),
+                                skipped=_skipped(work)),
                           "shinkyu_taisho.docx", f"{title}.docx")
 
 
@@ -1064,6 +1085,9 @@ def _apply_board_form(work_id: str, form) -> None:
     store.update(work_id, **changes)
     (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points, ident=_ident(work_id, work)),
                                                     encoding="utf-8")
+    work = store.load(work_id)
+    if _draft(work):  # 見送りにした条の印を、新旧対照表にも付け直す
+        _write_taisho(work_id, work, _draft(work), _corpus(work_id))
 
 
 @app.post("/works/{work_id}/board/decisions")
@@ -1107,15 +1131,20 @@ def redraft_targets(work: dict) -> dict:
     paper, draft = _board(work), _draft(work)
     if not paper or not draft:
         return {"items": [], "amendments": [], "refs": []}
+    from core.board import required_refs
+
     decisions = work.get("board_decisions", {})
     by_key = {_ref_key(ref_name(a)): a for a in draft.amendments}
+    must = required_refs(draft)
     items, picked = [], []
     for i, it in enumerate(paper.items):
         d = decisions.get(str(i), {})
-        if d.get("decision") in ("", None, "見送り"):
+        if d.get("decision") in ("", None):
             continue
         ams = [by_key[r] for r in (_ref_key(x) for x in it.articles) if r in by_key and by_key[r].kind != "削除"]
-        if d.get("decision") not in NEEDS_REDRAFT:
+        if d.get("decision") == "見送り":  # 必須の変更と同じ条に入っている部分だけ、作り直しで取り除く
+            ams = [a for a in ams if _ref_key(ref_name(a)) in must]
+        elif d.get("decision") not in NEEDS_REDRAFT:
             ams = [a for a in ams if CHOICE_MARK in a.text or a.choices]
         if ams:
             items.append(it.title)
@@ -1169,7 +1198,10 @@ def _run_partial(work_id: str) -> None:
             raise ValueError("書き直した改定案が機械的な検査に通りませんでした：" + "／".join(new_errors[:3]))
         new_draft = checked or new_draft
         log("grading", "採点 直した条を確かめています")
-        review, c2 = partial.check(partial.check_material(board=board, changed=changed, others=others))
+        hnotes = {k: ("委員会で直した文。" + (f"補足：{e.get('note')}" if e.get("note") else "")) for k, e in human.items()}
+        currents = {f"{t['amendment'].document or '規約'}|{t['amendment'].article}": t["current"] for t in tinfo}
+        review, c2 = partial.check(partial.check_material(board=board, changed=changed, others=others, human_notes=hnotes,
+                                                          currents=currents))
         usd += c2
         log("graded", f"直した条の確認：{review.verdict}")
         changed_refs = [ref_name(b) for _, b in changed]
@@ -1182,8 +1214,14 @@ def _run_partial(work_id: str) -> None:
                 e = (data.get("human_edits") or {}).get(key)
                 if e is not None:
                     e["text"] = b.text
-                    e.pop("review", None)
                     e["note"] = (e.get("note") or "") + "（理事会の判断を反映して AI が書き直しました）"
+                    # 書き直した文は、確かめる役がこの場で確かめたので、その結果を条の印にも使う（「AI の確認前」のままにしない）
+                    mine = [c.model_dump() for c in review.concerns if b.article in c.ref]
+                    e["review"] = {"status": "済み", "for_text": b.text, "at": _now(), "cost_usd": 0,
+                                   "verdict": "問題なし" if not mine else ("法律に合わないおそれ" if any(c["kind"] == "法律に合わないおそれ" for c in mine) else "気になる点あり"),
+                                   "summary": "理事会の判断を反映して書き直したときに、AI が確かめました。",
+                                   "concerns": [{"kind": c["kind"] if c["kind"] in ("法律に合わないおそれ", "他の条と食い違う", "要確認") else "要確認",
+                                                 "point": c["point"], "basis": c["basis"], "suggestion": c["suggestion"]} for c in mine]}
             data["status_since"] = __import__("time").time()
             data.update(status="改定案あり", draft_reflects_board=True, draft_stale=False, draft_mode="partial",
                         interrupted="", interrupted_session="",
@@ -1693,6 +1731,27 @@ def edit_counts(work: dict) -> dict:
 
 
 templates.env.globals["edit_counts"] = edit_counts
+def ai_note(kind: str, work: dict) -> str:
+    """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
+    from core.progress import draft_plan
+
+    plan = draft_plan(_adopted_count(work))
+    tail = "\n費用は APIキーの持ち主に請求されます。画面を閉じても処理は続きます。始めますか？"
+    notes = {
+        "draft": f"改定案を作ります（AI が動きます）。\n改定案に入れる指摘 {plan['adopted']}件：目安 {plan['estimate']}・AI の費用 {plan['cost']}ほど。",
+        "redraft": f"改定案を最初から全部作り直します（AI が動きます）。\n目安 {plan['estimate']}・AI の費用 {plan['cost']}ほど。委員会で直した文は残ります。",
+        "resume": "止まったところから続けます（AI が動きます）。最初から作り直すより費用を抑えられます。",
+        "partial": f"対象の条（{'、'.join(redraft_targets(work)['refs'])}）だけを作り直します（AI が動きます）。\n目安 {PARTIAL_PLAN['estimate']}・AI の費用 {PARTIAL_PLAN['cost']}ほど。",
+        "board": "理事会の検討資料を作ります（AI が動きます）。\n目安 1〜2分・AI の費用 数十セントほど。",
+        "board_redo": "理事会の検討資料を作り直します（AI が動きます）。\n入れた理事会の判断はリセットされます。目安 1〜2分・AI の費用 数十セントほど。",
+        "explain": "住民向けの説明を作ります（AI が動きます）。\n目安 1〜2分・AI の費用 数十セントほど。",
+    }
+    return notes[kind] + tail
+
+
+templates.env.globals["ai_note"] = ai_note
+templates.env.globals["cost_total"] = lambda work: __import__("core.quality", fromlist=["cost_lines"]).cost_lines(work)["total"]
+templates.env.globals["draft_plan_for"] = lambda work: __import__("core.progress", fromlist=["draft_plan"]).draft_plan(_adopted_count(work))
 templates.env.globals["redraft_targets"] = redraft_targets
 templates.env.globals["partial_plan"] = PARTIAL_PLAN
 

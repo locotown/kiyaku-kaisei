@@ -47,7 +47,7 @@ def test_bulk_decisions(tmp_path, monkeypatch):
     assert r.json()["changed"] == 2
     d = json.loads((tmp_path / wid / "work.json").read_text(encoding="utf-8"))["decisions"]
     assert [d[str(i)]["decision"] for i in range(4)] == ["採用", "採用", "採用", "保留"]
-    assert d["1"]["reason"] == "まとめて採用" and len(d["1"]["history"]) == 1
+    assert d["1"]["reason"] == "まとめて「改定案に入れる」" and len(d["1"]["history"]) == 1
     # 必須は範囲に入らない。同じ判断なら変えない
     assert c.post(f"/works/{wid}/decisions/bulk", data={"scope": "推奨・参考", "decision": "採用"}).json()["changed"] == 1
     assert c.post(f"/works/{wid}/decisions/bulk", data={"scope": "必須", "decision": "保留"}).status_code == 400

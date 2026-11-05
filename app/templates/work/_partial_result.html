@@ -8,7 +8,7 @@
     <p><span class="verdict v-{{ 'ok' if ck.verdict == '問題なし' else 'ng' }}">直した条の AI の確認：{{ ck.verdict }}</span> <span class="small">{{ ck.summary }}</span></p>
     {% if ck.concerns %}<ul class="concerns">{% for c in ck.concerns %}
       <li><b>{{ c.kind }}</b>（{{ c.ref }}）：{{ c.point }}<div class="small">根拠：{{ c.basis }}</div><div class="small">どうするか：{{ c.suggestion }}</div></li>{% endfor %}</ul>
-      <p class="small">気になる点は、新旧対照表で確かめ、必要ならステップ3の「条の文を直す」で直してください。</p>{% endif %}
+      <p class="small">気になる点は、新旧対照表で確かめてください。条の文はステップ3の「条の文を直す」で直せます。理由の説明を直したいときは、議題のメモに直し方を書いて、もう一度「対象の条だけ作り直す」を押してください。</p>{% endif %}
     {% if pr.others %}<div class="small warn-lite"><b>ほかの条も直す必要がありそうです</b>（今回は直していません）：
       <ul>{% for o in pr.others %}<li>{{ o.ref }}：{{ o.why }}</li>{% endfor %}</ul>
       必要なら「条の文を直す」で直すか、全体を作り直してください。</div>{% endif %}

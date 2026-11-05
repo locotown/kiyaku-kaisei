@@ -27,6 +27,7 @@ WRITE_SYSTEM = f"""あなたは、マンションの管理規約の改定案を�
 守ること：
 - 理事会の判断で求められたところだけを変える。それ以外の文言・項の番号・書式は一字一句そのまま残す
 - 「選んだ案」がある箇所は、その案に合わせて本文を確定させ、{CHOICE_MARK}の印を外し、決まった点を choices から除く
+- 判断が「見送り」の議題に関わる条は、その議題の変更（その議題の論点に当たる部分）だけを取り除いて今の規約の文に戻し、ほかの議題の変更（特に法律の改正に合わせる変更）は残す
 - 「理事会のメモ」で直し方が示されていれば、それに従う。メモがあいまいで直し方が決められないときは、文を変えずに summary にそう書く
 - 条番号・文書（document）・改正／新設／削除の別は変えない。条番号の振り直しはしない
 - 改正区分所有法（2026年4月施行）の強行規定に反する文にしない（例：緊急時の招集通知は1週間を下回らない、議案の要領はすべての議案で通知する、
@@ -43,6 +44,7 @@ CHECK_SYSTEM = """あなたは、マンションの管理規約の改定案を�
 理事会の判断を反映して、改定案の一部の条を AI が書き直しました。書き直した条を、次の観点で確かめてください。
 
 1. 理事会の判断（選んだ案・メモ）が、本文（メモが理由の説明への指示なら、理由の説明）に正しく反映されているか。〔選択〕の印が残っていないか
+   （委員会の記録がある条では、その記録にある委員会の意見や直した文は正しいものとして扱う）
 2. 改正区分所有法（2026年4月施行）の強行規定に反していないか（決議の要件、招集通知の期間、議案の要領の通知 など）
 3. 書き直す前の文から、判断と関係のない文言・数字・項の番号が変わっていないか
 4. 書き直した条を参照している条（示したもの）と、条番号や言葉が食い違っていないか
@@ -146,10 +148,18 @@ def write_material(*, targets: list[dict], board: str, findings: list[dict], oth
     return "\n\n".join(parts)
 
 
-def check_material(*, board: str, changed: list[tuple[Amendment, Amendment]], others: list[Amendment]) -> str:
+def check_material(*, board: str, changed: list[tuple[Amendment, Amendment]], others: list[Amendment],
+                   human_notes: dict | None = None, currents: dict | None = None) -> str:
+    """確かめる役に渡す材料。human_notes は 条 → 委員会の補足（委員会で直した文・写真の書き込みの反映の経緯）。"""
     parts = ["# 理事会の判断", board or "（なし）", "# 書き直した条"]
     for before, after in changed:
         parts.append(f"## {after.document} {after.article}（{after.caption}）")
+        hn = (human_notes or {}).get(f"{after.document or '規約'}|{after.article}")
+        if hn:
+            parts.append("### 委員会の記録（この条は委員会が文を直している。理由の説明にある委員会の意見は、この記録に基づく）\n" + hn)
+        cur = (currents or {}).get(f"{after.document or '規約'}|{after.article}")
+        if cur is not None:  # 見送りで今の文に戻した箇所などを、今の規約の文と照らし合わせられるように
+            parts.append("### 今の規約の文（改定前）\n" + (cur or "（新しく設ける条）"))
         parts.append("### 書き直す前\n" + before.text)
         parts.append("### 書き直した後（これを確かめる）\n" + after.text)
         if after.reason != before.reason:  # 理事会のメモが「理由の説明」への指示のこともあるので、理由も見せる

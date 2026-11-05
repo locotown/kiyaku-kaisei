@@ -175,6 +175,9 @@ def cost_lines(work: dict) -> dict:
     if not entries:  # 記録を残す前の作業は、最後の値だけ
         entries = [{"step": s, "cost": work.get(k)} for s, k in (("点検", "review_cost"), ("改定案", "draft_cost")) if work.get(k)]
     lines = [{"step": e["step"], "usd": _usd(e.get("cost")), "at": e.get("at", "")} for e in entries]
+    for b in work.get("notes") or []:  # 写真の書き込みの読み取り（写真ごとに記録している）
+        if b.get("cost_usd"):
+            lines.append({"step": f"書き込みの読み取り（写真{len(b.get('photos') or [])}枚）", "usd": round(b["cost_usd"], 2), "at": b.get("at", "")})
     lines = [x for x in lines if x["usd"] is not None]
     return {"lines": lines, "total": round(sum(x["usd"] for x in lines), 2)}
 

@@ -346,3 +346,26 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .doc > div { min-width: 12em; }
   .doc > .btn { width: 100%; justify-content: center; }
 }
+
+/* ---- 下の帯：スマホでも説明（保存していない・目安など）を2行まで出す（想定ユーザーでの確認で、未保存の警告が見えなかった） ---- */
+.saved-ok { color: var(--color-ok); font-weight: 700; }
+@media (max-width: 720px) {
+  .bar .in { flex-wrap: wrap; row-gap: var(--space-1); }
+  .bar .t { display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+            flex: 1 1 100%; font-size: var(--text-xs); line-height: 1.45; }
+  .bar .t .muted, .bar .t b { font-size: var(--text-xs); }
+  .bar .t button { display: none; }
+}
+
+/* ---- 進み具合の印の意味（✓ と 赤い「済」の違いが分からない、という声から） ---- */
+.flow-legend { margin: var(--space-1) 0 0; }
+.flow-legend .m-demo .icon { width: 14px; height: 14px; vertical-align: -2px; color: var(--color-primary); }
+.flow-legend .hanko-demo { display: inline-block; font-weight: 700; color: var(--color-shu); border: 1.5px solid var(--color-shu); border-radius: 50%; width: 1.5em; height: 1.5em; line-height: 1.4em; text-align: center; font-size: 12px; transform: rotate(-10deg); }
+.nowrap { white-space: nowrap; }
+
+/* ---- スマホ：進み具合の丸の下に短い名前（丸だけでは、どこに戻ればよいか分からない、という声から） ---- */
+.flow li .lbl-s { display: none; }
+@media (max-width: 720px) {
+  .flow li .lbl-s { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--color-ink-2); white-space: nowrap; }
+  .flow li.view .lbl-s { color: var(--color-ink); font-weight: 700; }
+}

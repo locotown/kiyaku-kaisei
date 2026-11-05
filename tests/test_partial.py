@@ -137,7 +137,9 @@ def test_partial_updates_human_edit(board_work, monkeypatch):
     store.update(wid, status="改定案作成中", draft_mode="partial")
     run(wid)
     e = store.load(wid)["human_edits"]["規約|第47条"]
-    assert e["text"] == "第47条　…書面又は電磁的方法…" and "review" not in e and "理事会の判断を反映" in e["note"]
+    assert e["text"] == "第47条　…書面又は電磁的方法…" and "理事会の判断を反映" in e["note"]
+    # 書き直した文は、その場の確認の結果を条の印に使う（「AI の確認前」のままにしない）
+    assert e["review"]["status"] == "済み" and e["review"]["for_text"] == e["text"]
 
 
 def test_recover_keeps_draft_when_partial_interrupted(board_work):
@@ -196,3 +198,11 @@ def test_check_material_shows_reason_when_changed():
     m = partial.check_material(board="- メモ：理由に一言加える", changed=[(a, b)], others=[])
     assert "理由の説明（書き直した後）" in m and "住民の負担は増えません" in m
     assert "理由の説明" not in partial.check_material(board="", changed=[(a, a)], others=[])
+
+
+def test_check_material_includes_current_text():
+    """見送りで今の文に戻した箇所を、確かめる役が今の規約の文と照らし合わせられるように渡す（本物の AI での確認で分かった）。"""
+    a = Amendment("改正", "第47条", "第47条", "c", "第47条　過半数", "", [], [], [])
+    b = Amendment("改正", "第47条", "第47条", "c", "第47条　半数以上", "", [], [], [])
+    m = partial.check_material(board="", changed=[(a, b)], others=[], currents={"規約|第47条": "第47条　半数以上（今の文）"})
+    assert "今の規約の文（改定前）" in m and "半数以上（今の文）" in m

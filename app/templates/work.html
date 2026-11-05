@@ -7,16 +7,19 @@
 {# 表示するステップ（画面）。指摘がなければ「読み込み」だけ、改定案がなければ 理事会以降は出さない #}
 {% set avail = ["review"] + (["decide", "draft"] if work.findings else []) + (["board", "explain", "meeting"] if work.findings and work.draft else []) %}
 {% set ns_cur = namespace(key=journey.current if journey.current in avail else avail[-1]) %}
-<p class="eyebrow wk">{{ work.name }}　<span class="muted">状態：<b id="status">{{ work.status }}</b></span></p>
+{% set shown_status = "総会の結果あり" if (work.status == "説明文あり" and work.meeting and (work.meeting.results or {}).values()|select|list) else work.status %}
+{% set cst = cost_total(work) %}
+<p class="eyebrow wk">{{ work.name }}　<span class="muted">状態：<b id="status">{{ shown_status }}</b>{% if cst %}　AI の費用：これまで 約${{ "%.2f"|format(cst) }}{% endif %}</span></p>
 
 <ol class="flow" id="journey" aria-label="進み具合">{% for st in journey.steps %}
   {%- set human = st.who == "human" %}
   <li class="{{ {'done': 'done', 'now': 'now'}.get(st.state, '') }}" data-step="{{ st.key }}"{% if st.state == "now" %} aria-current="step"{% endif %}>
     {%- if st.key in avail %}<a href="#{{ st.anchor }}">{% else %}<span class="na">{% endif -%}
     {%- if st.state == "done" and human %}<span class="m hanko" aria-label="済">済</span>{% elif st.state == "done" %}<span class="m" aria-label="済">{{ icon("check") }}</span>{% else %}<span class="m"></span>{% endif -%}
-    <span class="lbl">{{ loop.index }}. {{ st.label }}</span>
+    <span class="lbl">{{ loop.index }}. {{ st.label }}</span><span class="lbl-s" aria-hidden="true">{{ {"review": "読込", "decide": "判断", "draft": "改定案", "board": "理事会", "explain": "説明", "meeting": "総会"}[st.key] }}</span>
     {%- if st.key in avail %}</a>{% else %}</span>{% endif %}</li>{% endfor %}
 </ol>
+<p class="small muted flow-legend"><span class="m-demo">{{ icon("check") }}</span>＝AI が作り終えた　<span class="hanko-demo">済</span>＝人が決め終えた（エラーではありません）</p>
 <p class="j-next" id="j-next">{% if journey.current %}いま：<b>{% for st in journey.steps %}{% if st.key == journey.current %}{{ loop.index }}. {{ st.label }}{% endif %}{% endfor %}</b>（全6ステップ）　{% endif %}{{ journey.next }}</p>
 
 {% include "work/_progress.html" %}
@@ -40,6 +43,13 @@
 {% endif %}
 {% endif %}
 
+<script>
+// AI を動かすボタンは、何をするか・時間・費用の目安を確かめてから動かす（押し間違いで費用がかからないように。想定ユーザーでの確認で分かった）
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-ai]');
+  if (b && !b.disabled && !window.confirm(b.dataset.ai)) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+</script>
 <script>
 (function () {  // ステップの切り替え：URL の #… が指す要素のステップを1つだけ見せる。なければ、いまのステップ
   var panels = Array.prototype.slice.call(document.querySelectorAll('.panel[data-step]'));

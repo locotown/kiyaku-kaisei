@@ -81,11 +81,15 @@ def _ref_key(text: str) -> str:
     return re.sub(r"[\s　]", "", text)
 
 
-def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
+def build_prompt(draft: Draft, info: dict, board: str = "", edits: dict | None = None) -> str:
+    from core.board import committee_edits
+
     today = datetime.now(JST).date()
+    human = committee_edits(draft, edits)
     amendments = [
         {"ref": ref_name(a), "document": a.document,
-         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices")}}
+         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices")},
+         **({"committee_edit": human[ref_name(a)]} if ref_name(a) in human else {})}
         for a in draft.amendments
     ]
     has_rules = any(a.document != "規約" for a in draft.amendments)
@@ -106,12 +110,17 @@ def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
         "",
         "## 担当者への申し送り（参考）",
         draft.notes,
-        *(["", "## 理事会の判断（この判断に沿って説明する。選んだ案があればその案で説明し、ご意見を伺いたい点には残さない）", board]
+        *(["", "## 理事会の判断（この判断に沿って説明する。選んだ案があればその案で説明し、ご意見を伺いたい点には残さない）",
+            "理事会のメモは理事会の内部の記録。住民に伝えるべき内容（修正した理由など）だけを説明に使い、"
+            "「次回確認する」「管理会社に聞く」などの理事会の段取りや宿題は書かない。", board]
           if board else []),
+        *(["", "committee_edit がある条は、委員会が文を直した条。reason は直す前の文についての説明のことがあるので、"
+            "committee_edit を踏まえ、「標準管理規約と同じ」「それ以外は変えていない」など直した文と食い違うことを書かない。"]
+          if human else []),
     ])
 
 
-def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") -> tuple[Explanation, dict]:
+def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "", edits: dict | None = None) -> tuple[Explanation, dict]:
     """説明文を作る。(説明, 使用量) を返す。"""
     c = client()
     with c.beta.messages.stream(
@@ -123,7 +132,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") 
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         output_format=Explanation,
-        messages=[{"role": "user", "content": build_prompt(draft, info, board)}],
+        messages=[{"role": "user", "content": build_prompt(draft, info, board, edits)}],
     ) as stream:
         message = stream.get_final_message()
     if message.stop_reason == "refusal" or message.parsed_output is None:

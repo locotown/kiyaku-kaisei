@@ -18,7 +18,7 @@
   {% endif %}
   <form action="/works/{{ id }}/explain" method="post" id="explainform">
     {% if not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}
-    {% if work.explain %}<button type="submit" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>{{ icon("refresh") }}説明文を作り直す</button>{% endif %}
+    {% if work.explain %}<button type="submit" data-ai="{{ ai_note('explain', work) }}" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>{{ icon("refresh") }}説明文を作り直す</button>{% endif %}
   </form>
   <div class="bar"><div class="in">
     {% if work.explain %}
@@ -26,7 +26,7 @@
       <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
     {% else %}
       <div class="t"><b>住民向けの説明を作ります</b>　改定案と理事会の判断から書きます</div>
-      <button type="submit" form="explainform" class="btn" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>住民向けの説明を作る{{ icon("arrow-right") }}</button>
+      <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>住民向けの説明を作る{{ icon("arrow-right") }}</button>
     {% endif %}
   </div></div>
 </section>

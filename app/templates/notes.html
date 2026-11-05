@@ -61,8 +61,10 @@
     <button type="submit" class="boxed">残りの写真を読み取る</button></form>
 {% endif %}
 {% if b.skipped %}<p class="warn"><b class="w">画像として読めないファイルが {{ b.skipped }}件ありました。</b>スマホで撮った写真（JPEG・PNG など）を選んでください。</p>{% endif %}
-{% set old_paper = b.photos|selectattr("ident")|rejectattr("ident", "equalto", ident_now)|list %}
-{% if old_paper %}<p class="warn"><b class="w">今の改定案と違う版の紙が写っています</b>（写真 {{ old_paper|map(attribute="n")|join("・") }}。紙の版の番号：{{ old_paper|map(attribute="ident")|unique|join("、") }}／今：{{ ident_now }}）。
+{# 紙の版は、読み込んだときの版と比べる（反映すると版の番号が変わるので、今の版と比べると、反映した直後に誤って警告が出る） #}
+{% set old_paper = b.photos|selectattr("ident")|rejectattr("ident", "equalto", b.ident or ident_now)|list %}
+{% if b.ident and b.ident != ident_now and not old_paper %}<p class="small muted">反映したので、改定案の版の番号が変わりました（読み込んだとき：{{ b.ident }}／今：{{ ident_now }}）。写っている紙は、読み込んだときの版です。</p>{% endif %}
+{% if old_paper %}<p class="warn"><b class="w">読み込んだときの改定案と違う版の紙が写っています</b>（写真 {{ old_paper|map(attribute="n")|join("・") }}。紙の版の番号：{{ old_paper|map(attribute="ident")|unique|join("、") }}／今：{{ ident_now }}）。
   その紙を印刷したあとに改定案が変わっています。提案の「今の文」と、写真をよく見比べてください。</p>{% endif %}
 
 <div class="stats">
