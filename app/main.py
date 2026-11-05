@@ -66,6 +66,13 @@ def recover_interrupted() -> list[str]:
         work = store.load(w["id"])
         if work.get("demo_busy"):
             continue
+        if w["status"] == "改定案作成中" and work.get("draft_mode") == "partial" and work.get("draft"):
+            # 対象の条だけの作り直しは、終わるまで改定案を書き換えないので、今の改定案のまま戻す
+            store.append_log(w["id"], "error", "対象の条の作り直しが途中で止まりました（サーバーの再起動など）")
+            store.update(w["id"], status="改定案あり",
+                         draft_partial={"status": "中断", "at": _now(), "error": "サーバーの再起動などで止まりました。もう一度押してください。"})
+            fixed.append(w["id"])
+            continue
         status, todo = INTERRUPTED[w["status"]]
         session = _current_session(work) if w["status"] == "改定案作成中" else ""
         if session:
@@ -694,7 +701,7 @@ def progress_view(work: dict) -> dict:
     current = [e for e in log if e.get("ts", 0) >= since - 1]  # この処理の記録だけ
     label = {"session": "開始", "message": "AIのメモ", "found": "指摘", "grading": "採点", "graded": "採点結果",
              "error": "エラー", "tool": "作業", "builtin": "作業", "stopped": "上限", "precedent": "下書き",
-             "resume": "再開", "setup": "準備"}
+             "resume": "再開", "setup": "準備", "writing": "作業", "edit": "反映"}
     from core.quality import RESULT_JA
 
     lines, now_text = [], "準備しています"
@@ -717,7 +724,8 @@ def progress_view(work: dict) -> dict:
             now_text = text
     last = current[-1]["ts"] if current else since
     return {"elapsed": int(now - since), "last_age": int(now - last), "lines": lines,
-            "current": now_text, **summarize(work.get("status", ""), current, adopted=_adopted_count(work))}
+            "current": now_text, **summarize(work.get("status", ""), current, adopted=_adopted_count(work),
+                                             partial=work.get("draft_mode") == "partial")}
 
 
 def _adopted_count(work: dict) -> int:
@@ -1065,13 +1073,141 @@ async def save_board_decisions(request: Request, work_id: str):
 
 
 @app.post("/works/{work_id}/board/redraft")
-def redraft_with_board(work_id: str):
+def redraft_with_board(work_id: str, mode: str = Form("full")):
+    """理事会の判断を改定案に反映する。mode=partial は対象の条だけ、それ以外は全体を最初から作り直す。"""
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中", draft_with_board=True)
+    if mode == "partial":
+        if not redraft_targets(work)["amendments"]:
+            raise HTTPException(400, "対象の条が見つかりませんでした。「全体を作り直す」を押してください。")
+        store.update(work_id, status="改定案作成中", draft_with_board=True, draft_mode="partial")
+        threading.Thread(target=_run_partial, args=(work_id,), daemon=True).start()
+        return RedirectResponse(f"/works/{work_id}", status_code=303)
+    store.update(work_id, status="改定案作成中", draft_with_board=True, draft_mode="full")
     threading.Thread(target=_run_draft, args=(work_id, True), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
+
+
+# ---- 理事会の判断を、対象の条だけに反映する（部分的な作り直し。core/partial.py） ----
+# 全体の作り直しは 20〜45分・数ドルかかるため、〔選択〕を選んだだけ・メモで少し直すだけのときはこちらを勧める
+PARTIAL_PLAN = {"estimate": "2〜5分", "cost": "数十セント"}
+
+
+def redraft_targets(work: dict) -> dict:
+    """部分的な作り直しの対象。見送りの議題は除く。
+
+    「修正して採用」「要修正」の議題はその議題の条すべて、案を選んだだけの議題は〔選択〕のある条だけ。
+    削除する条は書き直せないので対象にしない（削除をやめるなどは、全体の作り直しで）。
+    """
+    from core.board import NEEDS_REDRAFT
+    from core.draft import CHOICE_MARK
+    from core.explain import _ref_key, ref_name
+
+    paper, draft = _board(work), _draft(work)
+    if not paper or not draft:
+        return {"items": [], "amendments": [], "refs": []}
+    decisions = work.get("board_decisions", {})
+    by_key = {_ref_key(ref_name(a)): a for a in draft.amendments}
+    items, picked = [], []
+    for i, it in enumerate(paper.items):
+        d = decisions.get(str(i), {})
+        if d.get("decision") in ("", None, "見送り"):
+            continue
+        ams = [by_key[r] for r in (_ref_key(x) for x in it.articles) if r in by_key and by_key[r].kind != "削除"]
+        if d.get("decision") not in NEEDS_REDRAFT:
+            ams = [a for a in ams if CHOICE_MARK in a.text or a.choices]
+        if ams:
+            items.append(it.title)
+            picked += [a for a in ams if a not in picked]
+    return {"items": items, "amendments": picked, "refs": [ref_name(a) for a in picked]}
+
+
+def _run_partial(work_id: str) -> None:
+    """対象の条だけを AI に書き直させ（1回）、別の呼び出しで確かめる（1回）。検査に通らなければ今の改定案のまま。"""
+    from core import partial
+    from core.board import decisions_text
+    from core.draft import check as check_draft
+    from core.explain import ref_name
+    from core.present import basis
+    from core.taisho import rows
+
+    work = store.load(work_id)
+    log = lambda k, t: store.append_log(work_id, k, t)
+    usd = 0.0
+    try:
+        corpus, draft, paper = _corpus(work_id), _draft(work), _board(work)
+        tg = redraft_targets(work)
+        targets = tg["amendments"]
+        log("writing", f"対象の条を読む：{'、'.join(tg['refs'])}")
+        decisions = work.get("board_decisions", {})
+        # 理事会の判断のうち、対象の議題のものだけを渡す
+        sub = {str(i): d for i, d in decisions.items() if paper.items[int(i)].title in tg["items"]}
+        board = decisions_text(paper, sub)
+        olds = {(r["amendment"].document or "規約", r["amendment"].article): "".join(t for t, _ in r["old"])
+                for r in rows(draft, corpus) if r["amendment"] in targets}
+        human = work.get("human_edits") or {}
+        tinfo = [{"amendment": a, "current": "" if a.kind == "新設" else olds.get((a.document or "規約", a.article), ""),
+                  "basis": basis({"law_basis": a.law_basis, "standard_basis": a.standard_basis}),
+                  "human_note": (human.get(f"{a.document or '規約'}|{a.article}") or {}).get("note") or
+                                ("（補足なし）" if f"{a.document or '規約'}|{a.article}" in human else "")} for a in targets]
+        refs_set = {x for a in targets for x in a.finding_refs}
+        findings = [f for f in work.get("findings", []) if f.get("topic_id") in refs_set]
+        others = partial.referencing(draft, targets)
+        material = partial.write_material(targets=tinfo, board=board, findings=findings, others=others,
+                                          all_refs=[ref_name(a) for a in draft.amendments], notes=draft.notes)
+        log("builtin", "write：対象の条を書き直す")
+        out, c1 = partial.rewrite(material)
+        usd += c1
+        new_draft, changed = partial.merge(draft, out, targets)
+        adopted = [f for i, f in enumerate(_findings(work)) if work["decisions"][str(i)]["decision"] == "採用"]
+        # 書き直しで新しく出たエラーだけで止める（作り直しと関係のない条に元からある注意で、毎回止めないため）
+        _, errors_before, _ = check_draft(draft.to_dict(), corpus, adopted)
+        checked, errors, _ = check_draft(new_draft.to_dict(), corpus, adopted)
+        new_errors = [e for e in errors if e not in errors_before]
+        if new_errors:
+            raise ValueError("書き直した改定案が機械的な検査に通りませんでした：" + "／".join(new_errors[:3]))
+        new_draft = checked or new_draft
+        log("grading", "採点 直した条を確かめています")
+        review, c2 = partial.check(partial.check_material(board=board, changed=changed, others=others))
+        usd += c2
+        log("graded", f"直した条の確認：{review.verdict}")
+        changed_refs = [ref_name(b) for _, b in changed]
+
+        def save(data: dict) -> None:
+            data["draft"] = new_draft.to_dict()
+            # 委員会が手で直した条を書き直したときは、直した文を新しい文にする（作り直しのたびに古い文へ戻さないため）
+            for _, b in changed:
+                key = f"{b.document or '規約'}|{b.article}"
+                e = (data.get("human_edits") or {}).get(key)
+                if e is not None:
+                    e["text"] = b.text
+                    e.pop("review", None)
+                    e["note"] = (e.get("note") or "") + "（理事会の判断を反映して AI が書き直しました）"
+            data["status_since"] = __import__("time").time()
+            data.update(status="改定案あり", draft_reflects_board=True, draft_stale=False, draft_mode="partial",
+                        interrupted="", interrupted_session="",
+                        draft_partial={"status": "済み", "at": _now(), "targets": tg["refs"], "changed": changed_refs,
+                                       "summary": out.summary, "others": [o.model_dump() for o in out.others],
+                                       "check": review.model_dump(), "cost_usd": round(usd, 4)})
+            data.setdefault("costs", []).append(_cost_entry(f"改定案の部分的な作り直し（{'、'.join(tg['refs'])}）",
+                                                            {"amount": max(1, round(usd * 100)), "currency": "USD"}))
+        store.mutate(work_id, save)
+        work = store.load(work_id)
+        _write_taisho(work_id, work, _draft(work), corpus)
+        log("edit", f"理事会の判断を反映して、{'、'.join(changed_refs) or '対象の条'}を書き直しました（約${usd:.2f}）")
+    except Exception as e:
+        log("error", f"{type(e).__name__}: {e}")
+
+        def fail(data: dict) -> None:  # 今の改定案はそのまま残っているので、改定案はある状態に戻す
+            data["status_since"] = __import__("time").time()
+            data.update(status="改定案あり" if data.get("draft") else "改定案エラー", draft_mode="partial",
+                        draft_partial={"status": "失敗", "at": _now(), "error": f"{type(e).__name__}: {e}"[:400],
+                                       "cost_usd": round(usd, 4)})
+            if usd:
+                data.setdefault("costs", []).append(_cost_entry("改定案の部分的な作り直し（失敗）",
+                                                                {"amount": max(1, round(usd * 100)), "currency": "USD"}))
+        store.mutate(work_id, fail)
 
 
 @app.get("/works/{work_id}/board", response_class=HTMLResponse)
@@ -1556,6 +1692,8 @@ def edit_counts(work: dict) -> dict:
 
 
 templates.env.globals["edit_counts"] = edit_counts
+templates.env.globals["redraft_targets"] = redraft_targets
+templates.env.globals["partial_plan"] = PARTIAL_PLAN
 
 
 def _review_material(work_id: str, work: dict, key: str) -> str:

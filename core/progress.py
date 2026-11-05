@@ -77,8 +77,18 @@ def _tool_name(entry: dict) -> str:
     return str(entry.get("text", "")).split("：", 1)[0]
 
 
-def summarize(status: str, log: list[dict], adopted: int | None = None) -> dict:
-    """この処理の作業の記録（log）から、段階と件数をまとめる。adopted は改定案に入れる指摘の件数（目安に使う）。"""
+PARTIAL = {"steps": ["対象の条を読む", "対象の条を書き直す", "直した条を確かめる"], "estimate": "2〜5分"}
+
+
+def summarize(status: str, log: list[dict], adopted: int | None = None, partial: bool = False) -> dict:
+    """この処理の作業の記録（log）から、段階と件数をまとめる。adopted は改定案に入れる指摘の件数（目安に使う）。
+
+    partial は、理事会の判断を対象の条だけに反映する作り直し（段階が少なく、数分で終わる）。
+    """
+    if status == "改定案作成中" and partial:
+        kinds = {e.get("kind") for e in log}
+        stage = 2 if kinds & {"grading", "graded"} else 1 if "builtin" in kinds else 0
+        return {**PARTIAL, "stage": stage, "counts": {"規約の条": 0, "標準管理規約": 0, "区分所有法": 0, "指摘": 0}}
     spec = dict(STAGES.get(status, {"steps": [], "estimate": ""}))
     if status == "改定案作成中" and adopted is not None:
         spec["estimate"] = draft_plan(adopted)["estimate"]

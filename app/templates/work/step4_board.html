@@ -12,10 +12,21 @@
       <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表</a>
     </div>
     {% if board_state %}
+      {% include "work/_partial_result.html" %}
       {% if board_state.needs_redraft %}
-        <form action="/works/{{ id }}/board/redraft" method="post" class="warn">
+        {% set tg = redraft_targets(work) %}
+        <form action="/works/{{ id }}/board/redraft" method="post" class="warn redraftbox">
           <p><b class="w">改定案の作り直しが必要です。</b>{{ board_state.reason }}{% if board_state.redraft %}（対象の議題：{{ board_state.redraft|join("、") }}）{% endif %}</p>
-          <button type="submit" class="boxed" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}理事会の判断を反映して改定案を作り直す</button>
+          {% if tg.amendments %}
+          <div class="rd-opt rd-main">
+            <button type="submit" name="mode" value="partial" class="boxed" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}対象の条だけ作り直す</button>
+            <span class="small">作り直す条：<b>{{ tg.refs|join("、") }}</b>（目安 {{ partial_plan.estimate }}・AI の費用 {{ partial_plan.cost }}ほど）。ほかの条は今の文のまま残し、直した条を別の AI が確かめます。</span>
+          </div>
+          {% endif %}
+          <div class="rd-opt">
+            <button type="submit" name="mode" value="full" class="{{ 'tbtn2' if tg.amendments else 'boxed' }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}全体を作り直す</button>
+            <span class="small">規約を読み直し、すべての条を最初から作り直します（目安 20〜45分・数ドル）。「修正して採用」が多いときや、全体を見直したいとき用です。</span>
+          </div>
         </form>
       {% elif board_state.ready %}
         <div class="justdone">{{ icon("check") }}<span>理事会での検討が済みました。{% if board_state.skipped %}見送り：{{ board_state.skipped|join("、") }}（住民向け説明には含めません）{% endif %}</span></div>

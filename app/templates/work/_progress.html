@@ -5,9 +5,10 @@
                "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（採点役）が確認しています。",
                "検討資料作成中": "AI が改定案を3段（理解する・判断する・確認する）に分けて、理事会の検討資料を書いています。",
                "説明文作成中": "AI が改定案と理事会の判断をもとに、住民向けの説明を書いています。"} %}
+{% set part = work.status == "改定案作成中" and work.draft_mode == "partial" %}
 <section class="card progress" id="progress">
-  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
-  <p class="muted">{{ what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます）。</p>
+  <h2>{{ "理事会の判断を、対象の条に反映しています" if part else {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
+  <p class="muted">{{ "AI が理事会の判断を対象の条だけに反映し、別の AI が直した条を確かめています。ほかの条は今の文のまま残ります。" if part else what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます）。</p>
   <ol class="steps" id="steps">{% for st in progress.steps %}
     <li class="{{ 'done' if loop.index0 < progress.stage else ('now' if loop.index0 == progress.stage else '') }}">{{ st }}</li>{% endfor %}</ol>
   <div class="pgrid">
@@ -44,7 +45,7 @@
       $('status').textContent = s.status;
       if (!BUSY.includes(s.status)) {  // 終わったら、結果の画面へ移って知らせる
         var to = s.status.indexOf('エラー') >= 0 ? 'error'
-          : {"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"];
+          : {{ '"board"' if part else '{"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["' ~ work.status ~ '"]' }};
         location.href = '/works/{{ id }}?done=' + encodeURIComponent('{{ work.status }}') + '#' + to;
         return;
       }
