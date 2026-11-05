@@ -384,3 +384,11 @@ def test_revert_with_one_button(work):
     assert key not in w["human_edits"] and next(a for a in w["draft"]["amendments"] if a["article"] == "第20条")["text"] == "第20条　…"
     assert "AI が作った文に戻しました" in work.get(r.headers["location"]).text
     assert work.post(f"/works/{WID}/articles/revert", data={"ident": "古い版", "key": key}).status_code == 409
+
+
+def test_photo_box_is_a_distinct_card_with_buttons(work):
+    """写真を読み込む欄は、操作の並びと見分けられる枠の欄で、ボタンの形で置く（折りたたまない。人の確認の気づき）。"""
+    page = work.get(f"/works/{WID}").text
+    assert "委員会・理事会の書き込みを、写真で戻す" in page and "写真を選ぶ" in page
+    assert 'class="btn nb-go" data-go disabled' in page                    # 写真を選ぶまで「読み込む」は押せない
+    assert '<details class="more notesbox"' not in page

@@ -247,7 +247,15 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 @media (min-width: 641px) { .tabs.filters { margin-left: calc(-1 * var(--space-5)); margin-right: calc(-1 * var(--space-5)); padding: 0 var(--space-5); } }
 
 /* ---- 書き込みの反映（notes.html・作業の画面の読み込み欄） ---- */
-.noteform { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: var(--space-2) 0; }
+.tk .notesbox { margin-top: var(--space-6); padding: var(--space-4) var(--space-5); background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
+.notesbox .nb-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; }
+.notesbox .nb-head h2 { font-size: var(--text-lg); margin: 0 0 var(--space-1); }
+.notesbox .nb-icon { width: 28px; height: 28px; color: var(--color-primary); margin-top: 2px; }
+.notesbox .nb-sub { font-size: var(--text-sm); margin: var(--space-4) 0 0; }
+.noteform { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: var(--space-3) 0 var(--space-2); }
+.tk .nb-pick { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--hit-min); padding: 0 var(--space-4); margin: 0; font-weight: 700; color: var(--color-primary); background: var(--color-surface); border: 1px solid var(--color-primary); border-radius: var(--radius-1); cursor: pointer; }
+.tk .nb-pick:focus-within, .tk .nb-pick:hover { background: var(--color-primary-soft); }
+.tk .nb-go[disabled] { opacity: .45; cursor: not-allowed; }
 .notelist { margin: var(--space-2) 0; font-size: var(--text-sm); }
 .todos ul { font-size: var(--text-sm); }
 .notephoto .np-head { display: grid; grid-template-columns: 180px 1fr; gap: var(--space-4); align-items: start; margin-bottom: var(--space-3); }
