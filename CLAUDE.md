@@ -28,6 +28,7 @@
 - docs/DOMAIN.md … 改正論点リスト
 - docs/SCHEDULE.md … 期間中の計画
 - docs/DEMO.md … 3分デモ動画の台本
+- docs/SUBMISSION.md … 提出フォームの項目ごとの下書きと、提出までにすること
 - progress.md … 日次ログ
 
 ## 進め方
