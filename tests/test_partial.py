@@ -187,3 +187,12 @@ def test_progress_script_is_not_escaped(board_work):
         page = c.get(f"/works/{wid}").text
         script = page[page.index("var BUSY"):page.index("setTimeout(poll")]
         assert "&#34;" not in script and "&#39;" not in script and to in script, mode
+
+
+def test_check_material_shows_reason_when_changed():
+    """理事会のメモが理由の説明への指示のこともあるので、確かめる役に理由の前後も渡す（本番の確認で分かった）。"""
+    a = Amendment("改正", "第48条", "第48条", "議決権", "第48条　…", "前の理由", [], [], [])
+    b = Amendment("改正", "第48条", "第48条", "議決権", "第48条　…", "前の理由。住民の負担は増えません。", [], [], [])
+    m = partial.check_material(board="- メモ：理由に一言加える", changed=[(a, b)], others=[])
+    assert "理由の説明（書き直した後）" in m and "住民の負担は増えません" in m
+    assert "理由の説明" not in partial.check_material(board="", changed=[(a, a)], others=[])

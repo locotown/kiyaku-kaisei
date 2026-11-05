@@ -42,7 +42,7 @@ WRITE_SYSTEM = f"""あなたは、マンションの管理規約の改定案を�
 CHECK_SYSTEM = """あなたは、マンションの管理規約の改定案を確かめる採点役です。
 理事会の判断を反映して、改定案の一部の条を AI が書き直しました。書き直した条を、次の観点で確かめてください。
 
-1. 理事会の判断（選んだ案・メモ）が、本文に正しく反映されているか。〔選択〕の印が残っていないか
+1. 理事会の判断（選んだ案・メモ）が、本文（メモが理由の説明への指示なら、理由の説明）に正しく反映されているか。〔選択〕の印が残っていないか
 2. 改正区分所有法（2026年4月施行）の強行規定に反していないか（決議の要件、招集通知の期間、議案の要領の通知 など）
 3. 書き直す前の文から、判断と関係のない文言・数字・項の番号が変わっていないか
 4. 書き直した条を参照している条（示したもの）と、条番号や言葉が食い違っていないか
@@ -152,6 +152,9 @@ def check_material(*, board: str, changed: list[tuple[Amendment, Amendment]], ot
         parts.append(f"## {after.document} {after.article}（{after.caption}）")
         parts.append("### 書き直す前\n" + before.text)
         parts.append("### 書き直した後（これを確かめる）\n" + after.text)
+        if after.reason != before.reason:  # 理事会のメモが「理由の説明」への指示のこともあるので、理由も見せる
+            parts.append("### 理由の説明（書き直す前）\n" + before.reason)
+            parts.append("### 理由の説明（書き直した後）\n" + after.reason)
         if after.choices:
             parts.append("### まだ決まっていない選ぶ点\n" + "\n".join(f"- {c.get('point', '')}" for c in after.choices))
     if others:
