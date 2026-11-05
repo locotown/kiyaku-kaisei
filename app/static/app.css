@@ -354,7 +354,6 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .bar .t { display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
             flex: 1 1 100%; font-size: var(--text-xs); line-height: 1.45; }
   .bar .t .muted, .bar .t b { font-size: var(--text-xs); }
-  .bar .t button { display: none; }
 }
 
 /* ---- 進み具合の印の意味（✓ と 赤い「済」の違いが分からない、という声から） ---- */

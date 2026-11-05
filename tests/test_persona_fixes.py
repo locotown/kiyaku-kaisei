@@ -120,3 +120,17 @@ def test_work_list_shows_created_time(board_work):
     page = c.get("/").text
     ts = wid[:13]
     assert f"{int(ts[4:6])}/{int(ts[6:8])} {ts[9:11]}:{ts[11:13]}" in page
+
+
+def test_skipped_mark_keeps_articles_with_required_change(board_work):
+    """新旧対照表の「見送り」の印は、必須の変更も入っていて総会に出す条には付けない（作業の画面から作る印で確かめる）。"""
+    M, store, c, wid, _, _ = board_work
+    draft = mixed_draft()
+    paper = BoardPaper(title="t", intro="", next_steps="", items=[
+        BoardItem(tier=T1, title="招集通知", articles=["第45条"], summary="", points=["p"], options=[], questions=[], finding_refs=["2-1"]),
+        BoardItem(tier=T2, title="国内管理人", articles=["第33条の2", "第45条"], summary="", points=["p"], options=[], questions=[],
+                  finding_refs=["5"]),
+    ])
+    store.update(wid, draft=draft.to_dict(), board=paper.model_dump(),
+                 board_decisions={"0": {"decision": "理解した"}, "1": {"decision": "見送り"}})
+    assert M._skipped(store.load(wid)) == {"第33条の2"}

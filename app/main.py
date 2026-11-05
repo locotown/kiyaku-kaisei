@@ -244,7 +244,8 @@ def _skipped(work: dict) -> set:
     from core.board import skipped_refs
 
     paper = _board(work)
-    return skipped_refs(paper, work.get("board_decisions", {})) if paper else set()
+    # 改定案を渡す：必須の変更も入っている条は、見送りでも総会に出すので印を付けない
+    return skipped_refs(paper, work.get("board_decisions", {}), _draft(work)) if paper else set()
 
 
 def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
