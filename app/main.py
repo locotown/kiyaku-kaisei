@@ -848,7 +848,7 @@ def start_draft(work_id: str):
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
-    store.update(work_id, status="改定案作成中", draft_with_board=False)
+    store.update(work_id, status="改定案作成中", draft_with_board=False, draft_mode="full")
     threading.Thread(target=_run_draft, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
@@ -862,7 +862,7 @@ def resume_draft_work(work_id: str):
     session = work.get("interrupted_session", "")
     if work["status"] != "改定案エラー" or not session:
         raise HTTPException(409, "途中から再開できる作業がありません。「改定案を作る」から始めてください。")
-    store.update(work_id, status="改定案作成中")
+    store.update(work_id, status="改定案作成中", draft_mode="full")
     threading.Thread(target=_run_draft, args=(work_id, bool(work.get("draft_with_board")), session), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 

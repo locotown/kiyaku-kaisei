@@ -158,3 +158,19 @@ def test_referencing_and_merge():
                              notes="", summary="s")
     new, changed = partial.merge(d, out, [d.amendments[0]])
     assert new.amendments[0].text == "第47条　新" and new.notes == "n" and len(changed) == 1
+
+
+def test_full_redraft_paths_set_mode(board_work, monkeypatch):
+    """「全体を作り直す」と、ステップ3の「最初から作り直す」（mode を送らない）は全体の作り直しになり、前の部分的な結果を出さない。"""
+    M, store, c, wid, _, _ = board_work
+    calls = []
+    monkeypatch.setattr(M, "_run_draft", lambda *a, **k: calls.append(a))
+    store.update(wid, draft_mode="partial", draft_partial={"status": "済み", "at": "x", "targets": ["第47条"], "summary": "前の結果"})
+    assert c.post(f"/works/{wid}/board/redraft", follow_redirects=False).status_code == 303   # mode なし
+    w = store.load(wid)
+    assert calls == [(wid, True)] and w["draft_mode"] == "full"
+    store.update(wid, status="改定案あり")
+    assert "前の結果" not in c.get(f"/works/{wid}").text
+    store.update(wid, status="検討資料あり", draft_mode="partial")
+    c.post(f"/works/{wid}/draft", follow_redirects=False)   # ステップ3の「改定案を作り直す」
+    assert store.load(wid)["draft_mode"] == "full"

@@ -207,7 +207,8 @@ def merge(draft: Draft, out: RewriteOut, targets: list[Amendment]) -> tuple[Draf
             continue
         new = Amendment(kind=a.kind, article=a.article, before_article=a.before_article, caption=o.caption or a.caption,
                         text=o.text if a.kind != "削除" else a.text, reason=o.reason or a.reason,
-                        finding_refs=o.finding_refs or a.finding_refs, law_basis=o.law_basis, standard_basis=o.standard_basis,
+                        finding_refs=o.finding_refs or a.finding_refs, law_basis=o.law_basis or a.law_basis,
+                        standard_basis=o.standard_basis or a.standard_basis,  # 空で返しても根拠を落とさない
                         choices=[c.model_dump() for c in o.choices], document=a.document)
         amendments.append(new)
         if new.to_dict() != a.to_dict():
