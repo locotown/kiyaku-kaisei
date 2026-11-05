@@ -225,7 +225,7 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None, ident: 
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 {p(ex.intro)}
 {''.join(items)}
-<h2>皆さんのご意見を伺いたい点</h2><div class="box"><ul>{choices}</ul></div>
+{('<h2>皆さんのご意見を伺いたい点</h2><div class="box"><ul>' + choices + '</ul></div>') if ex.choices else ''}
 <h2>総会での決め方</h2>{p(ex.resolution)}
 {p(ex.closing)}
 {appendix}

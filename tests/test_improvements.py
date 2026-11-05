@@ -110,3 +110,51 @@ def test_top_links_and_user_facing_words():
     page = TestClient(M.app).get("/").text
     assert 'href="#samples"' in page and 'id="samples"' in page
     assert "GitHub" not in page and "private/" not in page
+
+
+def test_final_version_skips_orphan_paragraphs_in_preamble():
+    """（ア）（イ）を並べた規約で、条に結び付かなかった項が、最新の規約の冒頭に出ない（想定ユーザーでの2回目の確認で分かった）。"""
+    import app.main as M
+    from core.consolidate import consolidate
+    from core.ingest import load_kiyaku
+
+    blocks = consolidate(load_kiyaku(M.SAMPLE), [], "管理規約")
+    head = [b for b in blocks[:3] if b.kind == "appendix"]
+    assert all(not re.match(r"^\s*[0-9０-９]+[\s　]", line) for b in head for line in b.lines)
+    assert blocks[2].kind == "chapter"
+
+
+def test_redraft_reason_matches_the_decision(board_work):
+    """作り直しが必要な理由は、実際に選んだ判断で書く（決まり文句で迷わせない）。"""
+    M, store, c, wid, _, _ = board_work
+    st = M.board_state(store.load(wid))
+    assert st["needs_redraft"] and "組合が選ぶ点の案を選びました" in st["reason"] and "修正して採用" not in st["reason"]
+
+
+def test_photo_note_appends_to_committee_note(board_work):
+    """写真の書き込みから反映した補足は、前の補足（委員会の経緯）を消さずに書き足す。"""
+    M, store, c, wid, _, _ = board_work
+    M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　委員会の文", "note": "11/5 委員会で決めた"}], "log")
+    M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　写真の文", "note": "額で数える"}], "log", batch="b1")
+    note = store.load(wid)["human_edits"]["規約|第47条"]["note"]
+    assert note.startswith("11/5 委員会で決めた／") and note.endswith("額で数える")
+
+
+def test_saved_count_counts_articles(board_work):
+    M, store, c, wid, _, _ = board_work
+    r = c.post(f"/works/{wid}/articles", data={"ident": _ident(c, wid), "text_規約|第47条": "第47条　直した文",
+                                               "reason_規約|第47条": "直した理由"}, follow_redirects=False)
+    assert r.headers["location"].endswith("saved=1")
+
+
+def test_empty_meeting_save_is_not_reported_as_done(board_work):
+    M, store, c, wid, _, _ = board_work
+    r = c.post(f"/works/{wid}/meeting", data={"m_name": "総会"}, follow_redirects=False)
+    assert "done=meeting_empty" in r.headers["location"]
+
+
+def test_explain_hides_empty_opinion_section():
+    from core.explain import Explanation, to_html
+
+    ex = Explanation(title="t", intro="i", items=[], choices=[], resolution="r", closing="c")
+    assert "皆さんのご意見を伺いたい点" not in to_html(ex)

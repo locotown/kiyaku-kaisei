@@ -96,7 +96,9 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
 
     blocks = [Block("title", [title])]
     for line in kiyaku.preamble:
-        if line.strip():
+        # 項や号の形の行（「2　…」「一　…」）は前置きではない。（ア）（イ）を並べて書いた規約で、
+        # どの条にも結び付かなかった項が前置きに入り、最新の規約の冒頭に出ていた（想定ユーザーでの確認で分かった）
+        if line.strip() and not re.match(r"^\s*([0-9０-９]+|[一二三四五六七八九十]+)[\s　]", line):
             blocks.append(Block("appendix", [line]))
     chapter = None
     for _, _, ch, lines, changed in rows:

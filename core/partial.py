@@ -34,7 +34,7 @@ WRITE_SYSTEM = f"""あなたは、マンションの管理規約の改定案を�
   規約変更などの特別決議は組合員総数の過半数かつ議決権総数の過半数の出席で、出席組合員及びその議決権の各4分の3以上）。
   理事会の判断がこれに反する場合は、反しない形にとどめ、その理由を summary に書く
 - text は「第○条　」で始め、第2項以降は「2　」、号は「一　」で始めて改行で区切る（今の改定案の文と同じ書式）
-- reason は、専門家でない理事会の担当者に分かる平易な日本語で、理事会の判断も踏まえて2〜4文で書き直す
+- reason は、専門家でない理事会の担当者に分かる平易な日本語で、理事会の判断も踏まえて2〜4文で書き直す。論点ID（「1-3」など）や「論点」という言葉などの内部の番号は書かない
 - law_basis・standard_basis・finding_refs は、変える理由がなければそのまま残す
 - notes（担当者への申し送り）は、今の申し送りをもとに、理事会の判断で決まったこと（{CHOICE_MARK}で選んだ点など）を反映して書き直す。
   見出しの構成はそのまま。総会提案の下書きであり法的助言ではない旨を必ず残す
@@ -149,7 +149,7 @@ def write_material(*, targets: list[dict], board: str, findings: list[dict], oth
 
 
 def check_material(*, board: str, changed: list[tuple[Amendment, Amendment]], others: list[Amendment],
-                   human_notes: dict | None = None, currents: dict | None = None) -> str:
+                   human_notes: dict | None = None, currents: dict | None = None, related: list[dict] | None = None) -> str:
     """確かめる役に渡す材料。human_notes は 条 → 委員会の補足（委員会で直した文・写真の書き込みの反映の経緯）。"""
     parts = ["# 理事会の判断", board or "（なし）", "# 書き直した条"]
     for before, after in changed:
@@ -170,6 +170,9 @@ def check_material(*, board: str, changed: list[tuple[Amendment, Amendment]], ot
     if others:
         parts.append("# 書き直した条を参照している、ほかの改定")
         parts += [f"## {a.document} {a.article}（{a.caption}）\n{a.text}" for a in others]
+    if related:
+        parts.append("# 関係する条の今の規約の文（書き直した条が参照している条・書き直す役が「ほかに直す必要がありそう」と挙げた条）")
+        parts += [f"## {r['ref']}（{r.get('caption', '')}）\n{r['text']}" for r in related]
     return "\n\n".join(parts)
 
 

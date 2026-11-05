@@ -367,6 +367,27 @@ def _run_board(work_id: str) -> None:
         store.update(work_id, status="検討資料エラー", error=traceback.format_exc(limit=3))
 
 
+def _redraft_reason(paper, decisions: dict, titles: list[str], draft) -> str:
+    """作り直しが必要な理由を、実際に選んだ判断に合わせて書く（決まり文句で「修正して採用は選んでいない」と迷わせない）。"""
+    from core.board import NEEDS_REDRAFT, required_refs
+    from core.explain import _ref_key
+
+    must = required_refs(draft) if draft else set()
+    parts = []
+    for i, it in enumerate(paper.items):
+        if it.title not in titles:
+            continue
+        d = decisions.get(str(i), {})
+        if d.get("decision") == "見送り":
+            arts = [x for x in it.articles if _ref_key(x) in must]
+            parts.append(f"見送った議題「{it.title}」が、法律で必ず必要な変更と同じ条（{'、'.join(arts)}）に入っています。見送った部分だけを取り除きます")
+        elif d.get("decision") in NEEDS_REDRAFT:
+            parts.append(f"「{it.title}」を「{d['decision']}」にしました。メモの内容を改定案に入れます")
+        else:
+            parts.append(f"「{it.title}」で、組合が選ぶ点の案を選びました。選んだ案を改定案に入れます")
+    return "。".join(parts) + "。下の「対象の条だけ作り直す」を押してください。"
+
+
 def board_state(work: dict) -> dict:
     """理事会の検討の状態。住民向け説明を作れるかを返す。"""
     from core.board import apply_to_draft, remaining_choices, status
@@ -382,8 +403,7 @@ def board_state(work: dict) -> dict:
             reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、案を選んでください。"
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
-        return {**st, "ready": False, "needs_redraft": True,
-                "reason": "「修正して採用」「要修正」や、案を選んだ議題があります。理事会の判断を反映して改定案を作り直してください。"}
+        return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, st["redraft"], _draft(work))}
     draft = _draft(work)
     left = remaining_choices(apply_to_draft(draft, paper, decisions)) if draft else []
     if left:
@@ -917,7 +937,9 @@ async def save_meeting(request: Request, work_id: str):
                "effective": str(form.get("m_effective", "")).strip(), "results": results, "edits": edits,
                "saved_at": _now()}
     store.update(work_id, meeting=meeting)
-    return RedirectResponse(f"/works/{work_id}?done=meeting#meeting", status_code=303)
+    # 結果を1つも選んでいないときは「保存しました」と出さず、選ぶよう知らせる（何も入れずに終えたと思い込まないように）
+    done = "meeting" if any(results.values()) else "meeting_empty"
+    return RedirectResponse(f"/works/{work_id}?done={done}#meeting", status_code=303)
 
 
 def _final(work_id: str, n: int) -> dict:
@@ -1211,8 +1233,11 @@ def _run_partial(work_id: str) -> None:
         log("grading", "採点 直した条を確かめています")
         hnotes = {k: ("委員会で直した文。" + (f"補足：{e.get('note')}" if e.get("note") else "")) for k, e in human.items()}
         currents = {f"{t['amendment'].document or '規約'}|{t['amendment'].article}": t["current"] for t in tinfo}
+        related = []
+        for _, b in changed:
+            related += _related(corpus, b.document or "規約", b.article, b.text, [o.ref for o in out.others])
         review, c2 = partial.check(partial.check_material(board=board, changed=changed, others=others, human_notes=hnotes,
-                                                          currents=currents))
+                                                          currents=currents, related=related[:10]))
         usd += c2
         log("graded", f"直した条の確認：{review.verdict}")
         changed_refs = [ref_name(b) for _, b in changed]
@@ -1611,8 +1636,14 @@ def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -
                         am["text"] = human.pop(key)["original"]
                     continue
                 prev = human.get(key, {})
+                note = e.get("note", "")
+                # 写真の書き込みから反映したときは、前の補足（委員会の経緯）を消さずに書き足す（上書きで経緯が消えた、という声から）
+                if batch and prev.get("note") and note and note not in prev["note"]:
+                    note = f"{prev['note']}／{now}：{note}"
+                elif batch and prev.get("note") and not note:
+                    note = prev["note"]
                 human[key] = {"text": e["text"], "original": prev.get("original", am["text"]), "at": now,
-                              "batch": batch, "note": e.get("note", "")}
+                              "batch": batch, "note": note}
                 if prev.get("review") and prev.get("text") == e["text"]:  # 補足だけ直したときは、AI の確認の結果を残す
                     human[key]["review"] = prev["review"]
                 am["text"] = e["text"]
@@ -1696,7 +1727,8 @@ async def save_articles(request: Request, work_id: str):
         work = store.load(work_id)
         _write_taisho(work_id, work, _draft(work), _corpus(work_id))
         _rerender(work_id)
-    return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits) + len(reasons)}", status_code=303)
+    n = len({(e["document"], e["article"]) for e in edits + reasons})  # 文と理由を直した同じ条は1条と数える
+    return RedirectResponse(f"/works/{work_id}/articles?saved={n}", status_code=303)
 
 
 def _edit_reasons(work_id: str, reasons: list[dict]) -> None:
@@ -1829,7 +1861,31 @@ def _review_material(work_id: str, work: dict, key: str) -> str:
     return context(article=article, caption=am.caption, current=current, original=e["original"], edited=e["text"],
                    note=e.get("note", ""), findings=findings,
                    basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis})
-                   + _definitions(_corpus(work_id), e["original"] + e["text"]))
+                   + _definitions(_corpus(work_id), e["original"] + e["text"])
+                   + _related(_corpus(work_id), document, article, e["original"] + e["text"]))
+
+
+def _related(corpus, document: str, article: str, text: str, extra: list[str] | None = None) -> list[dict]:
+    """確かめる役に渡す、関係する条の今の文：文中で参照している条・枝番のもとの条（第38条の2 → 第38条）・extra に挙げた条。
+
+    渡していない条について「資料からは分からない」と人に確認を頼ませないため（想定ユーザーでの確認で分かった）。
+    """
+    from core.sources import normalize_article_ref
+
+    refs = re.findall(r"第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?", text) + list(extra or [])
+    base = re.match(r"(第[0-9０-９一二三四五六七八九十百]+条)の", article)
+    if base:
+        refs.append(base.group(1))
+    out, seen = [], {normalize_article_ref(article)}
+    for r in refs:
+        num = normalize_article_ref(r)
+        if num in seen:
+            continue
+        seen.add(num)
+        for a in corpus.find(document if document != "規約" else "規約", num) or corpus.find("規約", num):
+            out.append({"source": "今の規約" if document == "規約" else document, "ref": a.label,
+                        "caption": getattr(a, "caption", "") or "", "text": a.text()})
+    return out[:8]
 
 
 def _definitions(corpus, text: str) -> list[dict]:

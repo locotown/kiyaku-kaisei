@@ -322,8 +322,9 @@ def explain_docx(ex, name: str = "", draft=None, ident: str = "") -> bytes:
         for h, body in (("何が変わるのか", it.what), ("なぜ変えるのか", it.why), ("暮らしや手続きへの影響", it.impact)):
             heading(doc, h, 3)
             paras(body)
-    heading(doc, "皆さんのご意見を伺いたい点", 1)
-    bullets(doc, ex.choices)
+    if ex.choices:  # 中身がないときは見出しも出さない（未完成の資料に見えるため）
+        heading(doc, "皆さんのご意見を伺いたい点", 1)
+        bullets(doc, ex.choices)
     heading(doc, "総会での決め方", 1)
     paras(ex.resolution)
     paras(ex.closing)
