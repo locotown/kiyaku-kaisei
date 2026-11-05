@@ -169,7 +169,10 @@ def test_board_state_requires_choice_and_redraft(monkeypatch):
     monkeypatch.setattr(M, "_run_explain", lambda wid: None)
     try:
         c = TestClient(M.app)
-        assert "組合が選ぶ点" in c.get(f"/works/{wid}").text
+        page = c.get(f"/works/{wid}").text
+        assert "組合が選ぶ点" in page
+        # 議題の「選ぶ点」は、上で選んだ案をその場で出す（保存前でも「まだ選んでいません」のままにしない。人の確認の気づき）
+        assert 'class="cref" data-q="0" data-saved=""' in page and 'id="board-unsaved" hidden' in page
         form = {"b_decision_0": "理解した", "b_decision_1": "採用", "b_decision_2": "採用", "b_decision_3": "確認した"}
         c.post(f"/works/{wid}/board/decisions", data=form)
         st = M.board_state(store.load(wid))

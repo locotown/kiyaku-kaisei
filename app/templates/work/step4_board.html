@@ -60,7 +60,7 @@
         {% if pts %}
           <div class="choose-ref">
             <b>選ぶ点（〔選択〕）：</b>{% for p in pts %}{% set k = qindex[point_key(p)] %}
-              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}{% if not loop.last %}／{% endif %}{% endfor %}
+              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）<span class="cref" data-q="{{ k }}" data-saved="{{ answers[k] }}">{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}</span>{% if not loop.last %}／{% endif %}{% endfor %}
             <div class="small">案は上の「組合が選ぶ点」で選びます。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
           </div>
         {% endif %}
@@ -73,6 +73,27 @@
     {% if board.notes %}<p class="muted">参考：今回の改定案に含まれていない点</p><ul class="muted">{% for n in board.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
     <noscript><p><button type="submit" class="boxed">理事会の判断を保存する</button></p></noscript>
     </form>
+    <script>
+    // 上の「組合が選ぶ点」で選んだ案を、議題の「選ぶ点」にその場で出す。保存前は、その旨も出す
+    // （保存済みの案だけを見ていたため、選んでも「まだ選んでいません」のままだった。人の確認の気づき）
+    (() => {
+      const form = document.getElementById("boarddec"); if (!form) return;
+      const valueOf = (k) => { const x = form.querySelector(`input[name="b_q_${k}"]:checked, input[type=text][name="b_q_${k}"]`); return x ? x.value.trim() : ""; };
+      const show = () => {
+        let dirty = false;
+        form.querySelectorAll(".cref").forEach((el) => {
+          const v = valueOf(el.dataset.q), saved = el.dataset.saved;
+          el.replaceChildren();
+          if (!v) { const u = document.createElement("span"); u.className = "unsaved"; u.textContent = "→ まだ選んでいません"; el.append(u); }
+          else { const b = document.createElement("b"); b.textContent = v; el.append("→ ", b);
+            if (v !== saved) { dirty = true; const u = document.createElement("span"); u.className = "unsaved small"; u.textContent = "（選びました。まだ保存していません）"; el.append(" ", u); } }
+        });
+        const note = document.getElementById("board-unsaved"); if (note) note.hidden = !dirty;
+      };
+      form.addEventListener("change", show); form.addEventListener("input", show);
+      window.addEventListener("pageshow", show); show();   // 再読み込みでブラウザが選んだ状態を戻したときも合わせる
+    })();
+    </script>
     {% if board_state and not board_state.ready and not board_state.needs_redraft %}<p class="muted">{{ board_state.reason }}</p>{% endif %}
   {% endif %}
   {% if board %}{% set note_doc = "board" %}{% include "work/_notes_box.html" %}{% endif %}
@@ -84,10 +105,10 @@
       <div class="t"><b>理事会の検討資料を作ります</b>　改定案を、理解する・判断する・確認するの3段に分けます</div>
       <button type="submit" form="boardmake" class="btn" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
     {% elif board_state and board_state.ready %}
-      <div class="t"><b>理事会での検討が済みました</b>　判断を変えたときは保存し直してください。<button type="submit" form="boarddec">判断を保存し直す</button></div>
+      <div class="t"><b>理事会での検討が済みました</b>　<span class="unsaved" id="board-unsaved" hidden>選んだ案は、まだ保存していません。</span>判断を変えたときは保存し直してください。<button type="submit" form="boarddec">判断を保存し直す</button></div>
       <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
     {% else %}
-      <div class="t"><b>議題ごとに判断を選び、保存します</b>　{{ board_state.reason if board_state else "" }}</div>
+      <div class="t"><b>議題ごとに判断を選び、保存します</b>　<span class="unsaved" id="board-unsaved" hidden>選んだ案は、まだ保存していません。</span>{{ board_state.reason if board_state else "" }}</div>
       <button type="submit" form="boarddec" class="btn">理事会の判断を保存する</button>
     {% endif %}
   </div></div>
