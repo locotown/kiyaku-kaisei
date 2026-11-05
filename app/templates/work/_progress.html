@@ -45,7 +45,7 @@
       $('status').textContent = s.status;
       if (!BUSY.includes(s.status)) {  // 終わったら、結果の画面へ移って知らせる
         var to = s.status.indexOf('エラー') >= 0 ? 'error'
-          : {{ '"board"' if part else '{"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["' ~ work.status ~ '"]' }};
+          : {% if part %}"board"{% else %}{"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"]{% endif %};
         location.href = '/works/{{ id }}?done=' + encodeURIComponent('{{ work.status }}') + '#' + to;
         return;
       }

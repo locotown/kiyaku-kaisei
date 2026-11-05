@@ -174,3 +174,16 @@ def test_full_redraft_paths_set_mode(board_work, monkeypatch):
     store.update(wid, status="検討資料あり", draft_mode="partial")
     c.post(f"/works/{wid}/draft", follow_redirects=False)   # ステップ3の「改定案を作り直す」
     assert store.load(wid)["draft_mode"] == "full"
+
+
+def test_progress_script_is_not_escaped(board_work):
+    """進み具合の画面の動き（経過時間・作業の記録・終わったときの切り替え）の書き方が崩れていない。
+
+    引用符が &#34; に置き換わると、画面の動きが全部止まる（人の確認で見つかった）。
+    """
+    M, store, c, wid, _, _ = board_work
+    for mode, to in (("partial", ': "board";'), ("full", '["改定案作成中"];')):
+        store.update(wid, status="改定案作成中", draft_mode=mode)
+        page = c.get(f"/works/{wid}").text
+        script = page[page.index("var BUSY"):page.index("setTimeout(poll")]
+        assert "&#34;" not in script and "&#39;" not in script and to in script, mode
