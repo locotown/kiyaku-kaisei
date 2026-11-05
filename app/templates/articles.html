@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block head %}{% if reviewing %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block title %}条の文を直す｜{{ work.name }}｜ととのう規約{% endblock %}
 {% block content %}
 {# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
@@ -23,7 +22,28 @@
   <div class="reviewing" role="status"><span class="spinner" aria-hidden="true"></span>
     <div>{% if rp.active %}<b>AI が{{ rp.active }}を確かめています</b>（<span class="elapsed" data-elapsed="{{ rp.elapsed }}">{{ rp.elapsed }}</span>秒たちました。1条あたり、ふつう20〜60秒かかります）{% else %}<b>AI が確かめる準備をしています</b>{% endif %}
       {% if rp.left > 1 %}<br><span class="small">このあと、ほかに {{ rp.left - 1 }}条が順番を待っています。</span>{% endif %}
-      <br><span class="small">終わると、この画面が自動で切り替わります（5秒ごとに確かめています）。ほかの画面に移ってもかまいません。</span></div></div>
+      <br><span class="small">終わると、この画面が自動で切り替わります（3秒ごとに確かめています）。ほかの画面に移ってもかまいません。</span></div></div>
+  <script>
+  // 画面ごと読み直すと、書きかけの文が消える。終わったか だけを聞き、終わったときだけ切り替える（アドレスの #… も外す）
+  (() => {
+    let dirty = false;
+    document.addEventListener("input", (e) => { if (e.target.closest("#artform")) dirty = true; });
+    const t = setInterval(async () => {
+      try { const j = await (await fetch("/works/{{ id }}/articles/review-status", { cache: "no-store" })).json();
+        if (j.reviewing) return;
+        clearInterval(t);
+        const go = () => location.replace(location.pathname + "?reviewed=1");
+        if (!dirty) return go();
+        // 書きかけの文があるときは、勝手に切り替えない（保存していない文が消えるため）
+        const box = document.querySelector(".reviewing");
+        box.innerHTML = "<div><b>AI の確認が終わりました。</b>書きかけの文があるので、画面はそのままにしています。"
+          + "先に「直した文を保存する」を押すか、保存せずに結果を見てください。</div>";
+        const b = document.createElement("button"); b.type = "button"; b.className = "boxed"; b.textContent = "保存せずに結果を見る";
+        b.addEventListener("click", go); box.appendChild(b);
+      } catch (e) {}
+    }, 3000);
+  })();
+  </script>
   <script>
   (() => { const el = document.querySelector(".reviewing .elapsed"); if (!el) return;
     let n = Number(el.dataset.elapsed) || 0; setInterval(() => { el.textContent = ++n; }, 1000); })();

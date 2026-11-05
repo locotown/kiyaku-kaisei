@@ -1195,6 +1195,14 @@ def resume_notes(work_id: str, batch: str):
     return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
 
 
+@app.get("/works/{work_id}/notes/{batch}/status")
+def notes_status(work_id: str, batch: str):
+    """写真の読み取りの進み具合（画面が3秒ごとに聞き、写真が1枚読めるたびに画面を切り替える）。"""
+    b = _note_batch(store.load(work_id), batch)
+    done = sum(1 for p in b["photos"] if p["status"] in ("読み取り済み", "失敗"))
+    return JSONResponse({"status": b["status"], "done": done})
+
+
 @app.get("/works/{work_id}/notes/{batch}/photo/{n}")
 def note_photo(work_id: str, batch: str, n: int):
     p = _notes_dir(work_id, batch) / f"p{int(n)}.jpg"
@@ -1590,6 +1598,14 @@ def _review_edits(work_id: str, keys: list[str]) -> None:
     work = store.load(work_id)
     if _draft(work):
         _write_taisho(work_id, work, _draft(work), _corpus(work_id))
+
+
+@app.get("/works/{work_id}/articles/review-status")
+def review_status(work_id: str):
+    """AI が直した文を確かめ終わったか（画面が3秒ごとに聞き、終わったときだけ画面を切り替える）。"""
+    work = _unstick_reviews(work_id, store.load(work_id))
+    reviewing = any((e.get("review") or {}).get("status") == "確認中" for e in (work.get("human_edits") or {}).values())
+    return JSONResponse({"reviewing": reviewing})
 
 
 @app.post("/works/{work_id}/articles/review")

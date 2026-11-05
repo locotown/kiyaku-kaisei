@@ -346,3 +346,27 @@ def test_review_starts_active_and_stuck_reviews_can_be_retried(work, monkeypatch
                                                                      "queued_at": old, "for_text": "第20条　直した文。"}))
     work.get(f"/works/{WID}/articles")
     assert store.load(WID)["human_edits"][key]["review"]["status"] == "中断"
+
+
+def test_waiting_pages_poll_status_instead_of_reloading(work):
+    """待つ画面は、画面ごと読み直さず（書きかけの文が消える・アドレスに #… があると読み直されない）、
+    終わったかだけを聞いて切り替える（人の確認 第4回 1-1：終わっていたのに画面が切り替わらなかった）。"""
+    key = "規約|第20条"
+    work.post(f"/works/{WID}/articles", data={"ident": M._ident(WID, store.load(WID)), f"text_{key}": "第20条　直した文。"})
+    from datetime import datetime
+
+    now = datetime.now().isoformat(timespec="seconds")
+    store.mutate(WID, lambda d: d["human_edits"][key].update(review={"status": "確認中", "queued": False, "started": now,
+                                                                     "queued_at": now, "for_text": "第20条　直した文。"}))
+    page = work.get(f"/works/{WID}/articles").text
+    assert 'http-equiv="refresh"' not in page and "/articles/review-status" in page
+    assert work.get(f"/works/{WID}/articles/review-status").json() == {"reviewing": True}
+    store.mutate(WID, lambda d: d["human_edits"][key]["review"].update(status="済み", verdict="問題なし", summary="", concerns=[]))
+    assert work.get(f"/works/{WID}/articles/review-status").json() == {"reviewing": False}
+
+    store.mutate(WID, lambda d: d.setdefault("notes", []).append(
+        {"id": "20261105000000", "at": "11月05日", "doc": "board", "status": "読み取り中", "proposals": [], "ident": "",
+         "cost_usd": 0.0, "skipped": 0, "photos": [{"n": 1, "status": "読み取り済み"}, {"n": 2, "status": "待ち"}]}))
+    page = work.get(f"/works/{WID}/notes/20261105000000").text
+    assert 'http-equiv="refresh"' not in page and "/notes/20261105000000/status" in page and "const shown = 1" in page
+    assert work.get(f"/works/{WID}/notes/20261105000000/status").json() == {"status": "読み取り中", "done": 1}
