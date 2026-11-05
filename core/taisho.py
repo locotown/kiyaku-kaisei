@@ -238,17 +238,17 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
         enote = edit_note(edits, a)
         body.append(
             f'<tr class="{"row-must" if c["is_required"] else "row-opt"}{" row-skip" if skip else ""}">'
-            f'<td><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
+            f'<td data-label="改定案"><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
             f'{_edit_html(edit_label(edits, a))}{caption}{_html_parts(r["new"], "new")}</td>'
-            f"<td>{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
-            f"<td>{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
+            f"<td data-label=\"現行\">{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
+            f"<td data-label=\"区分・変更の理由・根拠\">{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"{('<div class=editnote><b>委員会で直した点：</b>' + html.escape(enote) + '</div>') if enote else ''}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
         )
     head = f"<h2>{html.escape(heading)}（{len(items)}条）</h2>" if heading else ""
-    return (f"{head}<table><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>"
+    return (f"{head}<table class=\"taisho\"><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>")
 
 

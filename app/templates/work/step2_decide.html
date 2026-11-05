@@ -33,6 +33,7 @@
       <select id="bk-scope" aria-label="範囲">{% for sc in ("推奨", "参考", "推奨・参考") %}{% set n = rows|selectattr("1.category", "in", sc.split("・"))|list|length %}{% if n %}<option value="{{ sc }}" data-n="{{ n }}">{{ sc }}の指摘すべて（{{ n }}件）</option>{% endif %}{% endfor %}</select>
       を
       <select id="bk-dec" aria-label="判断">{% for c in choice_help %}<option value="{{ c }}">{{ choice_help[c] }}</option>{% endfor %}</select>
+      <label class="small bk-open"><input type="checkbox" id="bk-open" checked> まだ決めていない（あとで決める）ものだけ。1件ずつ決めた判断は変えない</label>
       <input type="text" id="bk-reason" placeholder="理由（任意）" class="field">
       <button type="button" id="bk-go" class="boxed">まとめて確定する</button>
     </div>
@@ -44,8 +45,10 @@
     go.addEventListener('click', function () {
       var sc = document.getElementById('bk-scope'), dec = document.getElementById('bk-dec');
       var n = sc.selectedOptions[0].dataset.n;
-      if (!window.confirm(sc.value + 'の指摘 ' + n + '件を、すべて「' + dec.selectedOptions[0].textContent + '」にします。よろしいですか？')) return;
+      var onlyOpen = document.getElementById('bk-open').checked;
+      if (!window.confirm(sc.value + 'の指摘' + (onlyOpen ? 'のうち、まだ決めていないもの' : ' ' + n + '件すべて') + 'を「' + dec.selectedOptions[0].textContent + '」にします。よろしいですか？')) return;
       var data = new FormData();
+      if (onlyOpen) data.append('only_open', '1');
       data.append('scope', sc.value); data.append('decision', dec.value); data.append('reason', document.getElementById('bk-reason').value);
       go.disabled = true; go.textContent = '保存中…';
       fetch('/works/{{ id }}/decisions/bulk', { method: 'POST', body: data })

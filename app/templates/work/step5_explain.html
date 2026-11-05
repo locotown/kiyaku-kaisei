@@ -5,13 +5,19 @@
     <p class="lead">改定案を、住民の方が読める言葉に書き換えます。説明会や総会資料の下書きに使えます。</p></div>
   {% if done == "説明文作成中" and work.explain %}<div class="justdone">{{ icon("check") }}<span>住民向けの説明ができました。「説明資料を開く」で確認してください。</span></div>{% endif %}
   {% if work.explain %}
-    {% set m = work.explain_metrics %}
-    <div class="stats">
-      <div><div class="k">説明の項目</div><div class="v">{{ work.explain["items"]|length }}<small>つ</small></div></div>
-      <div><div class="k">1文の平均の長さ</div><div class="v">{{ m["1文の平均の長さ"] }}<small>字</small></div></div>
-      <div><div class="k">60字を超える文</div><div class="v">{{ m["60字を超える文の割合(%)"] }}<small>%</small></div></div>
+    {% set m = work.explain_metrics %}{% set ex = work.explain %}
+    {# 説明文そのものをその場で見せる（数字だけが大きく出て、説明が見えない、という声から） #}
+    <div class="explain-peek sec">
+      <h2>{{ ex.title }}</h2>
+      <p>{{ ex.intro }}</p>
+      <ol class="ex-items">{% for it in ex["items"] %}
+        <li><b>{{ it.title }}</b>{% if it.articles %} <span class="small muted">（{{ it.articles|join("、") }}）</span>{% endif %}
+          <span class="small">{{ "法律の改正に合わせるための変更" if it.required else "組合で選べる変更" }}</span></li>{% endfor %}</ol>
+      <p class="small">全文は「説明資料を開く」で読めます。理事会で読み合わせてから配ってください。</p>
     </div>
-    <p class="muted">説明なしの専門用語：{{ m["説明なしの専門用語"]|join("、") or "なし" }}</p>
+    <details class="more"><summary>読みやすさの目安（作る側向け）</summary>
+      <p class="small">1文の平均の長さ <b>{{ m["1文の平均の長さ"] }}字</b>（目安：40字前後まで）・60字を超える文 <b>{{ m["60字を超える文の割合(%)"] }}%</b>（目安：1割ほどまで）・
+        説明なしの専門用語：<b>{{ m["説明なしの専門用語"]|join("、") or "なし" }}</b>（本文で言い換えていれば問題ありません）</p></details>
     <div class="doc">{{ icon("file") }}<div style="flex:1;min-width:0"><div class="tt">住民向けの説明資料</div><div class="d">総会提案の下書きです。理事会で読み合わせてから配ってください。</div></div>
       <a class="tbtn2" href="/works/{{ id }}/explain.docx">{{ icon("download") }}Word で保存</a>
       <a class="tbtn2 boxed" href="/works/{{ id }}/explain" target="_blank">説明資料を開く（印刷用）</a></div>

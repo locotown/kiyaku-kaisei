@@ -96,7 +96,7 @@ def parse_explanation(text: str) -> dict:
 
 def _explanation_ja(text: str) -> str:
     """採点役のコメントの英語の部分を日本語にする（本文はもともと日本語）。"""
-    text = re.sub(r"^An independent grader found all criteria met:?\s*", "採点役のまとめ：すべての項目を満たしています。\n", text)
+    text = re.sub(r"^An independent grader found all criteria met:?\s*", "確認役のまとめ：すべての項目を満たしています。\n", text)
     text = re.sub(r"^[A-Za-z][^\n]*:\s*\n", "", text)  # そのほかの英語の前置き
     return text.replace("(met)", "（満たす）").replace("(not met)", "（満たさない）").replace("(partially met)", "（一部満たす）")
 
@@ -119,20 +119,20 @@ def draft_quality(work: dict) -> dict:
     last = evals[-1].get("result") if evals else ""
     if last == "satisfied":
         level = "ok"
-        head = f"採点役（別の AI）の確認に合格しました（{len(evals)}回目で合格）"
+        head = f"確認役（別の AI）の確認に合格しました（{len(evals)}回目で合格）"
         if len(evals) > 1:
             head += "。それまでの回で指摘された点は、AI が直しています"
     elif not evals:
         level = "warn"
-        head = "採点役の確認が行われませんでした。新旧対照表を特に丁寧に確認してください"
+        head = "確認役の確認が行われませんでした。新旧対照表を特に丁寧に確認してください"
     else:
         level = "warn"
-        head = f"採点役の確認で、満たしていない項目が残った可能性があります（結果：{RESULT_JA.get(last, last)}）。下のコメントを読み、必要なら作り直してください"
+        head = f"確認役の確認で、満たしていない項目が残った可能性があります（結果：{RESULT_JA.get(last, last)}）。下のコメントを読み、必要なら作り直してください"
     stop, plan = work.get("draft_stop", ""), work.get("draft_plan") or {}
-    if stop == "timeout":  # 時間切れは、採点役の結果より先に知らせる（合否が出ないまま止まっている）
+    if stop == "timeout":  # 時間切れは、確認役の結果より先に知らせる（合否が出ないまま止まっている）
         level = "warn"
         head = (f"時間の上限（{plan.get('deadline_min', 30)}分）に達したため、途中で止まりました。"
-                f"採点役の確認は{len(evals)}回目までで、直しきれていない点が残っている可能性があります。"
+                f"確認役の確認は{len(evals)}回目までで、直しきれていない点が残っている可能性があります。"
                 "下のコメントを読み、作り直すか、採用する指摘を絞って作り直してください")
     elif stop and stop != "end_turn":
         level = "warn"

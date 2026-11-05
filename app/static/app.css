@@ -368,3 +368,13 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .flow li .lbl-s { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--color-ink-2); white-space: nowrap; }
   .flow li.view .lbl-s { color: var(--color-ink); font-weight: 700; }
 }
+
+/* ---- ステップ5：説明文をその場で見せる ---- */
+.tk .explain-peek { margin: var(--space-4) 0; padding: var(--space-4) var(--space-5); background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
+.explain-peek h2 { font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+.explain-peek .ex-items { margin: var(--space-2) 0; padding-left: 1.4em; }
+.explain-peek .ex-items li { margin: var(--space-1) 0; }
+.explain-peek .ex-items .small:last-child { display: inline-block; margin-left: .4em; color: var(--color-ink-3); }
+/* 条の文を直す：削除する条 */
+.artedit.deleted { opacity: .92; }
+.delnote { background: #f1f0ec; padding: var(--space-2) var(--space-3); border-radius: var(--radius-1); }

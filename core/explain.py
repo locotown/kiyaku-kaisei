@@ -39,6 +39,7 @@ class ExplainItem(BaseModel):
     what: str = Field(description="何が変わるか。2〜4文")
     why: str = Field(description="なぜ変えるか。2〜3文")
     impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文")
+    finding_refs: list[str] = Field(default_factory=list, description="この項目が扱う論点ID（改定案の finding_refs から。この項目の変更に当たるものだけ）")
 
 
 class Explanation(BaseModel):
@@ -101,6 +102,8 @@ def build_prompt(draft: Draft, info: dict, board: str = "", edits: dict | None =
         *(["細則（document が「規約」以外）の改定は、総会の普通決議（出席者の議決権の過半数）で決める。規約の改定とは別の議案になることを resolution で説明する。"]
           if has_rules else []),
         "各項目の articles には、改定案の ref をそのまま書く（例：「第47条」「駐車場使用細則 第3条」）。",
+        "各項目の finding_refs には、その項目が扱う論点IDだけを書く。法律で必ず必要な変更（必須の論点）と、組合で選べる変更を同じ項目にまとめない"
+        "（1つの条に両方が入っていても、項目は論点ごとに分ける）。理事会の判断の【段】に合わせる。",
         "",
         "## マンションの基本情報",
         *[f"- {k}：{v}" for k, v in info.items()],
@@ -149,7 +152,11 @@ def mark_required(ex: Explanation, draft: Draft) -> None:
 
     required_refs = {_ref_key(ref_name(a)) for a in draft.amendments if set(a.finding_refs) & set(REQUIRED_TOPIC_IDS)}
     for item in ex.items:
-        item.required = any(_ref_key(x) in required_refs for x in item.articles)
+        # 項目が扱う論点が分かれば、その論点で決める（必須と推奨が同じ条に入っていても、推奨の項目を「必ず必要」にしない）
+        if item.finding_refs:
+            item.required = bool(set(item.finding_refs) & set(REQUIRED_TOPIC_IDS))
+        else:
+            item.required = any(_ref_key(x) in required_refs for x in item.articles)
         if item.required:
             item.tier = "法律の改正に合わせる変更"
         elif item.tier == "法律の改正に合わせる変更":

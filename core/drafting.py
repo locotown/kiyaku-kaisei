@@ -359,11 +359,11 @@ def _handle(c, session_id: str, handler: DraftToolHandler, event, notify, evalua
             )
     elif etype == "span.outcome_evaluation_start":
         if not quiet:
-            notify("grading", f"採点役が確認しています（{event.iteration + 1}回目）")
+            notify("grading", f"確認役の AI が確かめています（{event.iteration + 1}回目）")
     elif etype == "span.outcome_evaluation_end":
         evaluations.append({"iteration": event.iteration, "result": event.result, "explanation": event.explanation})
         if not quiet:
-            notify("graded", f"採点役の確認：{RESULT_JA.get(event.result, event.result)}")
+            notify("graded", f"確認役の確認：{RESULT_JA.get(event.result, event.result)}")
     elif etype == "session.error":
         if not quiet:
             notify("error", str(getattr(event, "error", event)))

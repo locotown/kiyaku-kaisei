@@ -2,13 +2,13 @@
 {% from "_icons.html" import icon %}
 {% if busy and progress %}
 {% set what = {"点検中": "AI が規約の条文を一つずつ取り寄せ、標準管理規約・区分所有法と照らし合わせています。",
-               "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（採点役）が確認しています。",
+               "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（確認役）が確認しています。",
                "検討資料作成中": "AI が改定案を3段（理解する・判断する・確認する）に分けて、理事会の検討資料を書いています。",
                "説明文作成中": "AI が改定案と理事会の判断をもとに、住民向けの説明を書いています。"} %}
 {% set part = work.status == "改定案作成中" and work.draft_mode == "partial" %}
 <section class="card progress" id="progress">
   <h2>{{ "理事会の判断を、対象の条に反映しています" if part else {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
-  <p class="muted">{{ "AI が理事会の判断を対象の条だけに反映し、別の AI が直した条を確かめています。ほかの条は今の文のまま残ります。" if part else what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます）。</p>
+  <p class="muted">{{ "AI が理事会の判断を対象の条だけに反映し、別の AI が直した条を確かめています。ほかの条は今の文のまま残ります。" if part else what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます。あとで、トップ画面の「これまでの作業」から戻れます）。</p>
   <ol class="steps" id="steps">{% for st in progress.steps %}
     <li class="{{ 'done' if loop.index0 < progress.stage else ('now' if loop.index0 == progress.stage else '') }}">{{ st }}</li>{% endfor %}</ol>
   <div class="pgrid">
@@ -36,7 +36,7 @@
     $('elapsed').textContent = fmt(elapsed);
     $('lastage').textContent = lastAge < 60 ? lastAge + '秒前' : fmt(lastAge) + '前';
     $('quiet').textContent = lastAge >= 600 ? '10分以上動きがありません。しばらく待っても変わらなければ、ページを再読み込みしてください。'
-      : (lastAge >= 90 ? 'AI が考えています（長い条文の照合や文章を書くときは、しばらく動きがないことがあります）' : '');
+      : (lastAge >= 90 ? 'AI が文を書いたり考えたりしています。1〜3分ほど動きが出ないことがあります（止まってはいません）' : '');
   }
   setInterval(tick, 1000);
   async function poll() {

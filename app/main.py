@@ -663,6 +663,13 @@ def show_work(request: Request, work_id: str):
         except Exception:  # 表示の補助なので、読み込めなくても画面は出す
             corpus = None
         views = {i: view(f, corpus) for i, f in rows}
+        # 同じ見出しの指摘が並ぶときは、対象を見出しに書き加えて見分けられるようにする（想定ユーザーでの確認で分かった）
+        from collections import Counter
+
+        dup = Counter(v["title"] for v in views.values())
+        for v in views.values():
+            if dup[v["title"]] > 1 and v.get("target"):
+                v["title"] = f"{v['title']}（{v['target']}）"
     decisions = work.get("decisions", {})
     summary = decision_summary(work)
     return templates.TemplateResponse(request, "work.html", {
@@ -724,10 +731,10 @@ def progress_view(work: dict) -> dict:
             text = "AI の作業を始めました"
         elif kind == "graded":  # 採点役のコメントは長く技術的なので、結果だけにする（中身は改定案の欄で見られる）
             head = text.split("：", 1)
-            result = head[1] if head[0] == "採点役の確認" else head[0]
-            text = "採点役の確認：" + RESULT_JA.get(result.split("：")[0], result.split("：")[0])
+            result = head[1] if head[0] in ("採点役の確認", "確認役の確認") else head[0]
+            text = "確認役の AI の確認：" + RESULT_JA.get(result.split("：")[0], result.split("：")[0])
         elif kind == "grading" and text.startswith("採点 "):
-            text = "採点役が確認しています（" + text.removeprefix("採点 ") + "）"
+            text = "確認役の AI が確かめています（" + text.removeprefix("採点 ") + "）"
         elif kind == "message":  # AI のメモは内部の言葉が混じるので、短くして記録にだけ残す
             if not re.search(r"[ぁ-んァ-ヶ一-龥]", text):  # 英語だけのメモは出さない（画面はすべて日本語。想定ユーザーでの確認で見つかった）
                 continue
@@ -819,11 +826,14 @@ async def save_bulk_decisions(request: Request, work_id: str):
     work = store.load(work_id)
     decisions = work.get("decisions", {})
     now, changed = _now(), 0
+    only_open = form.get("only_open") == "1"  # まだ決めていない（あとで決める）ものだけ。1件ずつ決めた判断を上書きしない
     for i, f in enumerate(work.get("findings", [])):
         if f["category"] not in BULK_SCOPES[scope]:
             continue
         prev = decisions.get(str(i), {})
         if prev.get("decision") == decision:
+            continue
+        if only_open and prev.get("decision") in ("採用", "不採用"):
             continue
         decisions[str(i)] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
         changed += 1
@@ -1563,8 +1573,13 @@ def _todo_id() -> str:
 
 
 def _keep_human_edits(work: dict, draft) -> list[str]:
-    """改定案を作り直したとき、委員会の書き込みで直した条の文を引き継ぐ（AI の新しい文で黙って上書きしない）。"""
+    """改定案を作り直したとき、委員会の書き込みで直した条の文と、人が書き直した理由を引き継ぐ（AI の新しい文で黙って上書きしない）。"""
     kept = []
+    for key, e in (work.get("human_reasons") or {}).items():
+        document, article = key.split("|", 1)
+        for am in draft.amendments:
+            if am.article == article and (am.document or "規約") == document and am.reason != e["reason"]:
+                am.reason = e["reason"]
     for key, e in (work.get("human_edits") or {}).items():
         document, article = key.split("|", 1)
         for am in draft.amendments:
@@ -1626,10 +1641,10 @@ def articles_page(request: Request, work_id: str):
     for document, group in numbered(rows(draft, _corpus(work_id))):
         for n, r in group:
             am = r["amendment"]
-            if am.kind == "削除":
-                continue
+            # 削除する条も一覧に出す（細則の削除などが見当たらない、という声から）。文は直せないので、見るだけ
             items.append({"n": n, "document": document, "article": am.article, "caption": am.caption, "kind": am.kind,
-                          "current": "".join(t for t, _ in r["old"]), "text": am.text,
+                          "current": "".join(t for t, _ in r["old"]), "text": am.text, "reason": am.reason,
+                          "reason_edit": (work.get("human_reasons") or {}).get(f"{am.document}|{am.article}"),
                           "edit": human.get(f"{am.document}|{am.article}")})
     from core.editcheck import label
 
@@ -1654,9 +1669,16 @@ async def save_articles(request: Request, work_id: str):
     if str(form.get("ident", "")) != _ident(work_id, work):
         raise HTTPException(409, "この画面を開いたあとに、改定案が変わりました。画面を開き直してから、もう一度直してください。")
     human = work.get("human_edits") or {}
-    edits = []
+    edits, reasons = [], []
     for am in _draft(work).amendments:
         key = f"{am.document}|{am.article}"
+        reason = form.get(f"reason_{key}")
+        if reason is not None:  # 変更の理由も直せる（委員会で直した文に合わせて、人が書き換える）
+            reason = str(reason).replace("\r\n", "\n").strip()
+            if reason != am.reason.strip():
+                reasons.append({"document": am.document, "article": am.article, "reason": reason})
+        if am.kind == "削除":
+            continue
         if form.get(f"revert_{key}") and key in human:
             edits.append({"document": am.document, "article": am.article, "text": None})
             continue
@@ -1666,9 +1688,41 @@ async def save_articles(request: Request, work_id: str):
             continue
         if text != am.text.strip() or (key in human and note != human[key].get("note", "")):
             edits.append({"document": am.document, "article": am.article, "text": text, "note": note})
+    if reasons:
+        _edit_reasons(work_id, reasons)
     if edits:
         _edit_articles(work_id, edits, f"{_now()} 条の文を直しました")
-    return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits)}", status_code=303)
+    elif reasons:
+        work = store.load(work_id)
+        _write_taisho(work_id, work, _draft(work), _corpus(work_id))
+        _rerender(work_id)
+    return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits) + len(reasons)}", status_code=303)
+
+
+def _edit_reasons(work_id: str, reasons: list[dict]) -> None:
+    """人が書き直した変更の理由を改定案に入れる。AI の元の理由は残し、空にすると AI の理由に戻す。
+
+    条の文の手直し（human_edits）とは別に記録する（理由だけ直した条に「委員会で直した文」の印を付けないため）。
+    改定案を作り直しても残す（_keep_human_edits）。
+    """
+    now = _now()
+
+    def change(data: dict) -> None:
+        hr = data.setdefault("human_reasons", {})
+        for e in reasons:
+            key = f"{e['document']}|{e['article']}"
+            for am in data["draft"]["amendments"]:
+                if am["article"] != e["article"] or am.get("document", "規約") != e["document"]:
+                    continue
+                original = hr.get(key, {}).get("original", am["reason"])
+                if not e["reason"] or e["reason"] == original:  # 空なら AI の理由に戻す
+                    am["reason"] = original
+                    hr.pop(key, None)
+                else:
+                    am["reason"] = e["reason"]
+                    hr[key] = {"reason": e["reason"], "original": original, "at": now}
+    store.mutate(work_id, change)
+    store.append_log(work_id, "edit", f"{_now()} 変更の理由を直しました（{'、'.join(e['article'] for e in reasons)}）")
 
 
 @app.post("/works/{work_id}/articles/revert")
@@ -1774,7 +1828,24 @@ def _review_material(work_id: str, work: dict, key: str) -> str:
                 and (f.get("article") in (am.article, am.before_article) or f.get("topic_id") in am.finding_refs)]
     return context(article=article, caption=am.caption, current=current, original=e["original"], edited=e["text"],
                    note=e.get("note", ""), findings=findings,
-                   basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis}))
+                   basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis})
+                   + _definitions(_corpus(work_id), e["original"] + e["text"]))
+
+
+def _definitions(corpus, text: str) -> list[dict]:
+    """今の規約で言葉を定義している条（「以下「対象物件」という。」など）のうち、text に出てくる言葉の条。
+
+    直した文の確認で、AI が定義を推測で書いて人に確認を頼まないよう、今の規約の文を渡す（想定ユーザーでの確認で分かった）。
+    """
+    out, seen = [], set()
+    for a in corpus.main.articles:
+        body = a.text()
+        terms = re.findall(r"以下[、]?「([^」]{1,20})」という", body)
+        if any(t in text for t in terms) and a.label not in seen:
+            seen.add(a.label)
+            out.append({"source": "今の規約", "ref": a.label, "caption": getattr(a, "caption", "") or "",
+                        "text": body + "\n（定義している言葉：" + "、".join(t for t in terms if t in text) + "）"})
+    return out[:6]
 
 
 def _review_edits(work_id: str, keys: list[str]) -> None:

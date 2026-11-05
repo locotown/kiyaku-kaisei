@@ -31,13 +31,13 @@
         <ul class="q-list">
           <li><span class="mk {{ 'ok' if q.checks_ok else 'ng' }}">{{ icon("check") if q.checks_ok else icon("alert") }}</span> <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
             <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
-          <li><span class="mk {{ 'ok' if q.level == 'ok' else 'ng' }}">{{ icon("check") if q.level == "ok" else icon("alert") }}</span> <b>採点役（別の AI）による確認</b>：{% for r in q.rounds %}{{ r.n }}回目 {{ r.result }}{% if not loop.last %} → {% endif %}{% else %}行われませんでした{% endfor %}
+          <li><span class="mk {{ 'ok' if q.level == 'ok' else 'ng' }}">{{ icon("check") if q.level == "ok" else icon("alert") }}</span> <b>確認役（別の AI）による確認</b>：{% for r in q.rounds %}{{ r.n }}回目 {{ r.result }}{% if not loop.last %} → {% endif %}{% else %}行われませんでした{% endfor %}
             <details><summary>確認した項目（{{ q.checklist|length }}項目）</summary>
             <ol class="checklist">{% for c in q.checklist %}
               <li class="{{ 'ok' if c.ok else 'ng' }}"><span class="ck">{{ "✓" if c.ok else "—" }}</span><div><b>{{ c.label }}</b>{% if c.note %}<div class="ck-note">{{ c.note }}</div>{% endif %}</div></li>{% endfor %}</ol></details>
-            {% if q.limits %}<div class="limits"><b>採点役が確認できなかった点</b><ul>{% for l in q.limits %}<li>{{ l }}</li>{% endfor %}</ul>
+            {% if q.limits %}<div class="limits"><b>確認役が確認できなかった点</b><ul>{% for l in q.limits %}<li>{{ l }}</li>{% endfor %}</ul>
               <div class="small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
-            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の採点役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
+            {% for r in q.rounds %}<details><summary>{{ r.n }}回目の確認役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
         </ul>
         {% if q.precedent.count %}<div class="small">標準どおりの条 <b>{{ q.precedent.count }}条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
         {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
@@ -48,7 +48,7 @@
     <div class="q-human sec">
       <h2>理事会の前に、人が確かめること</h2>
       <div class="check"><span class="num small">1</span><div>AI の確認は下書きの品質の目安です。下の「新旧対照表で確かめる」で、改定後の条文が委員会の意図どおりかを確認してください。
-        {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
+        {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}確認役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
       {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。次の「理事会で検討」で、どちらの案にするか選びます。</div></div>{% endif %}
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       {% set ec = edit_counts(work) %}

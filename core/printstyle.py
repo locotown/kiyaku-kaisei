@@ -98,6 +98,20 @@ tr.row-skip td { background: #f1f0ec; color: var(--color-ink-2); }
 .toolbar .hint { color: var(--color-ink-3); font-size: .85rem; }
 .toolbar .safari { flex-basis: 100%; margin: 0; color: var(--color-must); font-weight: 700; font-size: .9rem; }
 
+/* スマホ：新旧対照表は条ごとのカード（改定案／現行／理由）に並べ替える。帯は固定せず、印刷の説明は畳む */
+@media screen and (max-width: 720px) {
+  p, li, .note { text-align: left; }
+  .toolbar { position: static; padding: 8px 12px; }
+  .toolbar .hint, .toolbar .safari { display: none !important; }
+  table.taisho, table.taisho tbody, table.taisho tr, table.taisho td { display: block; width: auto !important; }
+  table.taisho thead { display: none; }
+  table.taisho tr { border: 1px solid var(--color-line-2); border-radius: 6px; margin: 0 0 14px; background: var(--color-surface); }
+  table.taisho td { border: 0 !important; border-top: 1px solid var(--color-line) !important; padding: 8px 10px !important; }
+  table.taisho td:first-child { border-top: 0 !important; }
+  table.taisho td::before { content: attr(data-label); display: block; font-size: .78rem; font-weight: 700; color: var(--color-ink-3); margin-bottom: 2px; }
+  tr.row-must td:first-child, tr.row-opt td:first-child { box-shadow: none; }
+  tr.row-must { border-left: 4px solid var(--color-must) !important; }
+}
 @media print {
   .toolbar { display: none !important; }
   h1, h2, h3, h4, .tier, .arts { break-after: avoid-page; }
@@ -129,11 +143,15 @@ def page_css(title: str, landscape: bool = False, ident: str = "") -> str:
 """
 
 
-def toolbar(word_href: str = "", landscape: bool = False) -> str:
-    """画面の上に出す操作の帯（印刷する・Word で保存）。印刷には出ない。"""
+def toolbar(word_href: str = "", landscape: bool = False, back_href: str = "./") -> str:
+    """画面の上に出す操作の帯（作業の画面に戻る・印刷する・Word で保存）。印刷には出ない。
+
+    スマホでは、印刷の説明を畳み、帯を上に固定しない（画面の4分の1を占めて読みにくい、という声から）。
+    """
     word = f'<a href="{word_href}">Word で保存（直して使う）</a>' if word_href else ""
+    back = f'<a href="{back_href}" class="back">← 作業の画面に戻る</a>' if back_href else ""
     paper = "A4 横" if landscape else "A4 縦"
-    return (f'<div class="toolbar"><button type="button" onclick="window.print()">印刷する</button>{word}'
+    return (f'<div class="toolbar">{back}<button type="button" onclick="window.print()">印刷する</button>{word}'
             '<p class="safari" hidden>Safari では、各ページの上下に資料名・版の番号・ページ番号が出ません。'
             'Chrome か Edge で開いて印刷してください。</p>'
             '<script>if (/^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent))'

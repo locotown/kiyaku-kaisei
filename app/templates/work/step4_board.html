@@ -13,6 +13,11 @@
       <a class="tbtn2" href="/works/{{ id }}/board.docx">{{ icon("download") }}Word で保存</a>
       <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表</a>
     </div>
+    {# ステップ2で書いた判断の理由を、理事会で見られるようにする（どこで見られるか分からない、という声から） #}
+    {% set reasons = [] %}{% for i, f in rows %}{% set d = decisions.get(i|string, {}) %}{% if d.reason %}{% set _ = reasons.append((i, f, d)) %}{% endif %}{% endfor %}
+    {% if reasons %}<details class="more decreasons"><summary>ステップ2で書いた、指摘の判断の理由（{{ reasons|length }}件）</summary>
+      <ul>{% for i, f, d in reasons %}<li><b>{{ views[i].title if views and i in views else f.issue[:30] }}</b>：{{ choice_help.get(d.decision, d.decision) }}　<span class="small">理由：{{ d.reason }}</span></li>{% endfor %}</ul>
+      <p class="small">議事録や引き継ぎに使えます。判断や理由は、ステップ2で直せます。</p></details>{% endif %}
     <div id="board-state">
     {% if board_state %}
       {% include "work/_partial_result.html" %}
