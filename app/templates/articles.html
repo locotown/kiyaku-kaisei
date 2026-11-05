@@ -8,6 +8,7 @@
   <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、下の「直した文を保存する」を押してください。
     <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>保存には AI を使いません。</p></div>
 
+{% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
 {% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
 {% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
 
@@ -52,6 +53,17 @@
   {% else %}<p class="muted">まだ直した条はありません。</p>{% endif %}
 </div>
 <form method="post" action="/works/{{ id }}/articles/review" id="reviewform"></form>
+<form method="post" action="/works/{{ id }}/articles/revert" id="revertform"><input type="hidden" name="ident" value="{{ ident }}"></form>
+<script>
+// 戻すボタンは2回押し（押し間違いで、委員会で直した文が消えないように）
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-twostep]");
+  if (!b || b.dataset.armed) return;
+  e.preventDefault();
+  b.dataset.armed = "1"; const label = b.textContent; b.textContent = b.dataset.confirm; b.classList.add("armed");
+  setTimeout(() => { delete b.dataset.armed; b.textContent = label; b.classList.remove("armed"); }, 5000);
+});
+</script>
 
 <form method="post" action="/works/{{ id }}/articles" id="artform">
   <input type="hidden" name="ident" value="{{ ident }}">
@@ -83,7 +95,8 @@
         {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
       </div>
       <details class="more"><summary>AI が作った文を見る</summary><div class="quote">{{ a.edit.original }}</div></details>
-      <label class="small revert"><input type="checkbox" name="revert_{{ key }}" value="1"> AI が作った文に戻す</label>
+      <button type="submit" form="revertform" name="key" value="{{ key }}" class="boxed revertbtn" data-twostep
+              data-confirm="もう一度押すと戻します（直した文と補足は消えます）">AI が作った文に戻す</button>
     {% endif %}
   </section>
   {% endfor %}

@@ -1464,6 +1464,7 @@ def articles_page(request: Request, work_id: str):
         "reviewing": any((e.get("review") or {}).get("status") == "確認中" for e in human.values()),
         "review_progress": _review_progress(human),
         "busy": work["status"] in BUSY, "saved": request.query_params.get("saved", ""),
+        "reverted": request.query_params.get("reverted", ""),
     })
 
 
@@ -1492,6 +1493,23 @@ async def save_articles(request: Request, work_id: str):
     if edits:
         _edit_articles(work_id, edits, f"{_now()} 条の文を直しました")
     return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits)}", status_code=303)
+
+
+@app.post("/works/{work_id}/articles/revert")
+async def revert_article(request: Request, work_id: str):
+    """委員会で直した条を、AI が作った文に戻す（ボタン1つで。AI は使わない）。"""
+    form = await request.form()
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "AI が作業中です。終わってから戻してください。")
+    if str(form.get("ident", "")) != _ident(work_id, work):
+        raise HTTPException(409, "この画面を開いたあとに、改定案が変わりました。画面を開き直してから、もう一度押してください。")
+    key = str(form.get("key", ""))
+    if key not in (work.get("human_edits") or {}):
+        raise HTTPException(400, "戻す条が見つかりません。画面を開き直してください。")
+    document, article = key.split("|", 1)
+    _edit_articles(work_id, [{"document": document, "article": article, "text": None}], f"{_now()} AI が作った文に戻しました")
+    return RedirectResponse(f"/works/{work_id}/articles?reverted={article}", status_code=303)
 
 
 @app.post("/works/{work_id}/todos")

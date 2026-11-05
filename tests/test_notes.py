@@ -370,3 +370,17 @@ def test_waiting_pages_poll_status_instead_of_reloading(work):
     page = work.get(f"/works/{WID}/notes/20261105000000").text
     assert 'http-equiv="refresh"' not in page and "/notes/20261105000000/status" in page and "const shown = 1" in page
     assert work.get(f"/works/{WID}/notes/20261105000000/status").json() == {"status": "読み取り中", "done": 1}
+
+
+def test_revert_with_one_button(work):
+    """「AI が作った文に戻す」はボタン1つで戻る（チェックを入れたあと何をするか分からなかった。人の確認の気づき）。"""
+    key = "規約|第20条"
+    work.post(f"/works/{WID}/articles", data={"ident": M._ident(WID, store.load(WID)), f"text_{key}": "第20条　委員会で直した文。"})
+    page = work.get(f"/works/{WID}/articles").text
+    assert 'form="revertform"' in page and "data-twostep" in page and 'type="checkbox" name="revert_' not in page
+    r = work.post(f"/works/{WID}/articles/revert", data={"ident": M._ident(WID, store.load(WID)), "key": key}, follow_redirects=False)
+    assert r.status_code == 303 and "reverted=" in r.headers["location"]
+    w = store.load(WID)
+    assert key not in w["human_edits"] and next(a for a in w["draft"]["amendments"] if a["article"] == "第20条")["text"] == "第20条　…"
+    assert "AI が作った文に戻しました" in work.get(r.headers["location"]).text
+    assert work.post(f"/works/{WID}/articles/revert", data={"ident": "古い版", "key": key}).status_code == 409

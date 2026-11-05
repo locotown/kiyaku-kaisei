@@ -308,3 +308,5 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .spinner.sm { display: inline-block; width: 14px; height: 14px; border-width: 2px; margin: 0 4px -2px 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+.tk .revertbtn { margin-top: var(--space-2); }
+.tk .revertbtn.armed { color: var(--color-must); border-color: var(--color-must); font-weight: 700; }
