@@ -305,3 +305,44 @@ def test_review_progress_is_visible(work):
     assert "ほかに 1条が順番を待っています" in page and "順番を待っています（前の条が終わると始まります）" in page
     p = M._review_progress(store.load(WID)["human_edits"])
     assert p["active"] == "第20条" and p["left"] == 2 and 10 <= p["elapsed"] <= 60
+
+
+def test_review_starts_active_and_stuck_reviews_can_be_retried(work, monkeypatch):
+    """押した直後から1条目は「確かめています」。処理が消えて「確認中」のまま残ったら、中断にしてもう一度押せる
+    （人の確認 第4回 1-1：1条だけなのに「順番を待っています」のまま止まって見えた）。"""
+    import threading
+    from datetime import datetime, timedelta
+
+    from core import editcheck as E
+
+    key = "規約|第20条"
+    work.post(f"/works/{WID}/articles", data={"ident": M._ident(WID, store.load(WID)), f"text_{key}": "第20条　直した文。"})
+    gate = threading.Event()
+
+    def slow(material, effort="medium"):
+        gate.wait(5)
+        return E.EditReview(verdict="問題なし", summary="", concerns=[]), {}
+    monkeypatch.setattr(E, "review_edit", slow)
+    work.post(f"/works/{WID}/articles/review", data={"key": key})
+    r = store.load(WID)["human_edits"][key]["review"]
+    assert r["status"] == "確認中" and not r["queued"] and r["started"]          # 押した直後から「確かめています」
+    page = work.get(f"/works/{WID}/articles").text
+    assert "AI が第20条を確かめています" in page and "順番を待っています（前の条" not in page
+    gate.set()
+    for _ in range(100):
+        if store.load(WID)["human_edits"][key]["review"]["status"] != "確認中":
+            break
+        time.sleep(0.05)
+
+    # 処理が消えて「確認中」のまま残った（サーバーの再起動など）
+    old = (datetime.now() - timedelta(minutes=10)).isoformat(timespec="seconds")
+    store.mutate(WID, lambda d: d["human_edits"][key].update(review={"status": "確認中", "queued": False, "started": old,
+                                                                     "queued_at": old, "for_text": "第20条　直した文。"}))
+    page = work.get(f"/works/{WID}/articles").text
+    assert store.load(WID)["human_edits"][key]["review"]["status"] == "中断"
+    assert "途中で止まりました" in page and "AI に確かめてもらう" in page             # もう一度押せる
+    # 順番待ちだけが残り、確かめている条がない
+    store.mutate(WID, lambda d: d["human_edits"][key].update(review={"status": "確認中", "queued": True, "started": "",
+                                                                     "queued_at": old, "for_text": "第20条　直した文。"}))
+    work.get(f"/works/{WID}/articles")
+    assert store.load(WID)["human_edits"][key]["review"]["status"] == "中断"
