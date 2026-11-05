@@ -66,6 +66,21 @@
 </div>
 
 <form method="post" action="/works/{{ id }}/notes/{{ b.id }}/apply" id="applyform">
+{% set pending = b.proposals|selectattr("status", "equalto", "未確認")|list %}
+{% if pending|length > 1 %}
+<div class="bulkpick">
+  <button type="button" class="boxed" data-pick="all">未確認の提案を、すべて「反映する」にする</button>
+  <button type="button" class="boxed" data-pick="none">選んだものを外す</button>
+  <p class="small">まとめて選んだあとも、提案ごとに変えられます。「写真と見比べて」と出ている提案は、反映する前に確かめてください。読めなかった書き込みは、文字を入れたものだけ反映します。</p>
+</div>
+<script>
+document.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll('#applyform .pc-seg input[type=radio]').forEach((r) => {
+    r.checked = b.dataset.pick === "all" ? r.value === "反映する" : false;
+  });
+}));
+</script>
+{% endif %}
 {% for ph in b.photos %}
   {% set props = b.proposals|selectattr("photo", "equalto", ph.n)|list %}
   <section class="notephoto sec">

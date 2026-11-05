@@ -79,6 +79,7 @@ def test_taisho_marks_only_changes(kiyaku, findings):
     assert "（新設）" in to_markdown(draft, kiyaku)
     # 印刷：A4 横、各ページに資料名とページ番号。画面には「印刷する」「Word で保存」
     assert "size: A4 landscape" in html and "counter(pages)" in html and 'href="taisho.docx"' in html
+    assert "Chrome か Edge" in html and 'class="safari"' in html   # Safari ではページの上下の文字が出ない（人の確認 第1回）
 
 
 def test_taisho_docx(kiyaku, findings):
@@ -97,6 +98,15 @@ def test_taisho_docx(kiyaku, findings):
     t = doc.tables[0]
     assert [c.text for c in t.rows[0].cells] == ["改定案", "現行", "区分・変更の理由・根拠"]
     assert t.rows[0]._tr.xpath("./w:trPr/w:tblHeader")             # 見出しの行をくり返す
+    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    for c in t.rows[0].cells:                                       # 見出しは枠の中央に（人の確認 第1回：上に寄って見えた）
+        assert c.vertical_alignment == WD_CELL_VERTICAL_ALIGNMENT.CENTER
+        assert c.paragraphs[0].paragraph_format.alignment == WD_ALIGN_PARAGRAPH.CENTER
+        assert c.paragraphs[0].paragraph_format.line_spacing == 1.0     # 行間を広げると上に寄って見える（Word for Mac で確認）
+    from docx.oxml.ns import qn
+    modes = [x.get(qn("w:val")) for x in doc.settings.element.iter(qn("w:compatSetting")) if x.get(qn("w:name")) == "compatibilityMode"]
+    assert modes == ["15"]                                          # 「互換モード」で開かない
     new_runs, old_runs = t.rows[1].cells[0].paragraphs[0].runs, t.rows[1].cells[1].paragraphs[0].runs
     assert any(r.text == "1週間" and r.font.underline for r in new_runs)
     assert any(r.text == "5日間" and r.font.strike for r in old_runs)

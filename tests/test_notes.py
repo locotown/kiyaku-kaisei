@@ -190,3 +190,118 @@ def test_todos_edit_done_delete_add(work):
     todos = store.load(WID)["todos"]
     assert [(t["text"], t.get("memo"), t.get("done"), t["where"]) for t in todos] == [
         ("直した宿題", "経緯", True, "行1"), ("足した宿題", "", False, "第25条")]
+
+
+def test_bulk_pick_and_empty_unreadable_stays(work, monkeypatch):
+    """まとめて「反映する」を選べる。中身のない「読めない」提案は、反映を選んでも反映済みにせず残す（人の確認 第1回）。"""
+    reading = N.PhotoReading(document="理事会の検討資料", ident="", page="", note="", annotations=[
+        ann(target="検討資料の議題", item=2, kind="判断", handwriting="☑採用", decision="採用"),
+        ann(kind="読めない", handwriting="？？"),
+    ])
+    monkeypatch.setattr(N, "read_photo", lambda jpeg, context, effort="high": (reading, {}))
+    batch = upload(work, "board")
+    b = read_until_done(batch)
+    assert "すべて「反映する」にする" in work.get(f"/works/{WID}/notes/{batch}").text
+    form = {f"act_{p['id']}": "反映する" for p in b["proposals"]} | {f"text_{p['id']}": p.get("proposed") or "" for p in b["proposals"]}
+    work.post(f"/works/{WID}/notes/{batch}/apply", data=form)
+    left = {p["kind"]: p["status"] for p in M._note_batch(store.load(WID), batch)["proposals"]}
+    assert left == {"判断": "反映済み", "読めない": "未確認"}
+
+
+def test_human_edit_marks_and_ai_review(work, monkeypatch):
+    """人が直した条には、資料に「AI の確認前」の印が出る。AI に確かめてもらうと「AI 確認済み」に変わり、
+    そのあと文を直すと、また「確認前」に戻る（人の確認 第1回：素人の手直しで悪くならないように）。"""
+    import io as _io
+
+    from docx import Document
+
+    from core import editcheck as E
+
+    key = "規約|第20条"
+    ident = M._ident(WID, store.load(WID))
+    work.post(f"/works/{WID}/articles", data={"ident": ident, f"text_{key}": "第20条　区分所有者は、委員会で直した文とする。"})
+    taisho = (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+    assert "委員会で直した文（AI の確認前）" in taisho
+    doc = Document(_io.BytesIO(work.get(f"/works/{WID}/taisho.docx").content))
+    assert "委員会で直した文（AI の確認前）" in "\n".join(c.text for row in doc.tables[0].rows for c in row.cells)
+    assert "AI の確認前" in work.get(f"/works/{WID}").text                     # ステップ3にも案内
+    assert M.edit_counts(store.load(WID))["unchecked"] == ["第20条"]
+
+    seen = {}
+
+    def fake(material, effort="medium"):
+        seen["material"] = material
+        return E.EditReview(verdict="気になる点あり", summary="主語が変わっています。", concerns=[
+            E.EditConcern(kind="意味が変わった・あいまい", point="主語が変わった", basis="AI の元の文の「区分所有者は」", suggestion="元に戻す"),
+        ]), {"input_tokens": 10000, "output_tokens": 1000}
+    monkeypatch.setattr(E, "review_edit", fake)
+    assert work.post(f"/works/{WID}/articles/review", data={"key": key}, follow_redirects=False).status_code == 303
+    for _ in range(100):
+        r = (store.load(WID)["human_edits"][key].get("review") or {})
+        if r.get("status") != "確認中":
+            break
+        time.sleep(0.05)
+    assert r["status"] == "済み" and r["verdict"] == "気になる点あり"
+    assert "委員会で直した文" in seen["material"] and "AI が作った改定案の文" in seen["material"]
+    assert r["cost_usd"] == pytest.approx(0.06)                                  # 10000×$4 ＋ 1000×$20
+    assert store.load(WID)["costs"][-1]["step"].startswith("直した文の確認")
+    taisho = (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+    assert "AI 確認済み：気になる点あり" in taisho and "AI の確認前" not in taisho
+    page = work.get(f"/works/{WID}/articles").text
+    assert "主語が変わった" in page and "AI の確認：気になる点あり" in page
+    assert M.edit_counts(store.load(WID))["unchecked"] == []
+    assert M.edit_counts(store.load(WID))["flagged"] == ["第20条（気になる点あり）"]   # 「すべて確かめた」だけで終わらせない
+    assert "AI が気になる点を挙げた条" in work.get(f"/works/{WID}").text
+    # 確かめたあとに文を直すと、また「確認前」に戻る
+    ident = M._ident(WID, store.load(WID))
+    work.post(f"/works/{WID}/articles", data={"ident": ident, f"text_{key}": "第20条　区分所有者は、もう一度直した文とする。"})
+    assert "委員会で直した文（AI の確認前）" in (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+
+
+def test_review_drops_concerns_without_basis(monkeypatch):
+    from core import editcheck as E
+
+    class Msg:
+        stop_reason = "end_turn"
+        usage = None
+        parsed_output = E.EditReview(verdict="気になる点あり", summary="", concerns=[
+            E.EditConcern(kind="要確認", point="根拠のない指摘", basis=" ", suggestion="")])
+
+    class Stream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get_final_message(self):
+            return Msg()
+
+    class Client:
+        class beta:
+            class messages:
+                @staticmethod
+                def stream(**kw):
+                    return Stream()
+
+    monkeypatch.setattr(E, "client", lambda: Client())
+    review, _ = E.review_edit("材料")
+    assert review.concerns == [] and review.verdict == "問題なし"           # 根拠を示せない指摘は出さない
+
+
+def test_review_progress_is_visible(work):
+    """AI が確かめている間、何を確かめていて何秒たったか・順番待ちが画面に出る（人の確認 第3回：動いているか分からない）。"""
+    from datetime import datetime, timedelta
+
+    started = (datetime.now() - timedelta(seconds=12)).isoformat(timespec="seconds")
+    store.update(WID, human_edits={
+        "規約|第20条": {"text": "第20条　直した", "original": "第20条　…", "at": "", "note": "",
+                      "review": {"status": "確認中", "queued": False, "started": started, "for_text": "第20条　直した"}},
+        "規約|第47条": {"text": "第47条　直した", "original": "第47条　…", "at": "", "note": "",
+                      "review": {"status": "確認中", "queued": True, "for_text": "第47条　直した"}},
+    })
+    page = work.get(f"/works/{WID}/articles").text
+    assert "AI が第20条を確かめています" in page and "秒たちました" in page
+    assert "ほかに 1条が順番を待っています" in page and "順番を待っています（前の条が終わると始まります）" in page
+    p = M._review_progress(store.load(WID)["human_edits"])
+    assert p["active"] == "第20条" and p["left"] == 2 and 10 <= p["elapsed"] <= 60

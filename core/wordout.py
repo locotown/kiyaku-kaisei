@@ -13,7 +13,7 @@ import io
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -25,6 +25,7 @@ INK_3 = RGBColor(0x61, 0x66, 0x6D)
 MUST = RGBColor(0x9A, 0x33, 0x24)
 REC = RGBColor(0x2B, 0x4F, 0x7A)
 PRIMARY = RGBColor(0x24, 0x45, 0x6B)
+OK = RGBColor(0x2D, 0x6A, 0x4F)
 
 
 def _font(run, size: float | None = None, bold: bool = False, color: RGBColor | None = None) -> None:
@@ -59,6 +60,10 @@ def new_document(title: str, landscape: bool = False, ident: str = "") -> Docume
     normal.element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), FONT)
     normal.paragraph_format.space_after = Pt(4)
     normal.paragraph_format.line_spacing = 1.25
+    # 新しい形式の Word として開く（「互換モード」と出さない。Word 2013 以降の配置で表示する）
+    for cs in doc.settings.element.iter(qn("w:compatSetting")):
+        if cs.get(qn("w:name")) == "compatibilityMode":
+            cs.set(qn("w:val"), "15")
     sec = doc.sections[0]
     sec.page_width, sec.page_height = (Mm(297), Mm(210)) if landscape else (Mm(210), Mm(297))
     sec.orientation = WD_ORIENT.LANDSCAPE if landscape else WD_ORIENT.PORTRAIT
@@ -118,6 +123,14 @@ def table(doc, headers: list[str], widths_mm: list[float]):
         cell.width = Mm(w)
         cell.paragraphs[0].text = ""
         _font(cell.paragraphs[0].add_run(h), 9, bold=True, color=INK_2)
+        # 見出しの文字は、枠の上下・左右の中央に（段落の前後の余白で上に寄らないように）
+        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+        pf = cell.paragraphs[0].paragraph_format
+        pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pf.space_before = pf.space_after = Pt(0)
+        pf.line_spacing = 1.0  # 本文の行間（1.25倍）を見出しにかけると、増えた分が文字の下に付いて上に寄って見える
+    t.rows[0].height = Mm(7)  # 見出しの行に少し高さを持たせ、文字を上下の中央に置く
+    t.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     repeat_header(t.rows[0])
     return t
 
@@ -137,9 +150,20 @@ def save(doc) -> bytes:
 
 # ---- 新旧対照表 ----
 
-def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "") -> bytes:
-    from core.taisho import (DISCLAIMER, GUIDE, OPTIONAL_LABEL, REQUIRED_LABEL, RESOLUTION_GUIDE, classify, group_heading,
-                             notes_sections, numbered, rows)
+def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None) -> bytes:
+    from core.taisho import (
+        DISCLAIMER,
+        GUIDE,
+        OPTIONAL_LABEL,
+        REQUIRED_LABEL,
+        RESOLUTION_GUIDE,
+        classify,
+        edit_label,
+        group_heading,
+        notes_sections,
+        numbered,
+        rows,
+    )
 
     doc = new_document(title, landscape=True, ident=ident)
     heading(doc, title, 0)
@@ -162,6 +186,10 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
             c = classify(a)
             new_cell, old_cell, why_cell = add_row(t, widths)
             _font(new_cell.paragraphs[0].add_run(f"行{n}\n"), 9, bold=True, color=PRIMARY)  # 写真の書き込みから行を特定するため
+            mark = edit_label(edits, a)
+            if mark:  # 委員会で直した条（どこが人の手で変わったかを、会議で一目で分かるように）
+                _font(new_cell.paragraphs[0].add_run(f"［{mark}］\n"), 8.5, bold=True,
+                      color=OK if "問題なし" in mark else MUST)
             for cell, parts, side in ((new_cell, r["new"], "new"), (old_cell, r["old"], "old")):
                 p = cell.paragraphs[0]
                 if a.caption and not (side == "old" and a.kind == "新設"):

@@ -55,6 +55,12 @@ def recover_interrupted() -> list[str]:
                     b["status"] = "中断"
         if any(b.get("status") == "読み取り中" for b in store.load(w["id"]).get("notes", [])):
             store.mutate(w["id"], stop_reading)
+        def stop_review(data: dict) -> None:
+            for e in (data.get("human_edits") or {}).values():
+                if (e.get("review") or {}).get("status") == "確認中":
+                    e["review"]["status"] = "中断"
+        if any((e.get("review") or {}).get("status") == "確認中" for e in (store.load(w["id"]).get("human_edits") or {}).values()):
+            store.mutate(w["id"], stop_review)
         if w["status"] not in INTERRUPTED:
             continue
         work = store.load(w["id"])
@@ -228,7 +234,8 @@ def _ident(work_id: str, work: dict) -> str:
 def _write_taisho(work_id: str, work: dict, draft, corpus) -> None:
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
     d = store.path(work_id)
-    (d / "taisho.html").write_text(to_html(draft, corpus, title, ident=_ident(work_id, work | {"draft": draft.to_dict()})), encoding="utf-8")
+    (d / "taisho.html").write_text(to_html(draft, corpus, title, ident=_ident(work_id, work | {"draft": draft.to_dict()}),
+                                           edits=work.get("human_edits")), encoding="utf-8")
     (d / "taisho.md").write_text(to_markdown(draft, corpus, title), encoding="utf-8")
 
 
@@ -931,7 +938,8 @@ def taisho_docx(work_id: str):
     if not draft:
         raise HTTPException(404, "新旧対照表はまだありません")
     title = f"{_org(work)} 管理規約 新旧対照表（案）".strip()
-    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work)), "shinkyu_taisho.docx", f"{title}.docx")
+    return _docx_response(build(draft, _corpus(work_id), title, ident=_ident(work_id, work), edits=work.get("human_edits")),
+                          "shinkyu_taisho.docx", f"{title}.docx")
 
 
 @app.get("/works/{work_id}/board.docx")
@@ -1236,6 +1244,8 @@ async def apply_notes(request: Request, work_id: str, batch: str):
         if act not in ("反映する", "反映しない"):
             continue
         text = str(form.get(f"text_{p['id']}", p.get("proposed", ""))).strip()
+        if act == "反映する" and not text:  # 中身のない提案（文字を入れていない「読めない」など）は、反映済みにせず残す
+            continue
         chosen.append((p, act, text))
     memos = {p["id"]: str(form.get(f"memo_{p['id']}", "")).strip() for p, _, _ in chosen}
     added = _manual_proposals(work_id, work, b, form)  # 写真にない内容を手で足した分は、そのまま反映する
@@ -1404,6 +1414,8 @@ def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -
                 prev = human.get(key, {})
                 human[key] = {"text": e["text"], "original": prev.get("original", am["text"]), "at": now,
                               "batch": batch, "note": e.get("note", "")}
+                if prev.get("review") and prev.get("text") == e["text"]:  # 補足だけ直したときは、AI の確認の結果を残す
+                    human[key]["review"] = prev["review"]
                 am["text"] = e["text"]
     work = store.mutate(work_id, change)
     draft = _draft(work)
@@ -1435,8 +1447,14 @@ def articles_page(request: Request, work_id: str):
             items.append({"n": n, "document": document, "article": am.article, "caption": am.caption, "kind": am.kind,
                           "current": "".join(t for t, _ in r["old"]), "text": am.text,
                           "edit": human.get(f"{am.document}|{am.article}")})
+    from core.editcheck import label
+
+    for it in items:
+        it["label"] = label(it["edit"], it["text"]) if it["edit"] else ""
     return templates.TemplateResponse(request, "articles.html", {
-        "id": work_id, "work": work, "items": items, "ident": _ident(work_id, work),
+        "id": work_id, "work": work, "items": items, "ident": _ident(work_id, work), "counts": edit_counts(work),
+        "reviewing": any((e.get("review") or {}).get("status") == "確認中" for e in human.values()),
+        "review_progress": _review_progress(human),
         "busy": work["status"] in BUSY, "saved": request.query_params.get("saved", ""),
     })
 
@@ -1497,3 +1515,121 @@ async def save_todos(request: Request, work_id: str):
         data["todos"] = keep
     store.mutate(work_id, change)
     return RedirectResponse(f"/works/{work_id}{back}", status_code=303)
+
+
+
+def edit_counts(work: dict) -> dict:
+    """委員会で直した条の数と、AI の確認前の条（直したあとに確かめていないものも含む）、AI が気になる点を挙げた条。"""
+    from core.editcheck import label
+
+    edits = work.get("human_edits") or {}
+    unchecked = [k.split("|", 1)[1] for k, e in edits.items() if "確認前" in label(e)]
+    flagged = [f"{k.split('|', 1)[1]}（{e['review']['verdict']}）" for k, e in edits.items()
+               if "確認済み" in label(e) and e["review"].get("verdict") != "問題なし"]
+    return {"total": len(edits), "unchecked": unchecked, "flagged": flagged}
+
+
+templates.env.globals["edit_counts"] = edit_counts
+
+
+def _review_material(work_id: str, work: dict, key: str) -> str:
+    from core.editcheck import context
+    from core.present import basis
+    from core.taisho import rows
+
+    document, article = key.split("|", 1)
+    e = work["human_edits"][key]
+    draft = _draft(work)
+    am, row = next(((r["amendment"], r) for r in rows(draft, _corpus(work_id))
+                    if r["amendment"].article == article and (r["amendment"].document or "規約") == document), (None, None))
+    if am is None:
+        raise ValueError(f"{article} が改定案にありません")
+    current = "" if am.kind == "新設" else "".join(t for t, _ in row["old"])
+    findings = [f for f in work.get("findings", []) if f.get("document", "規約") == document
+                and (f.get("article") in (am.article, am.before_article) or f.get("topic_id") in am.finding_refs)]
+    return context(article=article, caption=am.caption, current=current, original=e["original"], edited=e["text"],
+                   note=e.get("note", ""), findings=findings,
+                   basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis}))
+
+
+def _review_edits(work_id: str, keys: list[str]) -> None:
+    """直した条を1条ずつ AI に確かめてもらい、終わるたびに保存する。最後に資料の印を書き直す。"""
+    from core.editcheck import cost_usd, review_edit
+
+    for key in keys:
+        work = store.load(work_id)
+        e = (work.get("human_edits") or {}).get(key)
+        if not e:
+            continue
+        text = e["text"]
+
+        def begin(data: dict, key=key) -> None:  # 順番待ちから「確かめています」に（画面に経過時間を出すため）
+            r = ((data.get("human_edits") or {}).get(key) or {}).get("review")
+            if r:
+                r.update(queued=False, started=__import__("datetime").datetime.now().isoformat(timespec="seconds"))
+        store.mutate(work_id, begin)
+        try:
+            review, usage = review_edit(_review_material(work_id, work, key))
+            usd = cost_usd(usage)
+            result = {"status": "済み", "for_text": text, "at": _now(), "verdict": review.verdict, "summary": review.summary,
+                      "concerns": [c.model_dump() for c in review.concerns], "cost_usd": usd}
+            store.append_log(work_id, "edit", f"委員会で直した{key.split('|', 1)[1]}を AI が確かめました：{review.verdict}")
+        except Exception as err:  # 1条確かめられなくても、残りの条は確かめる
+            usd = 0.0
+            result = {"status": "失敗", "for_text": text, "at": _now(), "error": f"{type(err).__name__}"}
+            store.append_log(work_id, "error", f"委員会で直した{key.split('|', 1)[1]}を確かめられませんでした：{type(err).__name__}")
+
+        def save(data: dict, key=key, result=result, usd=usd) -> None:
+            e2 = (data.get("human_edits") or {}).get(key)
+            if e2 is not None:
+                e2["review"] = result
+            if usd:
+                data.setdefault("costs", []).append(_cost_entry(f"直した文の確認（{key.split('|', 1)[1]}）",
+                                                                {"amount": max(1, round(usd * 100)), "currency": "USD"}))
+        store.mutate(work_id, save)
+    work = store.load(work_id)
+    if _draft(work):
+        _write_taisho(work_id, work, _draft(work), _corpus(work_id))
+
+
+@app.post("/works/{work_id}/articles/review")
+async def review_articles(request: Request, work_id: str):
+    """委員会で直した条を、AI に確かめてもらう（押したときだけ。1条あたり数セント）。key がなければ、確認前の条をまとめて。"""
+    from core.editcheck import label
+
+    form = await request.form()
+    work = store.load(work_id)
+    edits = work.get("human_edits") or {}
+    if any((e.get("review") or {}).get("status") == "確認中" for e in edits.values()):
+        raise HTTPException(409, "AI が確かめている最中です。終わるまでお待ちください。")
+    key = str(form.get("key", ""))
+    keys = [key] if key in edits else [k for k, e in edits.items() if "確認前" in label(e)]
+    if not keys:
+        raise HTTPException(400, "確かめる条がありません。")
+
+    def mark(data: dict) -> None:
+        for k in keys:
+            data["human_edits"][k]["review"] = {"status": "確認中", "queued": True, "for_text": data["human_edits"][k]["text"],
+                                                "at": _now()}
+    store.mutate(work_id, mark)
+    threading.Thread(target=_review_edits, args=(work_id, keys), daemon=True).start()
+    return RedirectResponse(f"/works/{work_id}/articles#row-top", status_code=303)
+
+
+
+def _review_progress(human: dict) -> dict | None:
+    """AI が確かめている間の進み具合（何条のうち何条目か、今の条を確かめ始めてからの秒数）。"""
+    from datetime import datetime
+
+    jobs = [(k, e["review"]) for k, e in human.items() if (e.get("review") or {}).get("status") == "確認中"]
+    if not jobs:
+        return None
+    active = next(((k, r) for k, r in jobs if not r.get("queued")), None)
+    elapsed = 0
+    if active and active[1].get("started"):
+        try:
+            elapsed = max(0, int((datetime.now() - datetime.fromisoformat(active[1]["started"])).total_seconds()))
+        except ValueError:
+            elapsed = 0
+    return {"left": len(jobs), "active": active[0].split("|", 1)[1] if active else "", "elapsed": elapsed,
+            "started": active[1].get("started", "") if active else ""}

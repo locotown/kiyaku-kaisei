@@ -51,6 +51,9 @@
         {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}採点役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
       {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。次の「理事会で検討」で、どちらの案にするか選びます。</div></div>{% endif %}
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
+      {% set ec = edit_counts(work) %}
+      {% if ec.total %}<div class="check"><span class="num small">！</span><div>委員会で直した条が<b>{{ ec.total }}条</b>あります{% if ec.unchecked %}（そのうち AI の確認前 <b>{{ ec.unchecked|length }}条</b>：{{ ec.unchecked|join("、") }}）。人が直した文は、法律や標準管理規約に合っているかをまだ確かめていません。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で AI に確かめてもらえます</a>{% else %}。すべて AI が確かめました{% endif %}。
+        {% if ec.flagged %}<div class="flagged">AI が気になる点を挙げた条：<b>{{ ec.flagged|join("、") }}</b>。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で内容を確かめ</a>、必要なら直すか AI の文に戻してください。</div>{% endif %}</div></div>{% endif %}
       <div class="acts">
         <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表を開く</a>
         <a class="tbtn2" href="/works/{{ id }}/articles">{{ icon("edit") }}条の文を直す</a>

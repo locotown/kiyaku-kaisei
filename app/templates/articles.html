@@ -1,15 +1,37 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
+{% block head %}{% if reviewing %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block title %}条の文を直す｜{{ work.name }}｜ととのう規約{% endblock %}
 {% block content %}
 {# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
 <p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}</span></p>
 <div class="stepttl"><p class="eyebrow">改定案の手直し</p><h1 class="page-title">条の文を直す</h1>
   <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、下の「直した文を保存する」を押してください。
-    <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>AI は使いません。</p></div>
+    <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>保存には AI を使いません。</p></div>
 
 {% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
 {% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
+
+<div class="review-top sec" id="row-top">
+  <h2>直した文を AI に確かめてもらう</h2>
+  <p class="small">人が直した文は、そのままでは法律や標準管理規約に合っているかを誰も確かめていません。資料では「委員会で直した文（AI の確認前）」と表示されます。
+    「AI に確かめてもらう」を押すと、AI の元の文・指摘・根拠の条文と見比べて、問題がないかを根拠付きで返します（押したときだけ動きます。1条あたり数セント〜十数セント）。文を直したら、先に下の「直した文を保存する」を押してから確かめてください。結果は参考で、法的助言ではありません。</p>
+  {% if counts.total %}
+  <p>委員会で直した条 <b>{{ counts.total }}条</b>（AI の確認前 <b>{{ counts.unchecked|length }}条</b>{% if counts.unchecked %}：{{ counts.unchecked|join("、") }}{% endif %}）</p>
+  {% if counts.flagged %}<p class="warn"><b class="w">AI が気になる点を挙げた条：{{ counts.flagged|join("、") }}</b>。下の結果を読んで、必要なら直すか、AI が作った文に戻してください。</p>{% endif %}
+  {% if reviewing %}{% set rp = review_progress %}
+  <div class="reviewing" role="status"><span class="spinner" aria-hidden="true"></span>
+    <div>{% if rp.active %}<b>AI が{{ rp.active }}を確かめています</b>（<span class="elapsed" data-elapsed="{{ rp.elapsed }}">{{ rp.elapsed }}</span>秒たちました。1条あたり、ふつう20〜60秒かかります）{% else %}<b>AI が確かめる準備をしています</b>{% endif %}
+      {% if rp.left > 1 %}<br><span class="small">このあと、ほかに {{ rp.left - 1 }}条が順番を待っています。</span>{% endif %}
+      <br><span class="small">終わると、この画面が自動で切り替わります（5秒ごとに確かめています）。ほかの画面に移ってもかまいません。</span></div></div>
+  <script>
+  (() => { const el = document.querySelector(".reviewing .elapsed"); if (!el) return;
+    let n = Number(el.dataset.elapsed) || 0; setInterval(() => { el.textContent = ++n; }, 1000); })();
+  </script>
+  {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
+  {% else %}<p class="muted">まだ直した条はありません。</p>{% endif %}
+</div>
+<form method="post" action="/works/{{ id }}/articles/review" id="reviewform"></form>
 
 <form method="post" action="/works/{{ id }}/articles" id="artform">
   <input type="hidden" name="ident" value="{{ ident }}">
@@ -18,13 +40,27 @@
   <section class="artedit sec{{ ' edited' if a.edit }}" id="row{{ a.n }}">
     <div class="pc-head"><span class="rowno">行{{ a.n }}</span><b>{{ a.article }}（{{ a.caption }}）</b>
       {% if a.document != "規約" %}<span class="small">{{ a.document }}</span>{% endif %}
-      {% if a.edit %}<span class="cat must">委員会で直した文</span><span class="small">{{ a.edit.at }}</span>{% endif %}</div>
+      {% if a.edit %}<span class="humanmark{{ ' ok' if '問題なし' in a.label }}">{{ a.label }}</span><span class="small">{{ a.edit.at }}</span>{% endif %}</div>
     <details class="more"><summary>今の規定を見る</summary><div class="quote">{{ a.current if a.kind != "新設" else "（新しく設ける条）" }}</div></details>
     <label class="artlabel"><span class="small">改定案の文</span>
       <textarea name="text_{{ key }}" rows="{{ [4, (a.text|length // 40) + 2]|max }}" aria-label="{{ a.article }} の改定案の文">{{ a.text }}</textarea></label>
     <label class="pc-memo"><span class="small">補足（直した理由・会議での経緯など。文を直したときに残ります）</span>
       <input type="text" name="note_{{ key }}" value="{{ a.edit.note if a.edit and a.edit.note else '' }}"></label>
     {% if a.edit %}
+      {% set r = a.edit.review or {} %}
+      <div class="editreview">
+        {% if r.status == "確認中" %}<p class="small">{% if r.queued %}順番を待っています（前の条が終わると始まります）{% else %}<span class="spinner sm" aria-hidden="true"></span> AI が確かめています…{% endif %}</p>
+        {% elif r.status == "済み" and r.for_text == a.text %}
+          <p><span class="verdict v-{{ 'ok' if r.verdict == '問題なし' else 'ng' }}">AI の確認：{{ r.verdict }}</span>
+            <span class="small">（{{ r.at }}・約${{ "%.2f"|format(r.cost_usd or 0) }}）</span></p>
+          <p>{{ r.summary }}</p>
+          {% if r.concerns %}<ul class="concerns">{% for c in r.concerns %}
+            <li><b>{{ c.kind }}</b>：{{ c.point }}<div class="small">根拠：{{ c.basis }}</div><div class="small">どうするか：{{ c.suggestion }}</div></li>{% endfor %}</ul>{% endif %}
+        {% elif r.status == "済み" %}<p class="small">AI が確かめたあとに文を直したので、もう一度確かめてください。</p>
+        {% elif r.status in ("失敗", "中断") %}<p class="small">AI が確かめられませんでした（{{ r.status }}）。もう一度押してください。</p>
+        {% endif %}
+        {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
+      </div>
       <details class="more"><summary>AI が作った文を見る</summary><div class="quote">{{ a.edit.original }}</div></details>
       <label class="small revert"><input type="checkbox" name="revert_{{ key }}" value="1"> AI が作った文に戻す</label>
     {% endif %}
