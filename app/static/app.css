@@ -318,3 +318,15 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 .tk .revertbtn { margin-top: var(--space-2); }
 .tk .revertbtn.armed { color: var(--color-must); border-color: var(--color-must); font-weight: 700; }
+
+/* ---- ステップ3の操作：新旧対照表 と 条の文を直す を別の枠に、戻るは枠の外に小さく ---- */
+.draftacts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4); }
+.draftacts .da-card { display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
+.draftacts .da-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; }
+.draftacts .da-head h3 { font-size: var(--text-md); margin: 0 0 var(--space-1); }
+.draftacts .da-head p { margin: 0; }
+.draftacts .da-icon { width: 24px; height: 24px; color: var(--color-primary); margin-top: 2px; }
+.draftacts .da-btns { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; }
+.tk .da-back { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px dashed var(--color-line); }
+.da-back .tbtn2 { padding-left: 0; }
+@media (max-width: 720px) { .draftacts { grid-template-columns: 1fr; } }
