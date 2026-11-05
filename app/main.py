@@ -1198,11 +1198,12 @@ def _run_partial(work_id: str) -> None:
         log("edit", f"理事会の判断を反映して、{'、'.join(changed_refs) or '対象の条'}を書き直しました（約${usd:.2f}）")
     except Exception as e:
         log("error", f"{type(e).__name__}: {e}")
+        msg = f"{type(e).__name__}: {e}"[:400]
 
         def fail(data: dict) -> None:  # 今の改定案はそのまま残っているので、改定案はある状態に戻す
             data["status_since"] = __import__("time").time()
             data.update(status="改定案あり" if data.get("draft") else "改定案エラー", draft_mode="partial",
-                        draft_partial={"status": "失敗", "at": _now(), "error": f"{type(e).__name__}: {e}"[:400],
+                        draft_partial={"status": "失敗", "at": _now(), "error": msg,
                                        "cost_usd": round(usd, 4)})
             if usd:
                 data.setdefault("costs", []).append(_cost_entry("改定案の部分的な作り直し（失敗）",
