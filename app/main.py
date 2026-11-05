@@ -1195,6 +1195,14 @@ def resume_notes(work_id: str, batch: str):
     return RedirectResponse(f"/works/{work_id}/notes/{batch}", status_code=303)
 
 
+@app.get("/works/{work_id}/notes/{batch}/status")
+def notes_status(work_id: str, batch: str):
+    """写真の読み取りの進み具合（画面が3秒ごとに聞き、写真が1枚読めるたびに画面を切り替える）。"""
+    b = _note_batch(store.load(work_id), batch)
+    done = sum(1 for p in b["photos"] if p["status"] in ("読み取り済み", "失敗"))
+    return JSONResponse({"status": b["status"], "done": done})
+
+
 @app.get("/works/{work_id}/notes/{batch}/photo/{n}")
 def note_photo(work_id: str, batch: str, n: int):
     p = _notes_dir(work_id, batch) / f"p{int(n)}.jpg"
@@ -1433,7 +1441,7 @@ def articles_page(request: Request, work_id: str):
     """改定案の条の文を、人が直接直す画面（委員会のあとで見返して直す場合など）。"""
     from core.taisho import numbered, rows
 
-    work = store.load(work_id)
+    work = _unstick_reviews(work_id, store.load(work_id))
     draft = _draft(work)
     if not draft:
         raise HTTPException(404, "改定案がまだありません。")
@@ -1456,6 +1464,7 @@ def articles_page(request: Request, work_id: str):
         "reviewing": any((e.get("review") or {}).get("status") == "確認中" for e in human.values()),
         "review_progress": _review_progress(human),
         "busy": work["status"] in BUSY, "saved": request.query_params.get("saved", ""),
+        "reverted": request.query_params.get("reverted", ""),
     })
 
 
@@ -1484,6 +1493,23 @@ async def save_articles(request: Request, work_id: str):
     if edits:
         _edit_articles(work_id, edits, f"{_now()} 条の文を直しました")
     return RedirectResponse(f"/works/{work_id}/articles?saved={len(edits)}", status_code=303)
+
+
+@app.post("/works/{work_id}/articles/revert")
+async def revert_article(request: Request, work_id: str):
+    """委員会で直した条を、AI が作った文に戻す（ボタン1つで。AI は使わない）。"""
+    form = await request.form()
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "AI が作業中です。終わってから戻してください。")
+    if str(form.get("ident", "")) != _ident(work_id, work):
+        raise HTTPException(409, "この画面を開いたあとに、改定案が変わりました。画面を開き直してから、もう一度押してください。")
+    key = str(form.get("key", ""))
+    if key not in (work.get("human_edits") or {}):
+        raise HTTPException(400, "戻す条が見つかりません。画面を開き直してください。")
+    document, article = key.split("|", 1)
+    _edit_articles(work_id, [{"document": document, "article": article, "text": None}], f"{_now()} AI が作った文に戻しました")
+    return RedirectResponse(f"/works/{work_id}/articles?reverted={article}", status_code=303)
 
 
 @app.post("/works/{work_id}/todos")
@@ -1592,13 +1618,21 @@ def _review_edits(work_id: str, keys: list[str]) -> None:
         _write_taisho(work_id, work, _draft(work), _corpus(work_id))
 
 
+@app.get("/works/{work_id}/articles/review-status")
+def review_status(work_id: str):
+    """AI が直した文を確かめ終わったか（画面が3秒ごとに聞き、終わったときだけ画面を切り替える）。"""
+    work = _unstick_reviews(work_id, store.load(work_id))
+    reviewing = any((e.get("review") or {}).get("status") == "確認中" for e in (work.get("human_edits") or {}).values())
+    return JSONResponse({"reviewing": reviewing})
+
+
 @app.post("/works/{work_id}/articles/review")
 async def review_articles(request: Request, work_id: str):
     """委員会で直した条を、AI に確かめてもらう（押したときだけ。1条あたり数セント）。key がなければ、確認前の条をまとめて。"""
     from core.editcheck import label
 
     form = await request.form()
-    work = store.load(work_id)
+    work = _unstick_reviews(work_id, store.load(work_id))
     edits = work.get("human_edits") or {}
     if any((e.get("review") or {}).get("status") == "確認中" for e in edits.values()):
         raise HTTPException(409, "AI が確かめている最中です。終わるまでお待ちください。")
@@ -1607,14 +1641,48 @@ async def review_articles(request: Request, work_id: str):
     if not keys:
         raise HTTPException(400, "確かめる条がありません。")
 
-    def mark(data: dict) -> None:
-        for k in keys:
-            data["human_edits"][k]["review"] = {"status": "確認中", "queued": True, "for_text": data["human_edits"][k]["text"],
-                                                "at": _now()}
+    started = __import__("datetime").datetime.now().isoformat(timespec="seconds")
+
+    def mark(data: dict) -> None:  # 1条目は押した直後から「確かめています」、2条目からは順番待ち
+        for i, k in enumerate(keys):
+            data["human_edits"][k]["review"] = {"status": "確認中", "queued": i > 0, "queued_at": started,
+                                                "started": "" if i else started,
+                                                "for_text": data["human_edits"][k]["text"], "at": _now()}
     store.mutate(work_id, mark)
     threading.Thread(target=_review_edits, args=(work_id, keys), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}/articles#row-top", status_code=303)
 
+
+
+REVIEW_STUCK_SEC = 300  # 1条はふつう20〜60秒。これだけたっても進まなければ、処理が消えたとみなす（サーバーの再起動など）
+
+
+def _unstick_reviews(work_id: str, work: dict) -> dict:
+    """止まったまま残った「確認中」を「中断」にする。処理が消えても、画面からもう一度押せるように。"""
+    from datetime import datetime
+
+    def age(r: dict) -> float:
+        t = r.get("started") or r.get("queued_at")
+        try:
+            return (datetime.now() - datetime.fromisoformat(t)).total_seconds() if t else REVIEW_STUCK_SEC + 1
+        except ValueError:
+            return REVIEW_STUCK_SEC + 1
+
+    jobs = {k: e["review"] for k, e in (work.get("human_edits") or {}).items() if (e.get("review") or {}).get("status") == "確認中"}
+    if not jobs:
+        return work
+    active = [r for r in jobs.values() if not r.get("queued")]
+    # 確かめている条が長く進まない、または、確かめている条がないのに順番待ちだけが残っている
+    stuck = (active and max(age(r) for r in active) > REVIEW_STUCK_SEC) or (not active and min(age(r) for r in jobs.values()) > 60)
+    if not stuck:
+        return work
+
+    def stop(data: dict) -> None:
+        for e in (data.get("human_edits") or {}).values():
+            if (e.get("review") or {}).get("status") == "確認中":
+                e["review"]["status"] = "中断"
+    store.append_log(work_id, "error", "直した文の確認が途中で止まりました（サーバーの再起動など）")
+    return store.mutate(work_id, stop)
 
 
 def _review_progress(human: dict) -> dict | None:

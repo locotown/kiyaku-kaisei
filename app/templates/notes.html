@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
 {% block title %}書き込みの読み取り｜{{ work.name }}｜ととのう規約{% endblock %}
-{% block head %}{% if b.status == "読み取り中" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
 {% block content %}
 {% macro proposal(p) %}
       <div class="proposal-card{{ ' needcheck' if p.check }}{{ ' settled' if p.status != '未確認' }}">
@@ -48,7 +47,14 @@
 
 {% if done %}<div class="justdone">{{ icon("check") }}<span>{{ done }}件を反映しました。<a href="/works/{{ id }}{{ back }}">作業の画面</a>で確かめられます。</span></div>{% endif %}
 {% if b.status == "読み取り中" %}
-  <div class="warn"><b class="w">読み取っています（写真 {{ done_n }} ／ {{ b.photos|length }}枚）。</b>この画面は5秒ごとに更新されます。読み取りが済んだ写真の提案から、先に確かめられます。</div>
+  <div class="warn"><b class="w">読み取っています（写真 {{ done_n }} ／ {{ b.photos|length }}枚）。</b>写真が1枚読めるたびに、この画面が切り替わります。読み取りが済んだ写真の提案から、先に確かめられます。</div>
+  <script>
+  (() => { const shown = {{ b.photos|selectattr("status", "in", ["読み取り済み", "失敗"])|list|length }};
+    const t = setInterval(async () => {
+      try { const j = await (await fetch("/works/{{ id }}/notes/{{ b.id }}/status", { cache: "no-store" })).json();
+        if (j.status !== "読み取り中" || j.done !== shown) { clearInterval(t); location.replace(location.pathname); } } catch (e) {}
+    }, 3000); })();
+  </script>
 {% elif b.status == "中断" %}
   <form method="post" action="/works/{{ id }}/notes/{{ b.id }}/resume" class="warn">
     <p><b class="w">読み取りが途中で止まりました</b>（写真 {{ done_n }} ／ {{ b.photos|length }}枚まで）。読み取った分は残っています。</p>
