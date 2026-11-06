@@ -172,3 +172,9 @@
 .tk .tile.t-main, .tk .tile.fbtn.t-main > .tn { color: var(--color-ink); }
 .tk .tile.t-hold, .tk .tile.fbtn.t-hold > .tn { color: #8a5a00; }
 .tk .tile.t-all, .tk .tile.fbtn.t-all > .tn { color: var(--color-ink-3); }
+/* ステップ2：指摘のカードを開いたときに、枠が左右にはみ出し、見出しが上の段の見出しに重なっていた
+   （開いたカードに付けていた古い負の余白を、カードの形に合わせて付け直す。作者の指摘） */
+.tk [data-step="decide"] details.fcard > summary { padding: var(--space-3) 0; }
+.tk [data-step="decide"] details.fcard[open] { margin: 0 0 var(--space-3); padding: 0 var(--space-4) var(--space-4); }
+.tk [data-step="decide"] details.fcard[open] > summary { margin: 0 calc(-1 * var(--space-4)); padding: var(--space-3) var(--space-4); border-radius: 0; }
+.tk [data-step="decide"] .gh { margin-bottom: var(--space-3); }
