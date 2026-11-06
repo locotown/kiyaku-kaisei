@@ -16,11 +16,11 @@
   {%- set human = st.who == "human" %}
   <li class="{{ {'done': 'done', 'now': 'now'}.get(st.state, '') }}" data-step="{{ st.key }}"{% if st.state == "now" %} aria-current="step"{% endif %}>
     {%- if st.key in avail %}<a href="#{{ st.anchor }}">{% else %}<span class="na">{% endif -%}
-    {%- if st.state == "done" and human %}<span class="m hanko" aria-label="済">済</span>{% elif st.state == "done" %}<span class="m" aria-label="済">{{ icon("check") }}</span>{% else %}<span class="m"></span>{% endif -%}
+    {%- if st.state == "done" and human %}<span class="m hanko" aria-label="人が決め終えた">済</span>{% elif st.state == "done" %}<span class="m" aria-label="AI が作り終えた">{{ icon("check") }}</span>{% else %}<span class="m"></span>{% endif -%}
     <span class="lbl">{{ loop.index }}. {{ st.label }}</span><span class="lbl-s" aria-hidden="true">{{ {"review": "読込", "decide": "判断", "draft": "改定案", "board": "理事会", "explain": "説明", "meeting": "総会"}[st.key] }}</span>
     {%- if st.key in avail %}</a>{% else %}</span>{% endif %}</li>{% endfor %}
 </ol>
-<p class="small muted flow-legend"><span class="m-demo">{{ icon("check") }}</span>＝AI が作り終えた　<span class="hanko-demo">済</span>＝人が決め終えた（エラーではありません）</p>
+<p class="small muted flow-legend"><span class="m-demo">{{ icon("check") }}</span>＝AI が作り終えた　<span class="hanko-demo">済</span>＝人が決め終えた（エラーではありません）　<span class="view-demo">色の枠</span>＝いま開いている画面</p>
 <p class="j-next" id="j-next">{% if journey.current %}次にすること：<b>{% for st in journey.steps %}{% if st.key == journey.current %}{{ loop.index }}. {{ st.label }}{% endif %}{% endfor %}</b>（全6ステップ）　{% endif %}{{ journey.next }}</p>
 
 {% include "work/_progress.html" %}
@@ -72,6 +72,8 @@
   }
   window.addEventListener('hashchange', function () { route(false); });
   route(true);
+  // 終わったときの知らせ（?done=…）は一度だけ見せる。アドレスから外し、再読み込みで同じ知らせを出さない（想定ユーザーでの確認から）
+  if (/[?&](done|bulk)=/.test(location.search) && history.replaceState) history.replaceState(null, '', location.pathname + location.hash);
   // ブラウザがあとから #… の位置へ飛ぶので、ステップ全体を指すときは読み込み後にもう一度上へ戻す（進み具合が見えるように）
   window.addEventListener('load', function () { setTimeout(function () { route(true); }, 0); });
 })();

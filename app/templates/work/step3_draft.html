@@ -67,7 +67,7 @@
       <h2>理事会の前に、人が確かめること</h2>
       <div class="check"><span class="num small">1</span><div>AI の確認は下書きの品質の目安です。下の「新旧対照表で確かめる」で、改定後の条文が委員会の意図どおりかを確認してください。
         {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}確認役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
-      {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。次の「理事会で検討」で、どちらの案にするか選びます。</div></div>{% endif %}
+      {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。{% if work.board %}「4. 理事会で検討」の「組合が選ぶ点」で、どちらの案にするか選びます（選ぶと、対象の条だけ作り直せます）。{% else %}次の「理事会で検討」で、どちらの案にするか選びます。{% endif %}</div></div>{% endif %}
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       {% set ec = edit_counts(work) %}
       {% if ec.total %}<div class="check"><span class="num small">！</span><div>委員会で直した条が<b>{{ ec.total }}条</b>あります{% if ec.unchecked %}（そのうち AI の確認前 <b>{{ ec.unchecked|length }}条</b>：{{ ec.unchecked|join("、") }}）。人が直した文は、法律や標準管理規約に合っているかをまだ確かめていません。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で AI に確かめてもらえます</a>{% else %}。すべて AI が確かめました{% endif %}。

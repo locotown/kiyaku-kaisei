@@ -115,3 +115,33 @@ def test_truncate_strips_tags_first():
             if "striptags|truncate(" not in m.group(0):
                 bad.append(f"{p.name}: {m.group(0)}")
     assert not bad, bad
+
+
+# ---- 本物の AI で通した想定ユーザー（スマホの新任理事）の報告から ----
+
+def test_partial_redraft_stays_on_board_step(board_work):
+    """対象の条だけ作り直す間は、ステップ3ではなくステップ4の続きとして見せる。"""
+    M, store, c, wid, _, _ = board_work
+    w = store.load(wid)
+    w.update(status="改定案作成中", draft_mode="partial")
+    assert M.journey(w, M.board_state(w))["current"] == "board"
+    w.update(draft_mode="full")
+    assert M.journey(w, M.board_state(w))["current"] == "draft"
+
+
+def test_journey_marks_are_distinguishable_for_screen_readers(board_work):
+    M, store, c, wid, _, _ = board_work
+    page = c.get(f"/works/{wid}").text
+    assert 'aria-label="済"' not in page and 'aria-label="AI が作り終えた"' in page
+    assert "いま開いている画面" in page
+
+
+def test_done_notice_is_removed_from_address():
+    src = (TPL / "work.html").read_text(encoding="utf-8")
+    assert "history.replaceState" in src and "done|bulk" in src
+
+
+def test_explain_prompt_forbids_unstated_facts_and_asks_direction():
+    from core.explain import SYSTEM
+    assert "渡された資料にない事実" in SYSTEM and "条件付きのまま" in SYSTEM
+    assert "厳しくなるのか緩くなるのか" in SYSTEM

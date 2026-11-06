@@ -18,8 +18,9 @@
       <div class="t"><b>説明ができました</b>総会の結果は記録済みです。最新の規約を確かめられます</div>
       <a class="btn" href="#meeting">最新の規約へ{{ icon("arrow-right") }}</a>
     {% elif work.explain %}
-      <div class="t"><b>説明ができました</b>総会のあとは、結果を記録して最新の規約を作ります</div>
-      <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
+      {# できたらすぐ「総会のあとへ」ではなく、まず中身を確かめる（想定ユーザーでの確認から） #}
+      <div class="t"><b>説明ができました。説明資料を開いて確かめましょう</b>直したい所は、理事会で話し合って配る前に直してください。総会が済んだら <a href="#meeting">6. 総会のあと</a> で結果を記録します</div>
+      <a class="btn" href="/works/{{ id }}/explain" target="_blank" rel="noopener">説明資料を開く{{ icon("arrow-right") }}</a>
     {% elif work.status == "説明文エラー" %}
       <div class="t"><b>説明文づくりが途中で止まりました</b>もう一度作りましょう（上の赤い枠に、止まった理由があります）</div>
       <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文をもう一度作る{{ icon("arrow-right") }}</button>

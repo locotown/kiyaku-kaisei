@@ -447,7 +447,9 @@ def journey(work: dict, bstate: dict | None) -> dict:
             "meeting": any(r in ("可決", "修正して可決") for r in ((work.get("meeting") or {}).get("results") or {}).values())
                        and not work.get("board_changed_after_meeting")}
     status = work.get("status", "")
-    current = STEP_OF_BUSY.get(status) or STEP_OF_ERROR.get(status) or next(
+    # 対象の条だけ作り直す間は、ステップ4（理事会）の続きとして見せる（想定ユーザーで、ステップ3に戻ったように見えた）
+    partial = status == "改定案作成中" and work.get("draft_mode") == "partial"
+    current = ("board" if partial else STEP_OF_BUSY.get(status)) or STEP_OF_ERROR.get(status) or next(
         (st["key"] for st in steps if not done[st["key"]]), "")
     if status in STEP_OF_BUSY:
         text = "AI が作業しています。この画面で進み具合を確認できます。"
