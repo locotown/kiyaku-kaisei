@@ -236,3 +236,13 @@ def test_edits_normalize_newlines_and_mark_explain_stale(board_work):
     M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　一\r\n2　二", "note": ""}], "log")
     w = store.load(wid)
     assert "\r" not in w["draft"]["amendments"][0]["text"] and w.get("explain_stale")
+
+
+def test_display_status_comes_from_data():
+    """状態の表示は中身から決める（作り直しで「改定案あり」に戻っても、説明・総会の結果があれば後の段階を出す）。"""
+    from app.store import display_status
+
+    base = {"status": "改定案あり", "draft": {"amendments": []}}
+    assert display_status(base | {"explain": {"title": "t"}}) == "説明文あり"
+    assert display_status(base | {"explain": {"title": "t"}, "meeting": {"results": {"規約": "可決"}}}) == "総会の結果あり"
+    assert display_status(base | {"status": "説明文作成中", "explain": {"title": "t"}}) == "説明文作成中"

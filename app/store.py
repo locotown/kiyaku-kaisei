@@ -85,6 +85,24 @@ def append_log(work_id: str, kind: str, text: str) -> None:
         tmp.replace(p)
 
 
+BUSY_OR_ERROR = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中", "エラー", "改定案エラー", "検討資料エラー", "説明文エラー")
+
+
+def display_status(data: dict) -> str:
+    """画面と一覧に出す状態。保存した値ではなく中身（総会の結果・説明・検討資料）から決める
+    （作り直しのあとで「改定案あり」に戻ったように見えた、という声から）。処理中・エラーはそのまま。"""
+    status = data.get("status", "")
+    if status in BUSY_OR_ERROR or not data.get("draft"):
+        return status
+    if any(((data.get("meeting") or {}).get("results") or {}).values()):
+        return "総会の結果あり"
+    if data.get("explain"):
+        return "説明文あり"
+    if data.get("board"):
+        return "検討資料あり"
+    return status
+
+
 def list_works() -> list[dict]:
     if not WORK.exists():
         return []
@@ -93,9 +111,7 @@ def list_works() -> list[dict]:
         f = d / "work.json"
         if f.exists():
             data = json.loads(f.read_text(encoding="utf-8"))
-            status = data.get("status", "")
-            if status == "説明文あり" and any(((data.get("meeting") or {}).get("results") or {}).values()):
-                status = "総会の結果あり"  # 作業の画面の表示とそろえる
+            status = display_status(data)  # 作業の画面の表示とそろえる
             out.append({"id": d.name, "name": data.get("name", ""), "status": status,
                         "findings": len(data.get("findings", []))})
     return out

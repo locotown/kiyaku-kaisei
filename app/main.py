@@ -1342,7 +1342,7 @@ def _run_partial(work_id: str) -> None:
                         interrupted="", interrupted_session="",
                         draft_partial={"status": "済み", "at": _now(), "targets": tg["refs"], "changed": changed_refs,
                                        "summary": out.summary, "others": [o.model_dump() for o in out.others],
-                                       "check": review.model_dump(), "cost_usd": round(usd, 4)})
+                                       "check": review.model_dump(), "cost_usd": round(usd, 4), "checked_with": "related_v2"})
             data.setdefault("costs", []).append(_cost_entry(f"改定案の部分的な作り直し（{'、'.join(tg['refs'])}）",
                                                             {"amount": max(1, round(usd * 100)), "currency": "USD"}))
         store.mutate(work_id, save)
@@ -1919,12 +1919,14 @@ def ai_note(kind: str, work: dict) -> str:
         "partial": f"対象の条（{'、'.join(redraft_targets(work)['refs'])}）だけを作り直します（AI が動きます）。\n目安 {PARTIAL_PLAN['estimate']}・AI の費用 {PARTIAL_PLAN['cost']}ほど。",
         "board": "理事会の検討資料を作ります（AI が動きます）。\n目安 1〜2分・AI の費用 数十セントほど。",
         "board_redo": "理事会の検討資料を作り直します（AI が動きます）。\n入れた理事会の判断はリセットされます。目安 1〜2分・AI の費用 数十セントほど。",
-        "explain": "住民向けの説明を作ります（AI が動きます）。\n目安 1〜2分・AI の費用 数十セントほど。",
+        "explain": ("住民向けの説明を作り直します（AI が動きます）。" if work.get("explain") else "住民向けの説明を作ります（AI が動きます）。")
+                   + "\n目安 1〜2分・AI の費用 数十セントほど。",
     }
     return notes[kind] + tail
 
 
 templates.env.globals["ai_note"] = ai_note
+templates.env.globals["display_status"] = store.display_status
 templates.env.globals["cost_total"] = lambda work: __import__("core.quality", fromlist=["cost_lines"]).cost_lines(work)["total"]
 templates.env.globals["draft_plan_for"] = lambda work: __import__("core.progress", fromlist=["draft_plan"]).draft_plan(_adopted_count(work))
 templates.env.globals["redraft_targets"] = redraft_targets

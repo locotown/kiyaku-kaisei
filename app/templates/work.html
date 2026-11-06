@@ -7,9 +7,9 @@
 {# 表示するステップ（画面）。指摘がなければ「読み込み」だけ、改定案がなければ 理事会以降は出さない #}
 {% set avail = ["review"] + (["decide", "draft"] if work.findings else []) + (["board", "explain", "meeting"] if work.findings and work.draft else []) %}
 {% set ns_cur = namespace(key=journey.current if journey.current in avail else avail[-1]) %}
-{% set shown_status = "総会の結果あり" if (work.status == "説明文あり" and work.meeting and (work.meeting.results or {}).values()|select|list) else work.status %}
+{% set shown_status = display_status(work) %}
 {% set cst = cost_total(work) %}
-<p class="eyebrow wk">{{ work.name }}　<span class="muted">状態：<b id="status">{{ shown_status }}</b>{% if cst %}　AI の費用：これまで 約${{ "%.2f"|format(cst) }}{% endif %}</span></p>
+<p class="eyebrow wk">{{ work.name }}　<span class="muted"><span class="nowrap">状態：<b id="status">{{ shown_status }}</b></span>{% if cst %}　AI の費用：これまで 約${{ "%.2f"|format(cst) }}{% endif %}</span></p>
 
 <ol class="flow" id="journey" aria-label="進み具合">{% for st in journey.steps %}
   {%- set human = st.who == "human" %}

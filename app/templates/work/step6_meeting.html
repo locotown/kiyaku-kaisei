@@ -49,6 +49,11 @@
       </div>
     {% endfor %}
     </div>
+    {% if work.board_changed_after_meeting %}
+    {# 総会のあとで変わったときは、保存し直すボタンを帯に出す（ボタンを探して下までスクロールした、という声から） #}
+    <div class="bar"><div class="in"><div class="t"><b>総会の結果を保存し直してください</b>　総会で可決した内容と合っているか確かめてから</div>
+      <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button></div></div>
+    {% endif %}
     <div class="srcnote src-電子データ"><b>使う前に確認すること：</b>文字は今の規約と改定案から正確に組み立てますが、元の規約集の書式（字下げ、表、別表のレイアウト）や、条番号の書き方（漢数字など）までは引き継ぎません。
       体裁は元の規約集に合わせて整え、総会の議事録の文言と照らし合わせてから、規約原本と一緒に保管してください。</div>
   {% else %}

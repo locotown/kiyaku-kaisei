@@ -390,3 +390,6 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 
 /* 注意の文は左揃え（太字の行の字間が空いて見えた） */
 .tk p.warn, .tk .warn b.w { text-align: left; }
+
+/* 説明の一覧は左揃え（条番号の字間が空いて見えた） */
+.tk .explain-peek li, .tk .explain-peek p { text-align: left; }

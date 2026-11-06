@@ -6,6 +6,7 @@
     <p><b>{{ icon("check") }}対象の条だけ作り直しました（{{ pr.at }}・約${{ "%.2f"|format(pr.cost_usd or 0) }}）</b>：{{ (pr.changed or pr.targets)|join("、") }}</p>
     <p class="small">{{ pr.summary }}</p>
     <p><span class="verdict v-{{ 'ok' if ck.verdict == '問題なし' else 'ng' }}">直した条の AI の確認：{{ ck.verdict }}</span> <span class="small">{{ ck.summary }}</span></p>
+    {% if not pr.checked_with %}<p class="small warn-lite">この確認は、確かめ方を直す前のものです。関係する条を改定前の文と比べた、誤った指摘が含まれることがあります。気になる点は新旧対照表で確かめてください。</p>{% endif %}
     {% if ck.concerns %}<ul class="concerns">{% for c in ck.concerns %}
       <li><b>{{ c.kind }}</b>（{{ c.ref }}）：{{ c.point }}<div class="small">根拠：{{ c.basis }}</div><div class="small">どうするか：{{ c.suggestion }}</div></li>{% endfor %}</ul>
       <p class="small">気になる点は、新旧対照表で確かめてください。条の文はステップ3の「条の文を直す」で直せます。理由の説明も、同じ「条の文を直す」画面で直せます（AI の費用はかかりません）。</p>{% endif %}

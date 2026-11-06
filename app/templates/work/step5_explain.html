@@ -36,6 +36,9 @@
     {% elif work.explain and work.explain_stale %}
       <div class="t"><b>理事会の判断が変わりました</b>　説明を作り直してください</div>
       <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文を作り直す{{ icon("arrow-right") }}</button>
+    {% elif work.explain and work.meeting and (work.meeting.results or {}).values()|select|list %}
+      <div class="t"><b>説明ができました</b>　総会の結果は記録済みです。最新の規約を確かめられます</div>
+      <a class="btn" href="#meeting">最新の規約へ{{ icon("arrow-right") }}</a>
     {% elif work.explain %}
       <div class="t"><b>説明ができました</b>　総会のあとは、結果を記録して最新の規約を作ります</div>
       <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
