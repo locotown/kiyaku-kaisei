@@ -447,3 +447,5 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
   .pf-grid { grid-template-columns: 1fr; }
   .tk .cs-box { padding: var(--space-3) var(--space-4); }
 }
+.eyebrow.wk .wk-ask { margin-left: var(--space-3); font-size: var(--text-xs); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.eyebrow.wk .wk-ask .icon { width: 14px; height: 14px; }

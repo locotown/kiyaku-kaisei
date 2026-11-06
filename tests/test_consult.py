@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core import consult as C
+from tests.test_partial import board_work  # noqa: F401  (pytest の fixture)
 
 
 def test_votes_for_65_units():
@@ -188,3 +189,11 @@ def test_empty_inputs_and_stopped_turns(app_client):
     consult_app.RUNNING.discard("20261106-000000-aaaaaa")
     view = c.get("/consult/20261106-000000-aaaaaa").text
     assert "途中で止まりました" in view and "もう一度答えてもらう" in view
+
+
+
+def test_work_page_links_to_consult_with_its_rules(board_work):
+    """作業の画面から「この規約について相談する」で、その規約を選んだ状態の相談の画面を開ける。"""
+    M, store, c, wid, _, _ = board_work
+    assert f'href="/consult?work={wid}"' in c.get(f"/works/{wid}").text
+    assert f'<option value="{wid}" selected' in c.get(f"/consult?work={wid}").text
