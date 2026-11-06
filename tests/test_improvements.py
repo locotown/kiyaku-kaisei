@@ -137,7 +137,7 @@ def test_photo_note_appends_to_committee_note(board_work):
     M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　委員会の文", "note": "11/5 委員会で決めた"}], "log")
     M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　写真の文", "note": "額で数える"}], "log", batch="b1")
     note = store.load(wid)["human_edits"]["規約|第47条"]["note"]
-    assert note.startswith("11/5 委員会で決めた／") and note.endswith("額で数える")
+    assert note.startswith("11/5 委員会で決めた\n") and note.endswith("額で数える")
 
 
 def test_saved_count_counts_articles(board_work):

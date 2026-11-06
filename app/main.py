@@ -70,7 +70,7 @@ def recover_interrupted() -> list[str]:
         if w["status"] == "改定案作成中" and work.get("draft_mode") == "partial" and work.get("draft"):
             # 対象の条だけの作り直しは、終わるまで改定案を書き換えないので、今の改定案のまま戻す
             store.append_log(w["id"], "error", "対象の条の作り直しが途中で止まりました（サーバーの再起動など）")
-            store.update(w["id"], status="改定案あり",
+            store.update(w["id"], status="説明文あり" if work.get("explain") else ("検討資料あり" if work.get("board") else "改定案あり"),
                          draft_partial={"status": "中断", "at": _now(), "error": "サーバーの再起動などで止まりました。もう一度押してください。"})
             fixed.append(w["id"])
             continue
@@ -438,8 +438,11 @@ def journey(work: dict, bstate: dict | None) -> dict:
              {"key": "meeting", "label": "総会のあと", "anchor": "meeting", "who": "human"}]
     draft_ok = bool(work.get("draft")) and not work.get("draft_stale")
     done = {"review": bool(work.get("findings")), "decide": bool(work.get("draft")), "draft": draft_ok,
-            "board": draft_ok and bool(bstate and bstate.get("ready")), "explain": bool(work.get("explain")),
-            "meeting": any(r in ("可決", "修正して可決") for r in ((work.get("meeting") or {}).get("results") or {}).values())}
+            "board": draft_ok and bool(bstate and bstate.get("ready")),
+            # 判断が変わったあと、作り直し・保存し直しが済むまでは済みにしない（上の「次にすること」が下の注意と食い違わないように）
+            "explain": bool(work.get("explain")) and not work.get("explain_stale"),
+            "meeting": any(r in ("可決", "修正して可決") for r in ((work.get("meeting") or {}).get("results") or {}).values())
+                       and not work.get("board_changed_after_meeting")}
     status = work.get("status", "")
     current = STEP_OF_BUSY.get(status) or STEP_OF_ERROR.get(status) or next(
         (st["key"] for st in steps if not done[st["key"]]), "")
@@ -456,9 +459,12 @@ def journey(work: dict, bstate: dict | None) -> dict:
         text = ("「理事会の検討資料を作る」を押してください。" if not (bstate and work.get("board"))
                 else (bstate.get("reason") or "議題ごとの判断を記録してください。"))
     elif current == "explain":
-        text = "「住民向けの説明を作る」を押してください。"
+        text = ("理事会の判断が変わりました。「説明文を作り直す」を押してください。" if work.get("explain_stale")
+                else "「住民向けの説明を作る」を押してください。")
     elif current == "meeting":
-        text = "総会が終わったら、議案ごとの結果を記録すると、最新の規約を作れます。"
+        text = ("総会の結果を記録したあとで、改定案や判断が変わりました。総会で可決した内容と合っているか確かめ、"
+                "「総会の結果を保存し直す」を押してください。" if work.get("board_changed_after_meeting")
+                else "総会が終わったら、議案ごとの結果を記録すると、最新の規約を作れます。")
     else:
         text = "すべての段階が済みました。最新の規約を元の規約集の体裁に整え、規約原本と一緒に保管してください。"
     for st in steps:
@@ -1102,6 +1108,10 @@ def _apply_board_form(work_id: str, form) -> None:
     from core.history import record
 
     old = work.get("board_decisions", {})
+    if not work.get("board_applied") and work.get("draft_reflects_board"):
+        # 反映した判断の記録がない（この仕組みの前に作り直した）作業は、変える前の判断を反映済みとして記録する
+        store.update(work_id, board_applied=_board_snapshot(old))
+        work["board_applied"] = _board_snapshot(old)
     decisions = {}
     changed_redraft = False
     now = _now()
@@ -1187,9 +1197,12 @@ PARTIAL_PLAN = {"estimate": "2〜5分", "cost": "数十セント"}
 
 
 def _mark_after_meeting(data: dict) -> None:
-    """総会の結果を記録したあとで改定案や判断が変わったら、印を付ける（最新の規約が知らせなく変わらないように）。"""
+    """総会の結果を記録したあとで改定案や判断が変わったら、印を付ける（最新の規約が知らせなく変わらないように）。
+    住民向け説明を作ったあとなら、説明が古くなった印も付ける（ステップ5にも注意を出す）。"""
     if any(((data.get("meeting") or {}).get("results") or {}).values()):
         data["board_changed_after_meeting"] = _now()
+    if data.get("explain"):
+        data["explain_stale"] = True
 
 
 def _board_snapshot(decisions: dict) -> dict:
@@ -1292,6 +1305,12 @@ def _run_partial(work_id: str) -> None:
         related = []
         for _, b in changed:
             related += _related(corpus, b.document or "規約", b.article, b.text, [o.ref for o in out.others])
+        # 改定案にある条は、改定前ではなく改定案の文で確かめさせる（改定前の文と比べて誤った指摘が出た、という声から）
+        amended = {re.sub(r"[\s　]", "", a.article): a for a in new_draft.amendments}
+        for r in related:
+            a = amended.get(re.sub(r"[\s　]", "", r["ref"]))
+            if a is not None and a.kind != "削除":
+                r["ref"], r["text"] = f"{r['ref']}（改定案の文）", a.text
         review, c2 = partial.check(partial.check_material(board=board, changed=changed, others=others, human_notes=hnotes,
                                                           currents=currents, related=related[:10]))
         usd += c2
@@ -1317,7 +1336,9 @@ def _run_partial(work_id: str) -> None:
             data["status_since"] = __import__("time").time()
             data["board_applied"] = _board_snapshot(data.get("board_decisions", {}))  # 反映した判断（次の作り直しの対象から外すため）
             _mark_after_meeting(data)
-            data.update(status="改定案あり", draft_reflects_board=True, draft_stale=False, draft_mode="partial",
+            # 説明まで済んでいる作業は、状態を「改定案あり」に戻さない（一覧で前の段階に戻ったように見えた）
+            later = "説明文あり" if data.get("explain") else ("検討資料あり" if data.get("board") else "改定案あり")
+            data.update(status=later, draft_reflects_board=True, draft_stale=False, draft_mode="partial",
                         interrupted="", interrupted_session="",
                         draft_partial={"status": "済み", "at": _now(), "targets": tg["refs"], "changed": changed_refs,
                                        "summary": out.summary, "others": [o.model_dump() for o in out.others],
@@ -1334,7 +1355,8 @@ def _run_partial(work_id: str) -> None:
 
         def fail(data: dict) -> None:  # 今の改定案はそのまま残っているので、改定案はある状態に戻す
             data["status_since"] = __import__("time").time()
-            data.update(status="改定案あり" if data.get("draft") else "改定案エラー", draft_mode="partial",
+            data.update(status=("説明文あり" if data.get("explain") else "検討資料あり" if data.get("board") else "改定案あり")
+                        if data.get("draft") else "改定案エラー", draft_mode="partial",
                         draft_partial={"status": "失敗", "at": _now(), "error": msg,
                                        "cost_usd": round(usd, 4)})
             if usd:
@@ -1690,6 +1712,8 @@ def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -
         human = data.setdefault("human_edits", {})
         for e in edits:
             key = f"{e['document']}|{e['article']}"
+            if e.get("text"):  # 改行の形をそろえる（写真の反映などで \r\n が混じり、変わらない行が差分に出た）
+                e["text"] = e["text"].replace("\r\n", "\n").replace("\r", "\n")
             for am in data["draft"]["amendments"]:
                 if am["article"] != e["article"] or am.get("document", "規約") != e["document"]:
                     continue
@@ -1701,7 +1725,7 @@ def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -
                 note = e.get("note", "")
                 # 写真の書き込みから反映したときは、前の補足（委員会の経緯）を消さずに書き足す（上書きで経緯が消えた、という声から）
                 if batch and prev.get("note") and note and note not in prev["note"]:
-                    note = f"{prev['note']}／{now}：{note}"
+                    note = f"{prev['note']}\n{now}：{note}"
                 elif batch and prev.get("note") and not note:
                     note = prev["note"]
                 human[key] = {"text": e["text"], "original": prev.get("original", am["text"]), "at": now,

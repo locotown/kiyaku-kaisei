@@ -85,7 +85,7 @@ def test_partial_rewrites_only_targets(board_work, monkeypatch):
     store.update(wid, status="改定案作成中", draft_mode="partial")
     run(wid)
     w = store.load(wid)
-    assert w["status"] == "改定案あり", w["log"][-3:]
+    assert w["status"] == "検討資料あり", w["log"][-3:]
     am = {a["article"]: a for a in w["draft"]["amendments"]}
     assert am["第47条"]["text"] == "第47条　…書面又は電磁的方法…" and am["第47条"]["choices"] == [], w.get("draft_partial")
     assert am["第48条"] == next(a for a in before["amendments"] if a["article"] == "第48条")   # 対象でない条はそのまま
@@ -110,7 +110,7 @@ def test_partial_failure_keeps_draft(board_work, monkeypatch):
     store.update(wid, status="改定案作成中", draft_mode="partial")
     run(wid)
     w = store.load(wid)
-    assert w["status"] == "改定案あり" and w["draft"] == before and w["draft_partial"]["status"] == "失敗"
+    assert w["status"] == "検討資料あり" and w["draft"] == before and w["draft_partial"]["status"] == "失敗"
     page = c.get(f"/works/{wid}").text
     assert "うまくいきませんでした" in page and "今の改定案はそのまま残っています" in page
 
@@ -147,7 +147,7 @@ def test_recover_keeps_draft_when_partial_interrupted(board_work):
     store.update(wid, status="改定案作成中", draft_mode="partial")
     M.recover_interrupted()
     w = store.load(wid)
-    assert w["status"] == "改定案あり" and w["draft_partial"]["status"] == "中断"
+    assert w["status"] == "検討資料あり" and w["draft_partial"]["status"] == "中断"
 
 
 def test_referencing_and_merge():

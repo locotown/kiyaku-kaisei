@@ -6,7 +6,7 @@
     <p class="lead">総会のあとに使います。議案ごとの結果を記録すると、可決した改定を反映した<b>最新の規約・細則の全文</b>を作ります（AI は使わず、今の規約に改定を重ねて組み立てます）。</p></div>
   {% if done == "meeting_empty" %}<p class="warn"><b class="w">議案ごとの結果（可決など）が選ばれていないので、保存しませんでした。</b>下の「議案ごとの結果」で、議案ごとに結果を選んでから保存してください。前に保存した結果はそのまま残っています。</p>{% endif %}
   {% if work.board_changed_after_meeting %}<p class="warn"><b class="w">総会の結果を記録したあとで、改定案や理事会の判断が変わりました（{{ work.board_changed_after_meeting }}）。</b>
-    最新の規約は今の判断で作り直されています。総会で可決した内容と合っているか確かめ、合っていれば「総会の結果を保存する」で保存し直してください。</p>{% endif %}
+    最新の規約は今の判断で作り直されています。総会で可決した内容と合っているか確かめ、合っていれば「総会の結果を保存し直す」で保存し直してください。</p>{% endif %}
   {% if done == "meeting" %}<div class="justdone">{{ icon("check") }}<span>総会の結果を保存しました。{% if finals %}下から最新の規約をダウンロードできます。{% endif %}</span></div>{% endif %}
   <form action="/works/{{ id }}/meeting" method="post" id="meetingform">
     <div class="grid">

@@ -124,7 +124,8 @@ document.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("clic
 </section>
 </form>
 <p class="small">条の文を直すと、新旧対照表などの資料と版の番号が変わります。次の会議の前に、印刷し直してください。委員会で直した文は、あとで「改定案を作り直す」を押しても上書きされません。</p>
-<div class="bar"><div class="in"><div class="t"><b>選んだ提案を反映します</b>　反映は AI を使わずに行い、判断の履歴に残します</div>
+{% set left_n = b.proposals|selectattr("status", "equalto", "未確認")|list|length %}
+<div class="bar"><div class="in"><div class="t">{% if left_n %}<b>選んだ提案を反映します</b>　反映は AI を使わずに行い、判断の履歴に残します{% else %}<b>提案はすべて確かめ終えました</b>　足したい書き込みがあれば、上の欄から足せます{% endif %}</div>
   <a class="tbtn2" href="/works/{{ id }}{{ back }}">作業の画面に戻る</a>
-  <button type="submit" form="applyform" class="btn">選んだものを反映する</button></div></div>
+  <button type="submit" form="applyform" class="btn">{{ "選んだものを反映する" if left_n else "足した書き込みを反映する" }}</button></div></div>
 {% endblock %}
