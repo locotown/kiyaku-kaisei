@@ -145,3 +145,39 @@ def test_explain_prompt_forbids_unstated_facts_and_asks_direction():
     from core.explain import SYSTEM
     assert "渡された資料にない事実" in SYSTEM and "条件付きのまま" in SYSTEM
     assert "厳しくなるのか緩くなるのか" in SYSTEM
+
+
+# ---- 本物の AI で通した想定ユーザー（スマホの理事長・Mac の委員）の報告から ----
+
+def test_variant_articles_detects_both_options_left():
+    """（ア）（イ）や〔ア案〕〔イ案〕の両案が残った条を見つける（最新の規約にそのまま残り、規約として使えなかった）。"""
+    from app.main import variant_articles
+    from core.consolidate import Block
+
+    blocks = [Block("article", ["〔ア案〕", "（専有部分の用途）", "第12条　住宅として使用する。"]),
+              Block("article", ["〔イ案〕", "（専有部分の用途）", "第12条　住宅宿泊事業に使用してはならない。"]),
+              Block("article", ["（届出）", "第31条　次のとおり届け出る。", "　（ア）電磁的方法が利用可能ではない場合", "　書面で", "　（イ）電磁的方法が利用可能な場合", "　書面又は電磁的方法で"]),
+              Block("article", ["（目的）", "第1条　目的とする。"])]
+    assert variant_articles(blocks) == ["第12条", "第31条"]
+
+
+def test_internal_topic_ids_are_named():
+    from core.topics import name_topics
+
+    t = name_topics("第47条の改定のうち論点1-3に当たる部分です。")
+    assert "論点1-3" not in t and "「普通決議の定足数」の論点" in t
+
+
+def test_consult_says_when_owner_count_was_assumed():
+    from core.consult import clean_profile as normalize_profile, votes
+
+    p = normalize_profile({"units": "50", "vote_rule": "1戸1議決権"})
+    v = votes(p, "普通決議")
+    assert "仮に住戸の数と同じ" in str(v["組合員の数"])
+    p2 = normalize_profile({"units": "50", "owners": "48", "vote_rule": "1戸1議決権"})
+    assert votes(p2, "普通決議")["組合員の数"] == 48
+
+
+def test_explain_prompt_keeps_subject_and_direction():
+    from core.explain import SYSTEM
+    assert "主語と向き" in SYSTEM and "自ら修理" in SYSTEM

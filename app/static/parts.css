@@ -248,3 +248,8 @@
   .tk .wlist td { display: inline; border: 0; padding: 0 var(--space-2) 0 0; font-size: var(--text-sm); color: var(--color-ink-2); }
   .tk .wlist td:first-child { display: block; font-size: var(--text-base, 1rem); margin-bottom: 2px; }
 }
+
+/* 想定ユーザー（本物の AI で通した確認）から：経過時間を単位の途中で折り返さない／理事会のメモ欄を全幅に／空の表示に罫線を出さない */
+.rb-el, .rb-el .num { white-space: nowrap; }
+.tk input.bnote { width: 100%; max-width: none; }
+.tk .dempty { border: 0 !important; }

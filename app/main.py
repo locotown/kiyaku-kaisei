@@ -550,8 +550,41 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         history = (f"{meeting.get('name', '総会')}（{wareki(held) if held else '日付未入力'}）"
                    f"{'特別決議' if doc == '規約' else '普通決議'}により改正（{changed}）")
         docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
-                     "history": history})
+                     "history": history, "variants": variant_articles(blocks)})
     return docs
+
+
+_VARIANT = re.compile(r"^[\s　]*[（(〔]([アイウ])[）)]?(?:案〕|〕)?")
+_ART_NO = re.compile(r"^(第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?)")
+
+
+def variant_articles(blocks) -> list[str]:
+    """（ア）（イ）や〔ア案〕〔イ案〕のような、どちらかを選ぶ両案が残ったままの条（標準管理規約を写した規約に多い）。
+    最新の規約にそのまま残ると規約として使えない（想定ユーザーでの確認で分かった）。"""
+    found: dict[str, set] = {}
+    for b in blocks:
+        if b.kind != "article":
+            continue
+        no = next((m.group(1) for ln in b.lines for m in [_ART_NO.match(ln.strip())] if m), "")
+        if no:
+            found.setdefault(no, set()).update(m.group(1) for ln in b.lines for m in [_VARIANT.match(ln)] if m)
+    return [no for no, marks in found.items() if {"ア", "イ"} <= marks]
+
+
+def current_variants(work_id: str, work: dict) -> list[str]:
+    """今の規約（読み込んだ原本）に、両案が残ったままの条。点検の結果の画面で早めに知らせる。"""
+    if "variants" in work:
+        return work["variants"]
+    from core.consolidate import Block, _article_lines
+
+    try:
+        arts = _corpus(work_id).main.articles
+    except Exception:  # noqa: BLE001  読めないときは知らせないだけ
+        return []
+    v = variant_articles([Block("article", _article_lines(a)) for a in arts])
+    store.update(work_id, variants=v)
+    return v
+
 
 def _error_page(request: Request, status: int, message: str):
     """エラーを、画面では日本語のページで示す（API の呼び出しには JSON で返す）。"""
@@ -917,7 +950,11 @@ async def save_one_decision(request: Request, work_id: str, index: int):
     work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     item = decisions[key] | {"lines": [finding_line(e) for e in reversed(decisions[key]["history"])]}
-    return JSONResponse(decision_summary(work) | {"item": item, "ai_draft": ai_note("redraft" if work.get("draft") else "draft", work)})
+    from core.progress import draft_plan
+
+    pl = draft_plan(_adopted_count(work))
+    return JSONResponse(decision_summary(work) | {"item": item, "ai_draft": ai_note("redraft" if work.get("draft") else "draft", work),
+                                                  "draft_plan": f"改定案づくりは 約{pl['estimate']}・AI の費用 {pl['cost']}ほど（入れる指摘 {pl['adopted']}件）"})
 
 
 @app.post("/works/{work_id}/draft")
@@ -984,7 +1021,10 @@ def final_html(work_id: str, n: int):
     from core.consolidate import to_html as final_to_html
 
     d = _final(work_id, n)
-    return HTMLResponse(final_to_html(d["blocks"], "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
+    v = d.get("variants") or variant_articles(d["blocks"])
+    warn = (f"【注意】（ア）（イ）の両案が残っている条があります：{'、'.join(v)}。組合で採用している案だけを残し、"
+            "もう一方を消してから規約原本にしてください（今回の改定では選んでいない案です）。") if v else ""
+    return HTMLResponse(final_to_html(d["blocks"], warn + "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
                                                    "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx",
                                       ident=_ident(work_id, store.load(work_id))))
 
@@ -1946,6 +1986,7 @@ def board_preview(work: dict) -> dict:
 
 
 templates.env.globals["board_preview"] = board_preview
+templates.env.globals["current_variants"] = current_variants
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
     from core.progress import draft_plan

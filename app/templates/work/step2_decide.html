@@ -65,17 +65,19 @@
 {# ===================== ステップ 2：指摘の判断 ===================== #}
 <section class="panel" data-step="decide" id="findings">
   <div class="stepttl"><p class="eyebrow">ステップ 2 ／ 6</p><h1 class="page-title">指摘を判断する</h1>
-    <p class="lead">{% if summary.must %}法律で必要な{{ summary.must }}件は、もう改定案に入っています。{% endif %}{% if n_choose %}このステップでは、残りの{{ n_choose }}件を、改定案に入れるかどうか決めてください。{% else %}このステップで決めることはありません。{% endif %}</p></div>
+    <p class="lead">{% if summary.must %}法律で必要な{{ summary.must }}件は、{{ "改定案に入っています" if work.draft else "決めなくても改定案に入ります" }}。{% endif %}{% if n_choose %}このステップでは、残りの{{ n_choose }}件を、改定案に入れるかどうか決めてください。{% else %}このステップで決めることはありません。{% endif %}</p></div>
   {% if done == "点検中" %}<div class="justdone">{{ icon("check") }}<span>点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、改定案に入れるかどうか判断してください。</span></div>{% endif %}
   {% if bulk %}<div class="justdone">{{ icon("check") }}<span>まとめて判断しました（判断が変わった指摘 {{ bulk }}件）。</span></div>{% endif %}
   <div id="findings-fold">
   {% set left = n_choose - decided %}
   {% set has_draft = work.draft and not work.draft_stale %}
+  {% set resumable = work.status == "改定案エラー" and work.interrupted_session %}
   {# 次にすること：このステップで何をして、最後にどのボタンを押すか（共通部品 .nx） #}
   <div class="nx nxs" id="nx">
     <div>
       <p class="nx-k">次にすること</p>
       <p class="nx-t" data-nx-title>{% if busy %}AI が作業しています。終わるまでお待ちください
+        {%- elif resumable %}改定案づくりが途中で止まりました。ステップ3で、途中から再開できます
         {%- elif work.status == "改定案エラー" %}改定案づくりが途中で止まりました。もう一度作りましょう
         {%- elif has_draft %}改定案ができています。「3. 改定案」で確かめましょう
         {%- elif work.draft %}判断が変わりました。改定案を作り直してください
@@ -85,9 +87,10 @@
       {% if n_choose %}<div class="nx-meter"><span class="m"><i id="meter" style="width:{{ (100 * decided / n_choose)|round|int }}%"></i></span>
         <b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b></div>{% endif %}
       <p class="nx-s"><span id="savestate">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}選ぶとすぐ保存します{% endif %}</span>。「あとで決める」のままでも先へ進めます。
-        {% if not has_draft %}{% set pl = draft_plan_for(work) %}改定案づくりは 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど。{% endif %}</p>
+        {% if not has_draft %}{% set pl = draft_plan_for(work) %}<span id="draftplan">改定案づくりは 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど（入れる指摘 {{ pl.adopted }}件）</span>。{% endif %}</p>
     </div>
     {% if has_draft %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
+    {% elif resumable %}<a class="btn" href="#next">途中から再開する（ステップ3）{{ icon("arrow-right") }}</a>
     {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案をもう一度作る" if work.status == "改定案エラー" else ("改定案を作り直す" if work.draft else "改定案を作る")) }}{{ icon("arrow-right") }}</button>{% endif %}
   </div>
 
@@ -189,7 +192,7 @@
   </section>
   {% endif %}
   {% if musts %}
-  <details class="mustfold" id="sec-must"><summary><span class="gh g-must">必須：もう改定案に入っています<span class="small">{{ musts|length }}件・決めることはありません。押すと、1件ずつ内容と根拠を見られます</span></span></summary>
+  <details class="mustfold" id="sec-must"><summary><span class="gh g-must">必須：{{ "改定案に入っています" if work.draft else "決めなくても改定案に入ります" }}<span class="small">{{ musts|length }}件・決めることはありません。押すと、1件ずつ内容と根拠を見られます</span></span></summary>
     {% for i, f in musts %}{{ fcard(i, f, decisions.get(i|string, {}), views[i], "must") }}{% endfor %}
   </details>
   {% endif %}
@@ -225,6 +228,8 @@
       if ($('meter')) $('meter').style.width = (N ? Math.round(100 * dn / N) : 100) + '%';
       lastSaved = '最後に保存：' + sum.saved_at;
       if (sum.ai_draft) document.querySelectorAll('button[form="draftform"][data-ai]').forEach(function (b) { b.dataset.ai = sum.ai_draft; });
+      // 「次にすること」の目安も、押したときの確認と同じ数にそろえる（入れる指摘が増えると目安が変わる。想定ユーザーでの確認から）
+      if (sum.draft_plan && document.getElementById('draftplan')) document.getElementById('draftplan').textContent = sum.draft_plan;
     }
     function label(v) { return LABEL[v] || 'あとで決める'; }
     function open(i, text, reason) {

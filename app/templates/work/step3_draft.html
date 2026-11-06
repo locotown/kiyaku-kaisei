@@ -15,6 +15,13 @@
     {% elif not board %}
       <div class="t"><b>次は、理事会での検討です</b>印刷用の検討資料を作り、議題ごとに判断を記録します</div>
       <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% elif journey.current in ("explain", "meeting", "") %}
+      {# 理事会の検討が済んだあとに戻ってきたとき、済んだ段階を勧めない（新旧対照表から戻った想定ユーザーが迷った） #}
+      {% set jc = (journey.steps|selectattr("key", "equalto", journey.current)|list or [none])[0] %}
+      {% if jc %}<div class="t"><b>改定案と理事会の検討は済んでいます。今は「{{ journey.steps.index(jc) + 1 }}. {{ jc.label }}」の段階です</b>{{ journey.next }}</div>
+      <a class="btn" href="#{{ jc.anchor }}">{{ jc.label }}へ{{ icon("arrow-right") }}</a>
+      {% else %}<div class="t"><b>すべての段階が済んでいます</b>最新の規約は「6. 総会のあと」から開けます</div>
+      <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>{% endif %}
     {% else %}
       <div class="t"><b>次は、理事会での検討です</b>検討資料はできています</div>
       <a class="btn" href="#board">理事会の検討へ{{ icon("arrow-right") }}</a>

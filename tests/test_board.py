@@ -210,3 +210,18 @@ def test_choice_questions_group_same_point_across_items():
     # どれかの議題で選ばれていれば、その答えを使う
     decisions = {"3": {"picked": {"0": "設けない", "1": "入れない"}}}
     assert current_answers(qs, decisions) == ["入れない", "設けない"]
+
+
+def test_swallowed_optional_topic_becomes_its_own_item():
+    """改定案に入った推奨の論点が、どの議題の論点にも挙がっていない（AI が必須の議題に紛れ込ませた）ときは、②の議題に分けて出す。
+    ①に入ると理事会で見送れない（本物の AI で通した想定ユーザーでの確認から）。"""
+    from core.board import BoardItem, BoardPaper
+
+    d = make_draft()
+    d.amendments[0] = Amendment("改正", "第47条", "第47条", "総会の会議及び議事", "第47条　…", "", ["1-1", "2-3"], [], ["第47条"])
+    paper = BoardPaper(title="t", intro="i", next_steps="n", items=[
+        BoardItem(tier=T1, title="総会の決め方", articles=["第47条"], summary="s", points=["p"], options=[], questions=[], finding_refs=["1-1"])])
+    fix_tiers(paper, d)
+    extra = [it for it in paper.items if it.finding_refs == ["2-3"]]
+    assert extra and extra[0].tier == "暮らしや運営に関わる変更" and extra[0].articles == ["第47条"]
+    assert paper.items[0].tier == T1

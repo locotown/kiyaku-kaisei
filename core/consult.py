@@ -49,6 +49,7 @@ def clean_profile(raw: dict) -> dict:
     if p["vote_rule"] == "1戸1議決権" and p["units"]:
         p["votes_total"] = p["units"]                        # 1戸1議決権なら、議決権の総数は住戸の数（前の数を残さない）
         if not p["owners"] or p["owners"] > p["units"]:      # 組合員は、1人で2戸以上持つ人がいれば住戸の数より少ない
+            p["owners_assumed"] = not p["owners"]            # 空欄なら、仮に住戸の数と同じとしたことを答えにも出す（黙って入れない）
             p["owners"] = p["units"]
     return p
 
@@ -85,7 +86,9 @@ def votes(profile: dict | None, kind: str, present_owners: int | None = None, pr
     if need:
         return {"need": need, "message": "マンションの基本情報が足りないので計算できません。数を推測せず、基本情報が必要と答えてください。"}
     owners, total = p["owners"], p["votes_total"]
-    out = {"決議の種類": kind, "対象": KINDS[kind], "組合員の数": owners, "議決権の総数": total,
+    out = {"決議の種類": kind, "対象": KINDS[kind],
+           "組合員の数": f"{owners}（未記入のため、仮に住戸の数と同じとしました。1人で2戸以上持つ人がいれば、実際はこれより少なくなります）"
+                        if p.get("owners_assumed") else owners, "議決権の総数": total,
            "前提": f"議決権の決め方：{p.get('vote_rule', '分からない')}。書面（議決権行使書）・代理人（委任状）・電磁的方法で議決権を行使した人も出席に数える（区分所有法 第39条第2項・第3項、標準管理規約 第47条第7項）"}
     if kind == "建替え決議":
         out["必要な賛成"] = {"原則（各5分の4以上）": {"組合員": _at_least(owners, 4, 5), "議決権": _at_least(total, 4, 5)},

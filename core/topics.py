@@ -8,6 +8,7 @@ DOMAIN.md を変えたら、ここも合わせて変える。
 """
 
 from __future__ import annotations
+import re
 
 TOPICS: list[dict] = [
     {"id": "1-1", "topic": "特別決議を出席者の多数決に", "standard": ["47"], "category": "必須",
@@ -71,3 +72,26 @@ for _t in TOPICS:
 
 TOPIC_BY_ID = {t["id"]: t for t in TOPICS}
 REQUIRED_TOPIC_IDS = [t["id"] for t in TOPICS if t["category"] == "必須"]
+
+
+_TOPIC_REF = re.compile(r"(?:改正の)?論点\s*([0-9]+-[0-9]+)")
+
+
+def name_topics(text: str) -> str:
+    """AI が書いた文の中の内部の呼び名（「論点1-3」など）を、論点の名前に言い換える（利用者には番号の意味が分からない。想定ユーザーでの確認から）。"""
+    if not text or "論点" not in text:
+        return text
+    return _TOPIC_REF.sub(lambda m: f"「{TOPIC_BY_ID[m.group(1)]['topic']}」の論点" if m.group(1) in TOPIC_BY_ID else m.group(0), text)
+
+
+def scrub_topics(model):
+    """pydantic のモデルの中の文をすべて name_topics に通す（検討資料・住民向け説明の出力に使う）。"""
+    def walk(x):
+        if isinstance(x, str):
+            return name_topics(x)
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        if isinstance(x, dict):
+            return {k: walk(v) for k, v in x.items()}
+        return x
+    return type(model).model_validate(walk(model.model_dump()))

@@ -48,7 +48,7 @@ def _new_id() -> str:
 def profile_line(p: dict) -> str:
     if not p or C.missing(p):
         return ""
-    s = f"{p['units']}戸・組合員 {p['owners']}・議決権 {p['votes_total']}（{p.get('vote_rule', '分からない')}）"
+    s = f"{p['units']}戸・組合員 {p['owners']}{'（未記入・仮に戸数と同じ）' if p.get('owners_assumed') else ''}・議決権 {p['votes_total']}（{p.get('vote_rule', '分からない')}）"
     return s
 
 

@@ -27,7 +27,7 @@
       <label>特に見てほしいこと<span class="small">（任意）</span><input type="text" name="question_check" placeholder="例：決議の数字が正しいか"></label>
     </div>
     <div class="cs-opts">
-      <label>照らす規約<span class="small">（任意。選ぶと、お使いの規約の条とも照らします）</span>
+      <label>照らす規約<span class="small">（任意。選ぶと、お使いの規約の条とも照らします。照らすのは、その作業で読み込んだ<b>今の規約（原本）</b>です。改定案や総会で可決した改定は入りません）</span>
         <select name="work_id"><option value="">選ばない（区分所有法と標準管理規約で答える）</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if work_id == w.id }}>{{ w.name }}（{{ work_label(w.id) }}{{ "・想定ユーザー（架空）" if w.persona }}）</option>{% endfor %}</select></label>
       <label class="ck"><input type="checkbox" name="mask" value="1" checked><span>人名を伏せて送る<span class="small cs-ckhelp">「◯◯さん」「◯◯氏」「記録：◯◯」などの名前を記号にして AI に送り、答えでは元の名前に戻します。マンション名は、基本情報に入れると一緒に伏せます。伏せた語は、答えの画面で確かめられます。</span></span></label>
       <label>ほかに伏せる語<span class="small">（任意。「、」で区切る。例：敬称を付けずに書いた名前、部屋番号）</span><input type="text" name="mask_more" placeholder="例：中川、305号室"></label>

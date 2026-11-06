@@ -8,7 +8,8 @@
   <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、「直した文を保存する」を押してください。
     <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>保存には AI を使いません。</p></div>
 <div class="nx nxb"><p class="nx-k">次にすること</p>
-  <div class="t"><b>直したい条の文を書き換えて、保存しましょう</b><span class="muted">保存ボタンは、この枠・各条の下・画面の最後にあります（どれを押しても同じです）。資料も AI を使わずに直します</span></div>
+  {% if saved or reverted %}<div class="t"><b>保存しました。新旧対照表で、直した条を確かめましょう</b><span class="muted"><a href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表を開く</a>（直した条に印が付きます）。ほかにも直す条があれば、続けて書き換えて保存できます。保存ボタンは、この枠・各条の下・画面の最後にあります</span></div>
+  {% else %}<div class="t"><b>直したい条の文を書き換えて、保存しましょう</b><span class="muted">保存ボタンは、この枠・各条の下・画面の最後にあります（どれを押しても同じです）。資料も AI を使わずに直します</span></div>{% endif %}
   <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 
 {% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
@@ -114,6 +115,7 @@ document.addEventListener("click", (e) => {
   {% endfor %}
 </form>
 <div class="actend"><div class="t"><b>直した文を保存します</b><span class="muted">新旧対照表・検討資料などの資料も、AI を使わずに直します</span></div>
+  <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表を開く</a>
   <a class="tbtn2" href="/works/{{ id }}#next">作業の画面に戻る</a>
   <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 <script>

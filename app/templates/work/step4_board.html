@@ -20,6 +20,10 @@
     {% elif board_state and board_state.ready and work.meeting and (work.meeting.results or {}).values()|select|list %}
       <div class="t"><b>理事会での検討と総会の結果の記録が済んでいます</b><span class="unsaved" data-board-unsaved hidden></span>判断は保存してあります。下の議題で選び直すと、その場で保存されます。</div>
       <a class="btn" href="#meeting">総会の結果を見る{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.ready and work.draft_mode == "partial" and work.draft_partial and work.draft_partial.status == "済み" and (work.draft_partial.check or {}).verdict not in (none, "", "問題なし") and not work.explain %}
+      {# 作り直した条に AI が気になる点を挙げたのに「済みました → 説明へ」と案内し、素通りさせていた（想定ユーザーでの確認から） #}
+      <div class="t"><b>作り直した条に、AI が気になる点を挙げました</b><span class="unsaved" data-board-unsaved hidden></span>確かめて、必要なら「条の文を直す」で直してから、<a href="#explain">住民への説明</a>へ進んでください。</div>
+      <a class="btn" href="#partial-result">気になる点を確かめる{{ icon("arrow-right") }}</a>
     {% elif board_state and board_state.ready %}
       <div class="t"><b>理事会での検討が済みました</b><span class="unsaved" data-board-unsaved hidden></span>判断は保存してあります。変えるときは、下の議題で選び直すと、その場で保存されます。</div>
       <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
@@ -124,7 +128,7 @@
             <div class="small">判断の欄（{{ board_choices[it.tier]|join("・") }}）は、この議題を改定案に入れるかどうかです。どちらの案にするかは、上の「組合が選ぶ点」で選びます（判断の欄と別に選びます。例：「採用」＋問の案）。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
           </div>
         {% endif %}
-        <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録と住民向け説明の参考に使います）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
+        <input type="text" class="bnote" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録と住民向け説明の参考に使います）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
         {% set h = d.history or [] %}
         {% if h %}<details class="hist"><summary>判断の履歴（{{ h|length }}件）</summary>
           <ul>{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>{% endif %}

@@ -20,7 +20,7 @@
   {% if c.mode == "check" and c.question %}<p class="small">特に見てほしいこと：{{ c.question }}</p>{% endif %}
   {% if lines|length > 2 %}<details class="more"><summary>{{ "貼った文章" if c.mode == "check" else "質問" }}の全文を見る（{{ body|length }}字）</summary><div class="quote cs-text">{{ body }}</div></details>{% endif %}
   <ul class="cs-req-meta small">
-    <li>照らす規約：<b>{{ c.work_name or "選ばない" }}</b>{% if not c.work_name %}（区分所有法と標準管理規約で答える）{% endif %}</li>
+    <li>照らす規約：<b>{{ c.work_name or "選ばない" }}</b>{% if not c.work_name %}（区分所有法と標準管理規約で答える）{% else %}（読み込んだ今の規約。改定案・総会で可決した改定は入っていません）{% endif %}</li>
     {% if c.masked %}<li><details class="cs-masked"><summary>人名を伏せて送りました（{{ c.mapping|length }}語）</summary>
       {% if c.mapping %}<p>{% for tok, word in c.mapping.items() %}<span class="nowrap">{{ word }} → {{ tok }}</span>{{ "、" if not loop.last }}{% endfor %}</p>{% else %}<p>伏せた語はありません。</p>{% endif %}
       <p>伏せ忘れた名前があれば、新しく相談するときに「ほかに伏せる語」に入れてください（この相談で送った文は、もう AI に届いています）。</p></details></li>{% endif %}

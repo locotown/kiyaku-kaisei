@@ -132,6 +132,7 @@ def fix_tiers(paper: BoardPaper, draft: Draft) -> None:
     from core.topics import REQUIRED_TOPIC_IDS
 
     req = required_refs(draft)
+    _split_swallowed(paper, draft)
     for item in paper.items:
         # 議題が扱う論点が分かれば、その論点で決める（必須と推奨が同じ条に入っていても、推奨の議題を①にしない）
         if item.finding_refs:
@@ -146,6 +147,26 @@ def fix_tiers(paper: BoardPaper, draft: Draft) -> None:
             item.options = []
     order = {t: i for i, t in enumerate(TIERS)}
     paper.items.sort(key=lambda it: order[it.tier])
+
+
+def _split_swallowed(paper: BoardPaper, draft: Draft) -> None:
+    """改定案に入った推奨・参考の論点が、どの議題の論点にも挙がっていないとき（AI が必須の議題に紛れ込ませたとき）、
+    その論点を②の議題として分けて出す。①に入ると理事会で見送れなくなる（想定ユーザーでの確認で、ステップ2で選べた指摘が①に入っていた）。"""
+    from core.topics import REQUIRED_TOPIC_IDS, TOPIC_BY_ID
+
+    listed = {r for it in paper.items for r in it.finding_refs}
+    if not any(it.finding_refs for it in paper.items):
+        return                                   # 論点を書かない古い形の出力は、条で決める（ここでは触らない）
+    for tid in dict.fromkeys(r for a in draft.amendments for r in a.finding_refs):
+        if tid in REQUIRED_TOPIC_IDS or tid in listed or tid not in TOPIC_BY_ID:
+            continue
+        arts = [ref_name(a) for a in draft.amendments if tid in a.finding_refs]
+        name = TOPIC_BY_ID[tid]["topic"]
+        paper.items.append(BoardItem(
+            tier=TIERS[1], title=name, articles=arts, finding_refs=[tid],
+            summary=f"「{name}」の変更です（{'、'.join(arts)}）。法律で必ず必要な変更ではないため、採用するか見送るかを理事会で決められます。",
+            points=["内容は新旧対照表で、この条の変更を確かめてください。", "見送ると、この部分だけを改定案から外します（同じ条の、法律で必要な変更は残ります）。"],
+            options=["採用する", "見送る（今の規定のままにする）"], questions=[]))
 
 
 def coverage(paper: BoardPaper, draft: Draft) -> list[str]:
@@ -178,6 +199,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium", edits: dict | Non
             summary="資料の本文で取り上げていない改定です。新旧対照表で内容を確認してください。",
             points=["新旧対照表の該当箇所を読み、採用するかを判断してください。"], options=[], questions=[]))
         fix_tiers(paper, draft)
+    paper = __import__("core.topics", fromlist=["scrub_topics"]).scrub_topics(paper)  # 内部の呼び名（論点1-3）を出さない
     return paper, (message.usage.model_dump() if message.usage else {})
 
 
