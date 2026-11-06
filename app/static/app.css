@@ -464,3 +464,68 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk .cs-ttl .lead, .tk .cs-list li { text-align: left; }
 .tk .cs-fu button { text-align: left; justify-content: flex-start; }
 @media (max-width: 420px) { .tk .cs-seg label { font-size: 15px; padding: var(--space-2) var(--space-3); } }
+
+/* ---- 相談：答えの画面（メリハリ。依頼 → 進み具合 → 答え の順に、カードで分ける） ---- */
+.cs-h1 { margin: 0 0 var(--space-4); }
+.tk .cs-req { background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); padding: var(--space-3) var(--space-5); margin: 0 0 var(--space-5); }
+.cs-req-head { display: flex; gap: var(--space-3); align-items: center; }
+.cs-badge { display: inline-block; font-size: var(--text-xs); font-weight: 700; color: var(--color-primary); background: var(--color-primary-soft); border-radius: 999px; padding: 2px 10px; }
+.tk .cs-req-body { white-space: pre-wrap; margin: var(--space-2) 0; color: var(--color-ink-2); }
+.cs-req .more { margin: 0; }
+.tk .cs-req-meta { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: flex; flex-wrap: wrap; gap: 4px var(--space-4); color: var(--color-ink-2); }
+.cs-req-meta li { margin: 0; } .cs-req-meta summary { color: var(--color-primary); font-weight: 700; cursor: pointer; }
+.tk .cs-turn { border-top: 0; padding: 0; margin: 0 0 var(--space-5); }
+/* 進み具合 */
+.tk .cs-progress { border: 2px solid var(--color-primary); background: var(--color-primary-soft); border-radius: var(--radius-1); padding: var(--space-4) var(--space-5); }
+.cs-prog-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; }
+.cs-prog-head b { font-size: var(--text-lg); color: var(--color-primary); margin-right: var(--space-3); }
+.tk .cs-prog-head p { margin: 4px 0 0; }
+.cs-elapsed { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--color-ink-2); }
+.cs-spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(36,69,107,.2); border-top-color: var(--color-primary); animation: csspin .9s linear infinite; margin-top: 2px; }
+@keyframes csspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cs-spin { animation-duration: 3s; } }
+.tk .cs-phases { list-style: none; counter-reset: ph; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: var(--space-4) 0 var(--space-2); }
+.cs-phases li { counter-increment: ph; font-size: var(--text-sm); padding: 6px 12px; border-radius: 999px; background: var(--color-surface); color: var(--color-ink-3); border: 1px solid var(--color-line-2); margin: 0; }
+.cs-phases li::before { content: counter(ph) " "; font-weight: 700; }
+.cs-phases li.done { color: var(--color-ok); border-color: var(--color-ok); } .cs-phases li.done::before { content: "✓ "; }
+.cs-phases li.now { color: #fff; background: var(--color-primary); border-color: var(--color-primary); font-weight: 700; }
+.tk .cs-stepnow { margin: 0; color: var(--color-ink-2); }
+.tk .cs-err { border: 2px solid var(--color-must); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); background: var(--color-surface); }
+.cs-err > b { color: var(--color-must); display: flex; gap: 6px; align-items: center; }
+/* 答え */
+.tk .cs-ans { background: var(--color-surface); border: 1px solid var(--color-line-2); border-top: 4px solid var(--color-primary); border-radius: var(--radius-1); padding: var(--space-4) var(--space-5) var(--space-3); }
+.cs-ans-head { display: flex; gap: var(--space-3); align-items: center; margin-bottom: var(--space-3); }
+.cs-ai { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--color-primary); border-radius: 999px; padding: 2px 10px; }
+.tk .cs-summary { background: var(--color-primary-soft); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-4); }
+.tk .cs-summary p:first-child { font-size: var(--text-md); line-height: 1.9; margin: 0 0 var(--space-2); white-space: pre-wrap; color: var(--color-ink); }
+.cs-score { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-4); }
+.tk a.cs-tile { display: flex; flex-direction: column; gap: 2px; text-decoration: none; border: 1px solid var(--color-line-2); border-top: 4px solid currentColor; border-radius: var(--radius-1); padding: var(--space-2) var(--space-3); background: var(--color-surface); }
+.cs-tile b { font-size: 28px; line-height: 1.1; } .cs-tile span { font-size: var(--text-xs); font-weight: 700; color: var(--color-ink-2); }
+.cs-tile.v-誤り { color: var(--color-must); } .cs-tile.v-言い方に注意 { color: #8a5a00; } .cs-tile.v-資料の外 { color: var(--color-ref); }
+.cs-tile.v-体裁 { color: var(--color-ink-2); } .cs-tile.v-正しい { color: var(--color-ok); } .cs-tile.v-説明 { color: var(--color-rec); }
+.tk .cs-gh { font-size: var(--text-md); margin: var(--space-4) 0 var(--space-2); padding-left: var(--space-2); border-left: 4px solid currentColor; display: flex; flex-wrap: wrap; gap: 4px var(--space-3); align-items: baseline; scroll-margin-top: 16px; }
+.cs-gh .small { font-weight: 400; color: var(--color-ink-2); }
+.cs-gh.v-誤り { color: var(--color-must); } .cs-gh.v-言い方に注意 { color: #8a5a00; } .cs-gh.v-資料の外 { color: var(--color-ref); }
+.cs-gh.v-体裁 { color: var(--color-ink-2); } .cs-gh.v-正しい { color: var(--color-ok); } .cs-gh.v-説明 { color: var(--color-rec); }
+.tk .cs-use { border-top: 1px solid var(--color-line); padding-top: var(--space-3); margin-top: var(--space-3); }
+.tk .cs-note { margin: var(--space-2) 0 0; }
+.tk .cs-fu { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: var(--space-3) 0 0; }
+.tk .cs-fu .boxed { min-height: 40px; text-align: left; }
+.tk .cs-q { margin: 0 0 var(--space-3) auto; max-width: 85%; }
+@media (max-width: 640px) {
+  .tk .cs-req, .tk .cs-ans, .tk .cs-progress { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .tk .cs-q { max-width: 100%; }
+}
+/* ---- 相談：最初の画面（相談の欄を主に、基本情報と一覧は従に） ---- */
+.tk .cs-main { border: 1px solid var(--color-line-2); border-top: 4px solid var(--color-primary); padding-top: var(--space-4); }
+.cs-main h2 { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-xl, 1.5rem); }
+.cs-main h2 .icon { width: 26px; height: 26px; color: var(--color-primary); }
+.tk .cs-pf-line { margin: 0 0 var(--space-3); color: var(--color-ink-2); }
+.tk .cs-seg label { min-height: 64px; }
+.cs-seg label > span { display: flex; flex-direction: column; line-height: 1.35; }
+.cs-segsub { font-size: var(--text-xs); font-weight: 400; color: var(--color-ink-2); }
+.tk .cs-sub { background: transparent; }
+.cs-sub h2, #history h2 { font-size: var(--text-md); }
+.cs-main .cs-go .btn { min-width: 200px; justify-content: center; }
+.cs-gh + .cs-items .cs-ih .v { display: none; }   /* 見出しで判定が分かるので、カードの中では繰り返さない（返信用の文には使う） */
+.cs-pf-line .w { color: var(--color-must); }

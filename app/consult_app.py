@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import threading
+import time
 import traceback
 from datetime import datetime
 
@@ -27,6 +28,10 @@ STEP_WORDS = {"list_topics": "改正の論点を確かめています", "get_law
               "calc_votes": "定足数と賛成の数を計算しています", "list_articles": "お使いの規約を見ています",
               "get_articles": "お使いの規約の条を読んでいます", "record_answer": "答えをまとめています"}
 MODES = {"ask": "質問する", "check": "文章を確かめる"}
+# 進み具合の段（画面に、済んだ段・今の段・これからの段を出す。動いていることが分かるように）
+PHASES = ["準備", "改正の論点を確かめる", "条文・規約を読む", "数を計算する", "答えをまとめる"]
+STEP_PHASE = {"list_topics": 1, "get_law_articles": 2, "get_standard_articles": 2, "get_articles": 2, "list_articles": 2,
+              "get_building_info": 2, "calc_votes": 3, "record_answer": 4}
 AI_NOTE = ("ととのう規約の資料（区分所有法・標準管理規約・改正の論点・お使いの規約）を AI が読んで答えます。\n"
            "1〜3分ほど・1回 約$0.1〜0.5（十数円〜80円ほど）。\n"
            "費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？")
@@ -92,7 +97,11 @@ def register(app, templates, corpus_for) -> None:
                        for t in data["turns"][:n] if t.get("status") == "済み"]
 
             def step(name):
-                store.update_consult(cid, lambda d: d["turns"][n].__setitem__("step", STEP_WORDS.get(name, "考えています")))
+                def fn(d):
+                    t = d["turns"][n]
+                    t["step"] = STEP_WORDS.get(name, "考えています")
+                    t["phase"] = max(t.get("phase", 0), STEP_PHASE.get(name, 1))
+                store.update_consult(cid, fn)
 
             text = data.get("sent_text", "")
             answer, cost, calls = C.consult(turn["mode"], text, turn.get("sent_question", turn.get("question", "")),
@@ -116,12 +125,12 @@ def register(app, templates, corpus_for) -> None:
         RUNNING.add(cid)
         threading.Thread(target=_run, args=(cid, n), daemon=True).start()
 
-    def _mask(text: str, question: str, masked: bool, profile: dict, more: str = "") -> tuple[str, str, dict]:
+    def _mask(text: str, question: str, masked: bool, profile: dict, more: str = "", known: dict | None = None) -> tuple[str, str, dict]:
         if not masked:
-            return text, question, {}
+            return text, question, dict(known or {})
         extra = [profile.get("name", "")] if profile.get("name") else []
         others = [w.strip() for w in re.split(r"[、,，\s]+", more or "") if len(w.strip()) >= 2]
-        joined, mapping = C.mask_names(text + "\n␞\n" + question, extra, others)
+        joined, mapping = C.mask_names(text + "\n␞\n" + question, extra, others, known)
         t, _, q = joined.partition("\n␞\n")
         return t, q, mapping
 
@@ -178,7 +187,7 @@ def register(app, templates, corpus_for) -> None:
                             "sent_text": sent_text, "mapping": mapping, "masked": masked,
                             "mask_more": [w.strip() for w in re.split(r"[、,，\s]+", str(form.get("mask_more") or "")) if len(w.strip()) >= 2], "work_id": work_id, "work_name": work_name,
                             "turns": [{"mode": mode, "question": question, "sent_question": sent_q, "status": "考え中",
-                                       "at": _now(), "step": "準備をしています"}], "cost_total": 0})
+                                       "at": _now(), "started": time.time(), "step": "準備をしています"}], "cost_total": 0})
         _start(cid, 0)
         return RedirectResponse(f"/consult/{cid}", status_code=303)
 
@@ -188,13 +197,15 @@ def register(app, templates, corpus_for) -> None:
         profile = store.load_profile()
         return templates.TemplateResponse(request, "consult_view.html", {
             "c": data, "profile": profile, "works": [w for w in store.list_works() if w.get("findings")], "missing": C.missing(profile), "vote_rules": C.VOTE_RULES, "ai_note": AI_NOTE,
-            "saved": saved, "modes": MODES, "busy": any(t.get("status") == "考え中" for t in data["turns"])})
+            "saved": saved, "modes": MODES, "busy": any(t.get("status") == "考え中" for t in data["turns"]),
+            "phases": PHASES, "now": time.time()})
 
     @app.get("/consult/{cid}/status")
     def consult_status(cid: str):
         data = _mark_stopped(store.load_consult(cid))
         last = data["turns"][-1]
-        return JSONResponse({"status": last.get("status"), "step": last.get("step", ""), "turns": len(data["turns"])})
+        return JSONResponse({"status": last.get("status"), "step": last.get("step", ""), "phase": last.get("phase", 0),
+                             "turns": len(data["turns"])})
 
     @app.post("/consult/{cid}/ask")
     async def follow_up(request: Request, cid: str):
@@ -203,28 +214,14 @@ def register(app, templates, corpus_for) -> None:
         data = store.load_consult(cid)
         if not question or any(t.get("status") == "考え中" for t in data["turns"]):
             return RedirectResponse(f"/consult/{cid}", status_code=303)
-        known = data.get("mapping") or {}
-        q = question[:2000]
-        if data.get("masked"):   # 前に伏せた語は、敬称がなくても同じ記号にする（「中川の件ですが」など）
-            for tok, word in sorted(known.items(), key=lambda kv: len(kv[1]), reverse=True):
-                q = q.replace(word, tok)
-        _, sent_q, mapping = _mask("", q, data.get("masked"), store.load_profile(), "、".join(data.get("mask_more") or []))
-        merged = {**known}
-        # 続けての質問で新しく伏せた名前は、前の記号と重ならないように付け直す
-        for tok, word in mapping.items():
-            existing = next((k for k, v in merged.items() if v == word), None)
-            if existing:
-                sent_q = sent_q.replace(tok, existing)
-            elif tok in merged:
-                new = f"{tok}{len(merged) + 1}"
-                sent_q, merged[new] = sent_q.replace(tok, new), word
-            else:
-                merged[tok] = word
+        # 前に伏せた語は、敬称がなくても同じ記号に（「中川の件ですが」）。新しい名前は続きの記号に（前の記号と重ねない）
+        _, sent_q, merged = _mask("", question[:2000], data.get("masked"), store.load_profile(),
+                                  "、".join(data.get("mask_more") or []), data.get("mapping") or {})
 
         def fn(d):
             d["mapping"] = merged
             d["turns"].append({"mode": "ask", "question": question, "sent_question": sent_q, "status": "考え中", "at": _now(),
-                               "step": "準備をしています"})
+                               "step": "準備をしています", "started": time.time()})
         data = store.update_consult(cid, fn)
         _start(cid, len(data["turns"]) - 1)
         return RedirectResponse(f"/consult/{cid}#turn-{len(data['turns'])}", status_code=303)
@@ -239,10 +236,11 @@ def register(app, templates, corpus_for) -> None:
 
         def fn(d):
             if last.get("status") == "エラー":
-                d["turns"][-1].update(status="考え中", error="", step="準備をしています", at=_now())
+                d["turns"][-1].update(status="考え中", error="", step="準備をしています", at=_now(), started=time.time(), phase=0)
             else:
                 d["turns"].append({"mode": last["mode"], "question": last.get("question", ""), "sent_question": last.get("sent_question", ""),
-                                   "status": "考え中", "at": _now(), "step": "準備をしています", "rerun": True})
+                                   "status": "考え中", "at": _now(), "step": "準備をしています", "rerun": True,
+                                   "started": time.time()})
         data = store.update_consult(cid, fn)
         _start(cid, len(data["turns"]) - 1)
         return RedirectResponse(f"/consult/{cid}#turn-{len(data['turns'])}", status_code=303)

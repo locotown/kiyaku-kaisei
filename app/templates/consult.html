@@ -11,24 +11,13 @@
 {% if saved == "deleted" %}<div class="justdone">{{ icon("check") }}<span>相談の記録を消しました。</span></div>{% endif %}
 {% if saved in ("empty_text", "empty_question") %}<p class="warn"><b class="w">{{ "確かめる文章を貼ってください。" if saved == "empty_text" else "質問を書いてください。" }}</b></p>{% endif %}
 
-<section class="cs-box" id="profile" aria-labelledby="pf-h">
-  <h2 id="pf-h">マンションの基本情報</h2>
-  {% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
-  {% if missing %}
-    <p>定足数や、可決に必要な賛成の数を答えるときに使います。<b>数はこの情報からアプリが計算します</b>（AI に推測させません）。入れていなくても相談はできます。</p>
-    {{ profile_form(open=True) }}
-  {% else %}
-    <p class="pf-now">{{ icon("check", "icon ck") }}<b>{{ profile_line(profile) }}</b>{% if profile.name %}<span class="small">　{{ profile.name }}</span>{% endif %}</p>
-    <details class="more"><summary>基本情報を直す</summary>{{ profile_form() }}</details>
-  {% endif %}
-</section>
-
-<section class="cs-box" aria-labelledby="ask-h">
-  <h2 id="ask-h">相談する</h2>
+<section class="cs-box cs-main" aria-labelledby="ask-h">
+  <h2 id="ask-h">{{ icon("chat") }}相談する</h2>
+  <p class="cs-pf-line small">マンションの基本情報：{% if missing %}<b class="w">まだ入れていません</b>（定足数・賛成の数を答えるときに使います）　<a href="#profile">入れる</a>{% else %}<b>{{ profile_line(profile) }}</b>　<a href="#profile">直す</a>{% endif %}</p>
   <form method="post" action="/consult" id="cform">
     <div class="seg cs-seg" role="radiogroup" aria-label="相談のしかた">
-      <label><input type="radio" name="mode" value="ask" checked>質問する</label>
-      <label><input type="radio" name="mode" value="check">文章を確かめる</label>
+      <label><input type="radio" name="mode" value="ask" checked><span><b>質問する</b><span class="cs-segsub">改正や規約について聞く</span></span></label>
+      <label><input type="radio" name="mode" value="check"><span><b>文章を確かめる</b><span class="cs-segsub">原稿・議事録を貼って確かめる</span></span></label>
     </div>
     <div data-for="ask">
       <label>質問<textarea name="question" rows="4" placeholder="例：今の規約に「組合員総数の4分の3以上」と書いてあります。2026年4月以降の総会では、規約を変える前でもどちらで数えますか？"></textarea></label>
@@ -47,6 +36,18 @@
     <div class="cs-go"><button type="submit" class="btn" data-ai="{{ ai_note }}">{{ icon("arrow-right") }}<span data-go>質問する</span></button>
       <span class="small">AI に相談します。1〜3分ほど・1回 約$0.1〜0.5。答えは総会提案の下書きを見直すための参考で、法的助言ではありません。</span></div>
   </form>
+</section>
+
+<section class="cs-box cs-sub" id="profile" aria-labelledby="pf-h">
+  <h2 id="pf-h">マンションの基本情報</h2>
+  {% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
+  {% if missing %}
+    <p>定足数や、可決に必要な賛成の数を答えるときに使います。<b>数はこの情報からアプリが計算します</b>（AI に推測させません）。入れていなくても相談はできます。</p>
+    {{ profile_form(open=True) }}
+  {% else %}
+    <p class="pf-now">{{ icon("check", "icon ck") }}<b>{{ profile_line(profile) }}</b>{% if profile.name %}<span class="small">　{{ profile.name }}</span>{% endif %}</p>
+    <details class="more"><summary>基本情報を直す</summary>{{ profile_form() }}</details>
+  {% endif %}
 </section>
 
 <section class="cs-box" id="history" aria-labelledby="hist-h">

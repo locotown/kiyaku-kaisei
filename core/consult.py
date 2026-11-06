@@ -125,10 +125,15 @@ _NOT_NAMES = {"管理員", "管理人", "住民", "皆", "組合員", "理事長
               "委員会", "同", "本", "各", "前", "新", "旧", "副", "現", "元", "当", "総", "全"}
 
 
-def mask_names(text: str, extra: list[str] | None = None, more: list[str] | None = None) -> tuple[str, dict[str, str]]:
-    """「◯◯さん」「◯◯氏」などの人名と、マンション名（extra）・ほかに伏せる語（more）を記号に置き換える。返すのは (伏せた文, 記号→元の語)。"""
-    mapping: dict[str, str] = {}
-    back: dict[str, str] = {}
+def mask_names(text: str, extra: list[str] | None = None, more: list[str] | None = None,
+               known: dict[str, str] | None = None) -> tuple[str, dict[str, str]]:
+    """「◯◯さん」「◯◯氏」などの人名と、マンション名（extra）・ほかに伏せる語（more）を記号に置き換える。返すのは (伏せた文, 記号→元の語)。
+
+    known（前に伏せた 記号→元の語）を渡すと、同じ語は同じ記号にし（敬称がなくても）、新しい語は続きの記号にする（続けての質問で使う）。"""
+    mapping: dict[str, str] = dict(known or {})
+    back: dict[str, str] = {w: t for t, w in mapping.items()}
+    for tok, word in sorted(mapping.items(), key=lambda kv: len(kv[1]), reverse=True):
+        text = text.replace(word, tok)
 
     def token(word: str, prefix: str) -> str:
         if word not in back:

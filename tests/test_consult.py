@@ -161,7 +161,7 @@ def test_consult_pages_flow(app_client):
     view = c.get(f"/consult/{cid}").text
     assert "言い方に注意" in view and "直し案" in view and "返信用にコピー" in view
     # 基本情報が足りない → 記入を促し、入れるともう一度答える
-    assert "マンションの基本情報が足りません" in view and 'name="rerun"' in view
+    assert "マンションの基本情報が足りない" in view and 'name="rerun"' in view
     r = c.post("/consult/profile", data={"units": "65", "vote_rule": "1戸1議決権", "next": f"/consult/{cid}", "rerun": "1"},
                follow_redirects=True)
     _wait(c, cid)
@@ -216,7 +216,7 @@ def test_reply_copy_and_profile_used(app_client):
     cid = r.headers["location"].rsplit("/", 1)[1]
     _wait(c, cid)
     view = c.get(f"/consult/{cid}").text
-    assert "伏せた語を見る" in view and "中川 → 人物A" in view
+    assert "人名を伏せて送りました（" in view and "中川 → 人物A" in view
     assert 'lines.push("   （根拠：" + bs.join("、")' in view          # 返信用の文で根拠を区切る
     page = c.get("/consult").text
     assert 'class="bar"' not in page and "ほかに伏せる語" in page   # 帯が基本情報の保存ボタンを隠さない
