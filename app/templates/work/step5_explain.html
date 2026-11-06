@@ -24,11 +24,19 @@
       <a class="tbtn2 boxed" href="/works/{{ id }}/explain">説明資料を開く（印刷用）</a></div>
   {% endif %}
   <form action="/works/{{ id }}/explain" method="post" id="explainform">
-    {% if not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}
+    {% if board_state and board_state.needs_redraft %}<p class="warn"><b class="w">先に、改定案の作り直しが必要です。</b>{{ board_state.reason }} <a href="#board">ステップ4へ</a></p>
+    {% elif not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}
     {% if work.explain %}<button type="submit" data-ai="{{ ai_note('explain', work) }}" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>{{ icon("refresh") }}説明文を作り直す</button>{% endif %}
   </form>
   <div class="bar"><div class="in">
-    {% if work.explain %}
+    {% if board_state and board_state.needs_redraft %}
+      {# 指示を1つにそろえる（作り直しが必要なのに「説明ができました」と出て迷った、という声から） #}
+      <div class="t"><b>先に、改定案の作り直しが必要です</b>　ステップ4の「対象の条だけ作り直す」を押してください</div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {% elif work.explain and work.explain_stale %}
+      <div class="t"><b>理事会の判断が変わりました</b>　説明を作り直してください</div>
+      <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文を作り直す{{ icon("arrow-right") }}</button>
+    {% elif work.explain %}
       <div class="t"><b>説明ができました</b>　総会のあとは、結果を記録して最新の規約を作ります</div>
       <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
     {% else %}

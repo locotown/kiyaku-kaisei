@@ -383,5 +383,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 #status { white-space: nowrap; }
 
 /* 作業名の行は左揃え（スマホで字間が空いて見えた） */
-.eyebrow { text-align: left; }
+.tk p.eyebrow, .tk .eyebrow { text-align: left; }
+/* 押せないボタンは薄くする（押せるボタンと見分けられなかった、という声から） */
+.tk button:disabled, .tk .btn[disabled], .tk button.boxed:disabled { opacity: .45 !important; cursor: not-allowed; }
 .tk .busybar { position: fixed; left: 0; right: 0; bottom: 0; }

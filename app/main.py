@@ -411,8 +411,9 @@ def board_state(work: dict) -> dict:
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
         targets = redraft_targets(work)["items"]
-        titles = [t for t in st["redraft"] if t in targets] or st["redraft"]  # 反映済みの議題は、理由の文に並べない
-        return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, titles, _draft(work))}
+        titles = [t for t in st["redraft"] if t in targets]  # 反映済みの議題は、理由の文に並べない
+        if titles:
+            return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, titles, _draft(work))}
     draft = _draft(work)
     left = remaining_choices(apply_to_draft(draft, paper, decisions)) if draft else []
     if left:
@@ -1141,6 +1142,9 @@ def _apply_board_form(work_id: str, form) -> None:
     changes = {"board_decisions": decisions}
     if changed_redraft:
         changes["draft_reflects_board"] = False
+    # 変えた判断を元に戻して、最後に作り直したときと同じになったら、作り直しは要らない（戻しただけで費用を求めない）
+    if work.get("board_applied") and _board_snapshot(decisions) == work["board_applied"]:
+        changes["draft_reflects_board"] = True
     # 総会の結果を記録したあとで判断を変えたら、印を付ける（最新の規約・住民向け説明と食い違うため。黙って書き換えない）
     if changed_any and any(((work.get("meeting") or {}).get("results") or {}).values()):
         changes["board_changed_after_meeting"] = now
@@ -1223,7 +1227,8 @@ def redraft_targets(work: dict) -> dict:
                 and not any(CHOICE_MARK in by_key[r].text for r in (_ref_key(x) for x in it.articles) if r in by_key):
             continue
         ams = [by_key[r] for r in (_ref_key(x) for x in it.articles) if r in by_key and by_key[r].kind != "削除"]
-        was_skipped = any(h.get("from") == "見送り" or h.get("to") == "見送り" for h in d.get("history") or [])
+        # 最後に作り直したときに見送りだった議題を、採用などに戻したか（履歴ではなく、反映したときの記録と比べる）
+        was_skipped = (applied.get(str(i)) or {}).get("decision") == "見送り"
         if d.get("decision") == "見送り":  # 必須の変更と同じ条に入っている部分だけ、作り直しで取り除く
             ams = [a for a in ams if _ref_key(ref_name(a)) in must]
         elif d.get("decision") not in NEEDS_REDRAFT:

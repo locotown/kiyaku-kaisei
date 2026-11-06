@@ -153,6 +153,7 @@ def test_toggle_skip_after_redraft_asks_for_redraft_again(board_work):
     """一度作り直したあとで「見送り」を「採用」に戻したら、作り直しの案内が出て、必須と同じ条が対象になる。"""
     M, store, c, wid, _, _ = board_work
     _mixed_work(store, wid)
+    store.update(wid, board_applied=M._board_snapshot(store.load(wid)["board_decisions"]))  # 見送りで作り直した記録
     c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "採用"})
     w = store.load(wid)
     st = M.board_state(w)
@@ -193,3 +194,16 @@ def test_article_edit_after_meeting_is_flagged(board_work):
     store.update(wid, meeting={"results": {"規約": "可決"}})
     M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　総会のあとで直した文", "note": ""}], "log")
     assert store.load(wid).get("board_changed_after_meeting")
+
+
+def test_reverting_a_decision_clears_the_redraft(board_work):
+    """判断を変えてから元に戻したら、作り直しは要らない（戻しただけで AI の費用を求めない。4回目の確認で分かった）。"""
+    M, store, c, wid, _, _ = board_work
+    _mixed_work(store, wid)
+    d = store.load(wid)["board_decisions"]
+    store.update(wid, board_applied=M._board_snapshot(d))
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "採用"})
+    assert M.board_state(store.load(wid))["needs_redraft"]
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "見送り"})
+    w = store.load(wid)
+    assert not M.board_state(w)["needs_redraft"] and w["draft_reflects_board"]
