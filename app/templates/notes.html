@@ -11,13 +11,13 @@
         {% if p.check and p.status == "未確認" %}<p class="pc-check">{{ icon("alert") }}{% if p.confidence == "低" %}読み取りに自信がありません。{% endif %}数字・条番号・期間などは、写真と見比べてください。</p>{% endif %}
         {% if p.kind == "文言の修正" %}
           {# 変わるところだけを、前後の文脈つきで見せる（直したあとは下線、元の語句は取り消し線。新旧対照表と同じ印） #}
-          <dl class="facts"><dt>変わるところ</dt><dd>{% for ch in changes(p.current, p.proposed) %}
+          <dl class="facts"><dt>変わるところ</dt><dd>{% for ch in changes(p.current, p.applied_text or p.proposed) %}
             <div class="chg"><div class="chg-old"><span class="small">今</span><span>{{ ch.before[0] }}{% for t, c in ch.before[1] %}{% if c %}<del>{{ t }}</del>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.before[2] }}</span></div>
               <div class="chg-new"><span class="small">直したあと</span><span>{{ ch.after[0] }}{% for t, c in ch.after[1] %}{% if c %}<mark>{{ t }}</mark>{% else %}{{ t }}{% endif %}{% endfor %}{{ ch.after[2] }}</span></div></div>
           {% endfor %}</dd></dl>
           <details class="more"><summary>条の全文を見る・直す</summary>
             <dl class="facts"><dt>今の文</dt><dd><div class="quote">{{ p.current }}</div></dd>
-              <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="8" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.proposed }}</div>{% endif %}</dd></dl>
+              <dt>直したあとの文</dt><dd>{% if p.status == "未確認" %}<textarea name="text_{{ p.id }}" rows="8" aria-label="直したあとの文">{{ p.proposed }}</textarea>{% else %}<div class="quote">{{ p.applied_text or p.proposed }}</div>{% endif %}</dd></dl>
           </details>
         {% elif p.kind in ("判断", "選択") %}
           <dl class="facts"><dt>今の記録</dt><dd>{{ p.current or "（未記録）" }}</dd>
@@ -46,6 +46,7 @@
   <p class="lead">写真から読み取った書き込みを、反映の提案にしました。提案ごとに「反映する」か「反映しない」を選び、必要なら文を直してから、下の「選んだものを反映する」を押してください。<b>選ばなかった提案は、そのまま残ります。</b></p></div>
 
 {% if done %}<div class="justdone">{{ icon("check") }}<span>{{ done }}件を反映しました。<a href="/works/{{ id }}{{ back }}">作業の画面</a>で確かめられます。</span></div>{% endif %}
+{% if texts %}<p class="warn"><b class="w">条の文を直しました。</b>新旧対照表の「変更の理由」が、直した文と合っているか確かめてください。理由は<a href="/works/{{ id }}/articles">「条の文を直す」画面</a>で直せます（AI の費用はかかりません）。</p>{% endif %}
 {% if b.status == "読み取り中" %}
   <div class="warn"><b class="w">読み取っています（写真 {{ done_n }} ／ {{ b.photos|length }}枚）。</b>写真が1枚読めるたびに、この画面が切り替わります。読み取りが済んだ写真の提案から、先に確かめられます。</div>
   <script>

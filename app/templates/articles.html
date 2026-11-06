@@ -80,7 +80,7 @@ document.addEventListener("click", (e) => {
     <label class="artlabel"><span class="small">改定案の文</span>
       <textarea name="text_{{ key }}" rows="{{ [4, (a.text|length // 40) + 2]|max }}" aria-label="{{ a.article }} の改定案の文">{{ a.text }}</textarea></label>
     <label class="pc-memo"><span class="small">補足（直した理由・会議での経緯など。文を直したときに残ります）</span>
-      <input type="text" name="note_{{ key }}" value="{{ a.edit.note if a.edit and a.edit.note else '' }}"></label>
+      <textarea name="note_{{ key }}" rows="2" aria-label="{{ a.article }} の補足">{{ a.edit.note if a.edit and a.edit.note else '' }}</textarea></label>
     {% endif %}
     <label class="artlabel"><span class="small">変更の理由（新旧対照表・検討資料に出ます。文を直したら、合わせて直してください。空にすると AI が書いた理由に戻ります）
       {% if a.reason_edit %}<span class="humanmark">委員会で書き直した理由</span>{% endif %}</span>

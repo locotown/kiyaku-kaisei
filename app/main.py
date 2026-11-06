@@ -302,6 +302,8 @@ def _run_draft(work_id: str, with_board: bool = False, resume: str = "") -> None
                 store.append_log(work_id, "edit", f"委員会の書き込みで直した文を引き継ぎました（{'、'.join(kept)}）")
             _write_taisho(work_id, work, result.draft, corpus)
         extra = {"draft_reflects_board": bool(board), "draft_stale": False} if result.draft else {}
+        if result.draft and board:
+            extra["board_applied"] = _board_snapshot(work.get("board_decisions", {}))
         if result.draft and not board:
             extra.update(board=None, board_decisions={})  # 改定案を作り直したら、理事会の検討資料も作り直す
         step = ("改定案（途中から再開）" if resume else "改定案の作り直し" if work.get("draft") else "改定案")
@@ -408,7 +410,9 @@ def board_state(work: dict) -> dict:
             reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、案を選んでください。"
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
-        return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, st["redraft"], _draft(work))}
+        targets = redraft_targets(work)["items"]
+        titles = [t for t in st["redraft"] if t in targets] or st["redraft"]  # 反映済みの議題は、理由の文に並べない
+        return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, titles, _draft(work))}
     draft = _draft(work)
     left = remaining_choices(apply_to_draft(draft, paper, decisions)) if draft else []
     if left:
@@ -1178,6 +1182,18 @@ def redraft_with_board(work_id: str, mode: str = Form("full")):
 PARTIAL_PLAN = {"estimate": "2〜5分", "cost": "数十セント"}
 
 
+def _mark_after_meeting(data: dict) -> None:
+    """総会の結果を記録したあとで改定案や判断が変わったら、印を付ける（最新の規約が知らせなく変わらないように）。"""
+    if any(((data.get("meeting") or {}).get("results") or {}).values()):
+        data["board_changed_after_meeting"] = _now()
+
+
+def _board_snapshot(decisions: dict) -> dict:
+    """議題ごとの判断・メモ・選んだ案（作り直しで反映した時点のもの）。"""
+    return {k: {"decision": d.get("decision", ""), "note": d.get("note", ""), "choice": d.get("choice", "")}
+            for k, d in (decisions or {}).items()}
+
+
 def redraft_targets(work: dict) -> dict:
     """部分的な作り直しの対象。見送りの議題は除く。
 
@@ -1196,10 +1212,15 @@ def redraft_targets(work: dict) -> dict:
     decisions = work.get("board_decisions", {})
     by_key = {_ref_key(ref_name(a)): a for a in draft.amendments}
     must = required_refs(draft)
+    applied = work.get("board_applied") or {}
     items, picked = [], []
     for i, it in enumerate(paper.items):
         d = decisions.get(str(i), {})
         if d.get("decision") in ("", None):
+            continue
+        # 前の作り直しで反映したときから判断・メモ・選んだ案が変わっていない議題は、対象にしない（反映済みをまた作り直さない）
+        if applied.get(str(i)) == {"decision": d.get("decision", ""), "note": d.get("note", ""), "choice": d.get("choice", "")} \
+                and not any(CHOICE_MARK in by_key[r].text for r in (_ref_key(x) for x in it.articles) if r in by_key):
             continue
         ams = [by_key[r] for r in (_ref_key(x) for x in it.articles) if r in by_key and by_key[r].kind != "削除"]
         was_skipped = any(h.get("from") == "見送り" or h.get("to") == "見送り" for h in d.get("history") or [])
@@ -1289,6 +1310,8 @@ def _run_partial(work_id: str) -> None:
                                    "concerns": [{"kind": c["kind"] if c["kind"] in ("法律に合わないおそれ", "他の条と食い違う", "要確認") else "要確認",
                                                  "point": c["point"], "basis": c["basis"], "suggestion": c["suggestion"]} for c in mine]}
             data["status_since"] = __import__("time").time()
+            data["board_applied"] = _board_snapshot(data.get("board_decisions", {}))  # 反映した判断（次の作り直しの対象から外すため）
+            _mark_after_meeting(data)
             data.update(status="改定案あり", draft_reflects_board=True, draft_stale=False, draft_mode="partial",
                         interrupted="", interrupted_session="",
                         draft_partial={"status": "済み", "at": _now(), "targets": tg["refs"], "changed": changed_refs,
@@ -1469,7 +1492,7 @@ def notes_page(request: Request, work_id: str, batch: str):
         "id": work_id, "work": work, "b": b, "doc_name": NOTE_DOCS[b["doc"]], "ident_now": _ident(work_id, work),
         "changes": changes, "places": places,
         "decision_options": list(dict.fromkeys(d for ds in DECISIONS.values() for d in ds)),
-        "done": request.query_params.get("done", ""),
+        "done": request.query_params.get("done", ""), "texts": request.query_params.get("texts", ""),
     })
 
 
@@ -1502,6 +1525,7 @@ async def apply_notes(request: Request, work_id: str, batch: str):
         chosen.append((p, "反映する", p["proposed"]))
         memos[p["id"]] = p.get("memo", "")
     applied = [(p, t) for p, act, t in chosen if act == "反映する" and t]
+    applied_text = {p["id"]: t for p, t in applied}
     stamp = f"{now} の書き込みから"
 
     # 条の文の修正：改定案を直し、委員会で直した文として記録する（AI の元の文も残す）
@@ -1559,10 +1583,13 @@ async def apply_notes(request: Request, work_id: str, batch: str):
                 for p in bb["proposals"]:
                     if p["id"] in ids:
                         p.update(status="反映済み" if ids[p["id"]] == "反映する" else "反映しない", decided_at=now)
+                        if p["id"] in applied_text:  # 実際に反映した文（人が直したあとの文）を残す。カードに AI の元の案を出さないため
+                            p["applied_text"] = applied_text[p["id"]]
                         if memos.get(p["id"]):
                             p["memo"] = memos[p["id"]]
     store.mutate(work_id, finish)
-    return RedirectResponse(f"/works/{work_id}/notes/{batch}?done={len(applied)}", status_code=303)
+    texts = any(p["kind"] == "文言の修正" for p, _ in applied)  # 文を直したら、変更の理由も確かめるよう促す
+    return RedirectResponse(f"/works/{work_id}/notes/{batch}?done={len(applied)}{'&texts=1' if texts else ''}", status_code=303)
 
 
 def _manual_proposals(work_id: str, work: dict, b: dict, form) -> list[dict]:
@@ -1674,6 +1701,7 @@ def _edit_articles(work_id: str, edits: list[dict], log: str, batch: str = "") -
                     note = prev["note"]
                 human[key] = {"text": e["text"], "original": prev.get("original", am["text"]), "at": now,
                               "batch": batch, "note": note}
+                _mark_after_meeting(data)
                 if prev.get("review") and prev.get("text") == e["text"]:  # 補足だけ直したときは、AI の確認の結果を残す
                     human[key]["review"] = prev["review"]
                 am["text"] = e["text"]
@@ -1783,6 +1811,7 @@ def _edit_reasons(work_id: str, reasons: list[dict]) -> None:
                 else:
                     am["reason"] = e["reason"]
                     hr[key] = {"reason": e["reason"], "original": original, "at": now}
+                _mark_after_meeting(data)
     store.mutate(work_id, change)
     store.append_log(work_id, "edit", f"{_now()} 変更の理由を直しました（{'、'.join(e['article'] for e in reasons)}）")
 

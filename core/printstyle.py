@@ -115,6 +115,8 @@ h1, h2, h3, h4 { text-align: left; }
 }
 @media print {
   .toolbar { display: none !important; }
+  /* 新旧対照表：行の番号と本文が別のページに分かれにくくする（写真に行番号が写らない、という声から） */
+  table.taisho tr { break-inside: avoid-page; page-break-inside: avoid; }
   h1, h2, h3, h4, .tier, .arts { break-after: avoid-page; }
   thead { display: table-header-group; }
   .check, .cpoint, .decide, .rec, .art { break-inside: avoid; }  /* 表の行は途中で切れてよい（長い条を次のページに送ると大きな空白ができる。見出しは各ページにくり返す） */
