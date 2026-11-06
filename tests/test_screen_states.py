@@ -169,6 +169,8 @@ def test_internal_topic_ids_are_named():
 
     t = name_topics("第47条の改定のうち論点1-3に当たる部分です。")
     assert "論点1-3" not in t and "「普通決議の定足数」の論点" in t
+    t2 = name_topics("（論点10。今回は採用されていません）")          # 1つの数字の論点も（ステップ3の範囲外の点に出ていた）
+    assert "論点10" not in t2 and "「区分所有者の責務」の論点" in t2
 
 
 def test_consult_says_when_owner_count_was_assumed():

@@ -2049,6 +2049,7 @@ def draft_side_notes(work: dict) -> list[str]:
 
 
 templates.env.globals["draft_side_notes"] = draft_side_notes
+templates.env.globals["name_topics"] = lambda t: __import__("core.topics", fromlist=["name_topics"]).name_topics(t)
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
     from core.progress import draft_plan

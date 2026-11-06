@@ -74,7 +74,7 @@ TOPIC_BY_ID = {t["id"]: t for t in TOPICS}
 REQUIRED_TOPIC_IDS = [t["id"] for t in TOPICS if t["category"] == "必須"]
 
 
-_TOPIC_REF = re.compile(r"(?:改正の)?論点\s*([0-9]+-[0-9]+)")
+_TOPIC_REF = re.compile(r"(?:改正の)?論点\s*([0-9]+(?:-[0-9]+)?)(?![0-9-])")
 
 
 def name_topics(text: str) -> str:
