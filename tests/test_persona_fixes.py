@@ -134,3 +134,43 @@ def test_skipped_mark_keeps_articles_with_required_change(board_work):
     store.update(wid, draft=draft.to_dict(), board=paper.model_dump(),
                  board_decisions={"0": {"decision": "理解した"}, "1": {"decision": "見送り"}})
     assert M._skipped(store.load(wid)) == {"第33条の2"}
+
+
+def _mixed_work(store, wid):
+    """必須（2-1）と推奨（5）が同じ第45条に入る改定案と、その2つの議題（3回目の確認の場面）。"""
+    draft = mixed_draft()
+    paper = BoardPaper(title="t", intro="", next_steps="", items=[
+        BoardItem(tier=T1, title="招集通知", articles=["第45条"], summary="", points=["p"], options=[], questions=[], finding_refs=["2-1"]),
+        BoardItem(tier=T2, title="国内管理人", articles=["第33条の2", "第45条"], summary="", points=["p"], options=[], questions=[],
+                  finding_refs=["5"]),
+    ])
+    store.update(wid, draft=draft.to_dict(), board=paper.model_dump(), draft_reflects_board=True,
+                 board_decisions={"0": {"decision": "理解した"}, "1": {"decision": "見送り",
+                                  "history": [{"at": "x", "from": "", "to": "見送り"}]}})
+
+
+def test_toggle_skip_after_redraft_asks_for_redraft_again(board_work):
+    """一度作り直したあとで「見送り」を「採用」に戻したら、作り直しの案内が出て、必須と同じ条が対象になる。"""
+    M, store, c, wid, _, _ = board_work
+    _mixed_work(store, wid)
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "採用"})
+    w = store.load(wid)
+    st = M.board_state(w)
+    assert st["needs_redraft"] and "第45条" in M.redraft_targets(w)["refs"]
+
+
+def test_board_change_after_meeting_is_flagged(board_work):
+    """総会の結果を記録したあとで理事会の判断を変えたら、黙って書き換えず印を付ける。"""
+    M, store, c, wid, _, _ = board_work
+    _mixed_work(store, wid)
+    store.update(wid, meeting={"results": {"規約": "可決"}}, explain={"title": "t", "items": []}, explain_metrics={})
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "採用"})
+    w = store.load(wid)
+    assert w.get("board_changed_after_meeting") and w.get("explain_stale")
+
+
+def test_empty_meeting_save_keeps_previous_results(board_work):
+    M, store, c, wid, _, _ = board_work
+    store.update(wid, meeting={"results": {"規約": "可決"}, "name": "総会"})
+    c.post(f"/works/{wid}/meeting", data={"m_name": "総会"})
+    assert store.load(wid)["meeting"]["results"] == {"規約": "可決"}

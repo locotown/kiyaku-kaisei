@@ -375,7 +375,7 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(paper.title)}</title>
 <style>{PRINT_CSS}{page_css(paper.title, ident=ident)}</style></head><body>
-{toolbar("board.docx")}
+{toolbar("board.docx", back_href="./#board")}
 <h1>{html.escape(paper.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 <p>{html.escape(paper.intro)}</p>

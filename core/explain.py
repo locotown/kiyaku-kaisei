@@ -220,7 +220,7 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None, ident: 
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(ex.title)}</title>
 <style>{PRINT_CSS}{page_css(ex.title, ident=ident)}</style></head><body>
-{toolbar("explain.docx")}
+{toolbar("explain.docx", back_href="./#explain")}
 <h1>{html.escape(ex.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 {p(ex.intro)}

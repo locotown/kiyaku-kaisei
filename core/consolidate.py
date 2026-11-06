@@ -169,7 +169,7 @@ def to_html(blocks: list[Block], note: str = "", word_href: str = "", ident: str
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(blocks[0].lines[0] if blocks else "最新の規約")}</title>
 <style>{PRINT_CSS}{page_css(blocks[0].lines[0] if blocks else "最新の規約", ident=ident)}</style></head><body class="final">
-{toolbar(word_href, back_href="../../")}
+{toolbar(word_href, back_href="../../#meeting")}
 {f'<p class="note">{html.escape(note)}</p>' if note else ''}
 {''.join(parts)}
 </body></html>

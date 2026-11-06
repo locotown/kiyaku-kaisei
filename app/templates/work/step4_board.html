@@ -18,6 +18,7 @@
     {% if reasons %}<details class="more decreasons"><summary>ステップ2で、理由を書いた判断（{{ reasons|length }}件。まとめて決めたものは除く）</summary>
       <ul>{% for i, f, d in reasons %}<li><b>{{ views[i].title if views and i in views else f.issue[:30] }}</b>：{{ choice_help.get(d.decision, d.decision) }}　<span class="small">理由：{{ d.reason }}</span></li>{% endfor %}</ul>
       <p class="small">議事録や引き継ぎに使えます。判断や理由は、ステップ2で直せます。</p></details>{% endif %}
+    {% if work.meeting and (work.meeting.results or {}).values()|select|list %}<p class="warn"><b class="w">総会の結果を記録済みです。</b>ここで判断を変えると、最新の規約と住民向け説明が、総会で可決した内容と変わります。変えた場合は、ステップ5・6で作り直してください。</p>{% endif %}
     <div id="board-state">
     {% if board_state %}
       {% include "work/_partial_result.html" %}

@@ -260,7 +260,7 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
 <style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}</style></head><body class="wide">
-{toolbar("taisho.docx", landscape=True)}
+{toolbar("taisho.docx", landscape=True, back_href="./#next")}
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>
