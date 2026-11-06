@@ -14,5 +14,6 @@ from app import store
 def _isolated_work_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "WORK", tmp_path / "work")
     monkeypatch.setattr(store, "SEED", tmp_path / "no_seed")  # 想定ユーザーの作業はテストでは写さない
+    monkeypatch.setattr(store, "CONSULT", tmp_path / "consult")  # AI 相談の記録・基本情報も
     (tmp_path / "work").mkdir()
     yield

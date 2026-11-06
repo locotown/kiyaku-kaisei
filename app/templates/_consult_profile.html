@@ -1,0 +1,21 @@
+{# マンションの基本情報のフォーム（相談の画面と、答えの画面で使う） #}
+{% macro profile_form(next="", rerun=False, open=False) %}
+<form method="post" action="/consult/profile" class="pf">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  {% if rerun %}<input type="hidden" name="rerun" value="1">{% endif %}
+  <div class="pf-grid">
+    <label>住戸の数<span class="small">（戸）</span><input type="text" inputmode="numeric" name="units" value="{{ profile.units or '' }}" placeholder="例：65" required></label>
+    <label>議決権の決め方
+      <select name="vote_rule" data-rule>{% for r in vote_rules %}<option value="{{ r }}" {{ 'selected' if (profile.vote_rule or '1戸1議決権') == r }}>{{ r }}</option>{% endfor %}</select></label>
+    <label>組合員（区分所有者）の数<span class="small">（人）</span><input type="text" inputmode="numeric" name="owners" value="{{ profile.owners or '' }}" placeholder="空なら住戸の数" data-owners></label>
+    <label>議決権の総数<input type="text" inputmode="numeric" name="votes_total" value="{{ profile.votes_total or '' }}" placeholder="空なら住戸の数" data-votes></label>
+  </div>
+  <p class="small">1人で2戸以上をお持ちの方がいれば、組合員の数は住戸の数より少なくなります。議決権を専有面積の割合などで決めている規約では、議決権の総数を規約の別表で確かめて入れてください。</p>
+  <details class="more"><summary>マンション名・照らす規約・メモ（任意）</summary>
+    <label>マンション名<span class="small">（「人名を伏せて送る」ときに一緒に伏せます。AI には送りません）</span><input type="text" name="name" value="{{ profile.name or '' }}"></label>
+    <label>いつも照らす規約<select name="work_id"><option value="">選ばない</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if profile.work_id == w.id }}>{{ w.name }}</option>{% endfor %}</select></label>
+    <label>AI に伝えておきたいこと<span class="small">（例：総会の定足数は規約で3分の2にしている。人名は書かない）</span><textarea name="note" rows="2">{{ profile.note or '' }}</textarea></label>
+  </details>
+  <button type="submit" class="{{ 'btn' if rerun else 'boxed' }}" {% if rerun %}data-ai="{{ ai_note }}"{% endif %}>{{ "基本情報を保存して、もう一度答えてもらう" if rerun else "基本情報を保存する" }}</button>
+</form>
+{% endmacro %}

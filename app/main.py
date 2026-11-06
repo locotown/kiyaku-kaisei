@@ -2120,3 +2120,9 @@ def _review_progress(human: dict) -> dict | None:
             elapsed = 0
     return {"left": len(jobs), "active": active[0].split("|", 1)[1] if active else "", "elapsed": elapsed,
             "started": active[1].get("started", "") if active else ""}
+
+
+# ---- ととのう規約に相談する（AI 相談）。画面は app/consult_app.py -------------------------
+from app import consult_app  # noqa: E402
+
+consult_app.register(app, templates, _corpus)

@@ -20,6 +20,8 @@ WORK = ROOT / "private/work"
 # 想定ユーザー（架空）が使った作業の記録。リポジトリに入れて配り、一覧を開いたときに private/work へ写す
 # （写しなので、開いて操作してもリポジトリのファイルは変わらない）。中身はアプリのサンプル（架空）だけ
 SEED = ROOT / "data/public/persona_works"
+# AI 相談（ととのう規約に相談する）の記録と、マンションの基本情報。貼った文には人名などが入りうるので、private/ にだけ置く
+CONSULT = ROOT / "private/consult"
 _lock = threading.Lock()
 
 
@@ -134,3 +136,70 @@ def list_works() -> list[dict]:
             out.append({"id": d.name, "name": data.get("name", ""), "status": status,
                         "findings": len(data.get("findings", [])), "persona": data.get("persona")})
     return out
+
+
+# ---- AI 相談 ----------------------------------------------------------------------
+
+def consult_path(cid: str) -> Path:
+    if not cid.replace("-", "").isalnum():
+        raise WorkNotFound(cid)
+    return CONSULT / f"{cid}.json"
+
+
+def load_consult(cid: str) -> dict:
+    p = consult_path(cid)
+    if not p.exists():
+        raise WorkNotFound(cid)
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def save_consult(data: dict) -> None:
+    with _lock:
+        CONSULT.mkdir(parents=True, exist_ok=True)
+        p = consult_path(data["id"])
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(p)
+
+
+def update_consult(cid: str, fn) -> dict:
+    """読み直してから fn(data) で書き換えて保存する（別のスレッドの書き込みを消さないように）。"""
+    with _lock:
+        p = consult_path(cid)
+        data = json.loads(p.read_text(encoding="utf-8"))
+        fn(data)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(p)
+        return data
+
+
+def delete_consult(cid: str) -> None:
+    p = consult_path(cid)
+    if p.exists():
+        p.unlink()
+
+
+def list_consults() -> list[dict]:
+    if not CONSULT.exists():
+        return []
+    out = []
+    for f in sorted(CONSULT.glob("*.json"), reverse=True):
+        if f.name == "profile.json":
+            continue
+        try:
+            out.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
+def load_profile() -> dict:
+    p = CONSULT / "profile.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def save_profile(profile: dict) -> None:
+    with _lock:
+        CONSULT.mkdir(parents=True, exist_ok=True)
+        (CONSULT / "profile.json").write_text(json.dumps(profile, ensure_ascii=False, indent=1), encoding="utf-8")
