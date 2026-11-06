@@ -23,6 +23,11 @@
 <p class="j-next" id="j-next">{% if journey.current %}次にすること：<b>{% for st in journey.steps %}{% if st.key == journey.current %}{{ loop.index }}. {{ st.label }}{% endif %}{% endfor %}</b>（全6ステップ）　{% endif %}{{ journey.next }}</p>
 
 {% include "work/_progress.html" %}
+{% if busy %}
+{# 処理中は、どのステップでも同じ帯を出す（別の操作へ誘うボタンを出さない。想定ユーザーでの確認で分かった） #}
+<style>.panel .bar { display: none !important; }</style>
+<div class="bar busybar"><div class="in"><div class="t"><b>AI が作業しています</b>　終わると、画面が自動で切り替わります。閉じても処理は続きます。</div></div></div>
+{% endif %}
 
 {% if work.status in ("エラー", "改定案エラー", "検討資料エラー", "説明文エラー") %}
 <div class="warn" id="error"><strong>{{ icon("alert") }} うまくいきませんでした。</strong>

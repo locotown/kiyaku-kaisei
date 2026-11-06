@@ -24,7 +24,9 @@ DRAFT_PLANS = [
     # 実在の規約集では 20分を超えることもある）
     (8, {"estimate": "5〜10分", "cost": "$1〜2", "deadline_min": 30, "budget_usd": 5}),
     (15, {"estimate": "5〜20分", "cost": "$1.5〜4", "deadline_min": 30, "budget_usd": 5}),
-    (10**6, {"estimate": "8〜45分", "cost": "$2.5〜8", "deadline_min": 50, "budget_usd": 9}),
+    # 16〜25件は実測（19件 9分・$2.6、23件 9分・$2.6、24件 9分・$2.7）に合わせる
+    (25, {"estimate": "8〜20分", "cost": "$2〜4", "deadline_min": 40, "budget_usd": 7}),
+    (10**6, {"estimate": "10〜45分", "cost": "$3〜8", "deadline_min": 50, "budget_usd": 9}),
 ]
 
 

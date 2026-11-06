@@ -381,3 +381,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 
 /* 状態の表示が「点／検中」と途中で折り返さないように */
 #status { white-space: nowrap; }
+
+/* 作業名の行は左揃え（スマホで字間が空いて見えた） */
+.eyebrow { text-align: left; }
+.tk .busybar { position: fixed; left: 0; right: 0; bottom: 0; }

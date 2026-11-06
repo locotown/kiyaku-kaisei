@@ -125,6 +125,8 @@
           const st = doc.getElementById("board-state"); if (st) document.getElementById("board-state").replaceWith(st);
           const bar = doc.querySelector('[data-step=board] .bar'), mine = document.querySelector('[data-step=board] .bar');
           if (bar && mine) mine.replaceWith(bar);
+          const jn = doc.getElementById("j-next"), jm = document.getElementById("j-next");  // 上の「次にすること」も入れ替える
+          if (jn && jm) jm.replaceWith(jn);
           form.querySelectorAll(".cref").forEach((el) => { el.dataset.saved = valueOf(el.dataset.q); });
           show();
           const n = note(); if (n) { n.hidden = false; n.className = "saved-ok"; n.textContent = "保存しました。"; }

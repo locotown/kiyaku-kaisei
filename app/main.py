@@ -405,7 +405,7 @@ def board_state(work: dict) -> dict:
         # 見送りから採用に戻した議題など、作り直しで条に入れ直す必要があるもの
         st["redraft"] = redraft_targets(work)["items"]
     if not st["done"]:
-        reason = f"まだ判断していない議題が{len(st['undecided'])}つあります。"
+        reason = f"まだ判断していない議題が{len(st['undecided'])}件あります。"
         if st["needs_choice"]:
             reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、案を選んでください。"
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}

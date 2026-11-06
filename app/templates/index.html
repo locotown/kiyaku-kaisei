@@ -67,7 +67,7 @@
     <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
     <div class="s-contents">{{ s.contents }}</div>
     <div class="muted s-point">{{ s.point }}</div>
-    <button class="boxed" type="submit" data-ai="このサンプルで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1ほど（約150円）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">このサンプルで試す</button>
+    <button class="boxed" type="submit" data-ai="このサンプルで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1ほど。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">このサンプルで試す</button>
   </form>
 {% endfor %}
 </div>
@@ -82,7 +82,7 @@
 {# 同じ名前の作業が並んでも見分けられるよう、作った日時（作業の番号の頭）を出す #}
 {% set ts = w.id[:13] %}
 <tr><td><a href="/works/{{ w.id }}">{{ w.name }}</a></td>
-  <td class="nowrap">{% if ts[:8]|int(0) and ts[9:11]|int(99) < 24 and ts[11:13]|int(99) < 60 %}{{ ts[4:6]|int }}/{{ ts[6:8]|int }} {{ ts[9:11] }}:{{ ts[11:13] }}{% endif %}</td>
+  <td class="nowrap">{% if ts[:8]|int(0) and ts[9:11]|int(99) < 24 and ts[11:13]|int(99) < 60 %}{{ ts[4:6]|int }}/{{ ts[6:8]|int }} {{ ts[9:11] }}:{{ ts[11:13] }}{% else %}—{% endif %}</td>
   <td class="nowrap">{{ w.status }}</td><td class="nowrap">{{ w.findings }}件</td></tr>
 {% endfor %}
 </table>
