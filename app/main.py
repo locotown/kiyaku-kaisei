@@ -413,6 +413,7 @@ def board_state(work: dict) -> dict:
         targets = redraft_targets(work)["items"]
         titles = [t for t in st["redraft"] if t in targets]  # 反映済みの議題は、理由の文に並べない
         if titles:
+            st["redraft"] = titles  # 「対象の議題」の一覧も、まだ反映していない議題だけにそろえる
             return {**st, "ready": False, "needs_redraft": True, "reason": _redraft_reason(paper, decisions, titles, _draft(work))}
     draft = _draft(work)
     left = remaining_choices(apply_to_draft(draft, paper, decisions)) if draft else []
@@ -459,7 +460,7 @@ def journey(work: dict, bstate: dict | None) -> dict:
         text = ("「理事会の検討資料を作る」を押してください。" if not (bstate and work.get("board"))
                 else (bstate.get("reason") or "議題ごとの判断を記録してください。"))
     elif current == "explain":
-        text = ("理事会の判断が変わりました。「説明文を作り直す」を押してください。" if work.get("explain_stale")
+        text = ("改定案や理事会の判断が変わりました。「説明文を作り直す」を押してください。" if work.get("explain_stale")
                 else "「住民向けの説明を作る」を押してください。")
     elif current == "meeting":
         text = ("総会の結果を記録したあとで、改定案や判断が変わりました。総会で可決した内容と合っているか確かめ、"

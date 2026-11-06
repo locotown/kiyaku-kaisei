@@ -246,3 +246,12 @@ def test_display_status_comes_from_data():
     assert display_status(base | {"explain": {"title": "t"}}) == "説明文あり"
     assert display_status(base | {"explain": {"title": "t"}, "meeting": {"results": {"規約": "可決"}}}) == "総会の結果あり"
     assert display_status(base | {"status": "説明文作成中", "explain": {"title": "t"}}) == "説明文作成中"
+
+
+def test_diff_ignores_line_break_differences():
+    """改行の形（空行・\\r\\n）だけの違いは、提案の「変わるところ」に出さない。"""
+    from core.notes import changes
+
+    cur = "第1条　一\n\n2　二\n\n3　三"
+    assert changes(cur, "第1条　一\r\n2　二\n3　三") == []
+    assert len(changes(cur, "第1条　一\n2　二を直した\n3　三")) == 1

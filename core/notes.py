@@ -154,7 +154,13 @@ def changes(current: str, proposed: str, ctx: int = 10) -> list[dict]:
     返すのは [{"before": [(文字列, 変わったか)], "after": [...]}]。近い変更はまとめる。
     """
     import difflib
+    import re as _re
 
+    # 改行の形（\r\n・段落の間の空行）の違いを差分に出さない（変わらない行が差分に並んだ、という声から）
+    def norm(t: str) -> str:
+        return _re.sub(r"\n{2,}", "\n", (t or "").replace("\r\n", "\n").replace("\r", "\n")).strip()
+
+    current, proposed = norm(current), norm(proposed)
     ops = [o for o in difflib.SequenceMatcher(None, current, proposed, autojunk=False).get_opcodes() if o[0] != "equal"]
     groups: list[list] = []
     for o in ops:
