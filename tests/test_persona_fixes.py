@@ -263,3 +263,23 @@ def test_old_slash_joined_notes_are_split_by_date():
     a = Amendment("改正", "第38条の2", None, "c", "第38条の2　…", "", [], [], [])
     edits = {"規約|第38条の2": {"text": "第38条の2　…", "note": "最初の経緯／11月06日 08:57：二つ目"}}
     assert edit_note(edits, a) == "最初の経緯\n11月06日 08:57：二つ目"
+
+
+def test_persona_works_are_seeded_and_listed_separately(tmp_path, monkeypatch):
+    """想定ユーザーの作業は、一覧を開いたときに private/work へ写り、「想定ユーザーの作業」として分けて並ぶ。"""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    import app.main as M
+    from app import store
+
+    seed = tmp_path / "seed"
+    (seed / "20261106-000000-aaaaaa").mkdir(parents=True)
+    (seed / "20261106-000000-aaaaaa" / "work.json").write_text(json.dumps({
+        "name": "想定ユーザー 佐藤さん：サンプル", "status": "点検済み", "findings": [],
+        "persona": {"who": "佐藤さん", "round": "1回目", "note": "架空"}}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(store, "SEED", seed)
+    page = TestClient(M.app).get("/").text
+    assert (store.WORK / "20261106-000000-aaaaaa" / "work.json").exists()       # 写した（元は変えない）
+    assert "想定ユーザーの作業（架空・確認用）1件" in page and "想定ユーザー 佐藤さん：サンプル" in page

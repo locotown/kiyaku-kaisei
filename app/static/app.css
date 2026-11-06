@@ -393,3 +393,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 
 /* 説明の一覧は左揃え（条番号の字間が空いて見えた） */
 .tk .explain-peek li, .tk .explain-peek p { text-align: left; }
+
+/* 想定ユーザーの作業（架空・確認用）の印 */
+.persona-note { margin: 0 0 var(--space-2); padding: var(--space-1) var(--space-3); background: #eef3f8; border-left: 3px solid var(--color-primary); }
+.tk .persona-works { margin-top: var(--space-5); }

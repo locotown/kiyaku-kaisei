@@ -11,6 +11,7 @@
 {% set cst = cost_total(work) %}
 <p class="eyebrow wk">{{ work.name }}　<span class="muted"><span class="nowrap">状態：<b id="status">{{ shown_status }}</b></span>{% if cst %}　AI の費用：これまで 約${{ "%.2f"|format(cst) }}{% endif %}</span></p>
 
+{% if work.persona %}<p class="small persona-note">想定ユーザーの作業（架空・確認用）：{{ work.persona.who }}・{{ work.persona.round }}。{{ work.persona.note }}</p>{% endif %}
 <ol class="flow" id="journey" aria-label="進み具合">{% for st in journey.steps %}
   {%- set human = st.who == "human" %}
   <li class="{{ {'done': 'done', 'now': 'now'}.get(st.state, '') }}" data-step="{{ st.key }}"{% if st.state == "now" %} aria-current="step"{% endif %}>

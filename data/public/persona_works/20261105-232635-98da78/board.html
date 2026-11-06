@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理規約（総会運営細則を含む）の改定案について（理事会検討資料）</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap");
+:root {
+  --color-bg: #f6f5f2; --color-surface: #ffffff;
+  --color-ink: #1b1d20; --color-ink-2: #474c53; --color-ink-3: #61666d;
+  --color-line: #e2dfd8; --color-line-2: #cfcbc2;
+  --color-primary: #24456b; --color-primary-soft: #edf1f6;
+  --color-must: #9a3324; --color-rec: #2b4f7a; --color-ref: #5d6167; --color-ok: #2d6a4f;
+  --font-sans: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+}
+* { box-sizing: border-box; }
+body { font-family: var(--font-sans); max-width: 820px; margin: 32px auto; padding: 0 24px; line-height: 1.8;
+       color: var(--color-ink); background: var(--color-surface); font-size: 17px; -webkit-font-smoothing: antialiased; }
+body.wide { max-width: none; margin: 32px; padding: 0; }
+h1, h2, h3, h4 { font-feature-settings: "palt"; line-height: 1.4; font-weight: 700; }
+/* 日本語の組み方：行の右端まで文字を詰め（禁則処理つき）、文章は両端をそろえる */
+body { line-break: strict; }
+p, li, .note { text-align: justify; }
+h1, h2, h3, h4 { text-wrap: balance; }
+h1 { font-size: 1.6rem; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 2px solid var(--color-primary); }
+h2 { font-size: 1.25rem; margin: 2em 0 .4em; }
+h3, h3.title { font-size: 1.1rem; margin: 1.4em 0 .2em; }
+h4 { font-size: 1rem; color: var(--color-primary); margin: .9em 0 .1em; }
+p { margin: 0 0 .8em; }
+ul { margin: .2em 0 .6em; padding-left: 1.4em; }
+.arts { font-size: .85rem; color: var(--color-ink-3); margin: 0 0 .4em; }
+
+/* 3段の区分：色の見出しと左の線（色の付いた箱にしない） */
+.tier { margin-top: 2.4em; padding: 4px 0 4px 16px; border-left: 3px solid var(--color-line-2); }
+.tier h2 { margin: .1em 0 .1em; }
+.tier p { margin: 0 0 .4em; font-size: .92rem; color: var(--color-ink-2); }
+.tier1 { border-left-color: var(--color-must); } .tier1 h2 { color: var(--color-must); }
+.tier2 { border-left-color: var(--color-rec); } .tier2 h2 { color: var(--color-rec); }
+.tier3 { border-left-color: var(--color-ref); } .tier3 h2 { color: var(--color-ref); }
+.item { border-top: 1px solid var(--color-line); padding-top: 4px; }
+
+/* 理事会の検討資料 */
+.decide { font-size: .92rem; border-top: 1px dashed var(--color-line-2); padding: 6px 0 0; margin-top: .6em; }
+.rec { font-size: .92rem; color: var(--color-ok); }
+.choose { border-left: 3px solid var(--color-line-2); padding: 2px 0 2px 16px; margin: .8em 0; }
+.choose ul { list-style: none; padding-left: .4em; }
+.cnote { font-size: .85rem; color: var(--color-ink-2); }
+
+/* 住民向けの説明 */
+.box { border-top: 1px solid var(--color-line-2); border-bottom: 1px solid var(--color-line-2); padding: 8px 0; }
+table.list { border-collapse: collapse; width: 100%; font-size: .85rem; }
+table.list th, table.list td { border-bottom: 1px solid var(--color-line); padding: 6px 8px 6px 0; text-align: left; vertical-align: top; }
+table.list th { color: var(--color-ink-3); font-size: .8rem; border-bottom-color: var(--color-line-2); }
+
+/* 区分などの札：色の文字と左の細い線（丸い札にしない） */
+.tag { display: inline-block; font-size: .8rem; font-weight: 700; line-height: 1.3; padding: 0 0 0 8px; margin: 2px 8px 2px 0;
+       border-left: 3px solid currentColor; color: var(--color-primary); background: none; border-radius: 0; }
+.tag.must { color: var(--color-must); } .tag.opt { color: var(--color-rec); }
+.t-新設 { color: var(--color-ok); } .t-削除 { color: var(--color-ref); } .t-附則 { color: var(--color-primary); }
+
+/* 注記：線で区切る（黄色い箱にしない） */
+.note { font-size: .88rem; color: var(--color-ink-2); border-left: 3px solid var(--color-line-2); padding: 4px 0 4px 14px; margin: 1.2em 0; }
+.legend, .summary { font-size: .92rem; color: var(--color-ink-2); }
+.topics { font-size: .8rem; color: var(--color-ink-2); margin-bottom: 6px; }
+
+/* 新旧対照表 */
+body.wide table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+body.wide th, body.wide td { border: 1px solid var(--color-line-2); padding: 10px; vertical-align: top; font-size: .92rem; word-break: break-all; }
+body.wide th { background: var(--color-bg); font-size: .85rem; color: var(--color-ink-2); text-align: left; }
+body.wide th:nth-child(1) { width: 37%; } body.wide th:nth-child(2) { width: 33%; }
+body.wide td:nth-child(3) { font-size: .85rem; color: var(--color-ink-2); }
+body.wide h2 { border-left: 3px solid var(--color-primary); padding-left: 10px; }
+tr.row-must td:first-child { box-shadow: inset 3px 0 0 var(--color-must); }
+tr.row-opt td:first-child { box-shadow: inset 3px 0 0 var(--color-line-2); }
+mark { background: var(--color-primary-soft); color: inherit; padding: 0 1px; text-decoration: underline; text-decoration-color: var(--color-primary); text-underline-offset: 3px; }
+del { color: var(--color-must); text-decoration-color: var(--color-must); text-decoration-thickness: 1.5px; }
+.refcap { color: var(--color-ink-2); font-size: .9em; }
+.humanedit { display: block; width: fit-content; font-size: .8rem; font-weight: 700; color: var(--color-must); border: 1px solid var(--color-must); border-radius: 4px; padding: 0 6px; margin-bottom: 4px; }
+.humanedit.ok { color: var(--color-ok); border-color: var(--color-ok); }
+tr.row-skip td { background: #f1f0ec; color: var(--color-ink-2); }
+.skipmark { display: block; width: fit-content; font-size: .8rem; font-weight: 700; color: var(--color-must); border: 1px dashed var(--color-must); border-radius: 4px; padding: 0 6px; margin-bottom: 4px; }
+.editnote { margin-top: 6px; padding: 4px 6px; border-left: 3px solid var(--color-must); background: #fff6f3; white-space: pre-line; }
+.rowno { display: block; font-weight: 700; color: var(--color-primary); font-size: .9rem; margin-bottom: 2px; }
+
+/* 最新の規約：変更した条は左の線で示す */
+.art { margin: .7em 0; padding: 2px 0 2px 14px; border-left: 3px solid transparent; }
+.art.ch { border-left-color: var(--color-primary); background: none; }
+
+/* 画面だけに出す操作の帯（印刷する・Word で保存）。印刷には出ない */
+.toolbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+           padding: 10px 0; margin: -8px 0 16px; background: var(--color-surface); border-bottom: 1px solid var(--color-line); font-size: .9rem; }
+.toolbar button, .toolbar a { font: inherit; font-weight: 700; min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px;
+           border-radius: 6px; text-decoration: none; cursor: pointer; }
+.toolbar button { background: var(--color-primary); color: #fff; border: 0; }
+.toolbar a { color: var(--color-primary); border: 1px solid var(--color-line-2); background: var(--color-surface); }
+.toolbar .hint { color: var(--color-ink-3); font-size: .85rem; }
+.toolbar .safari { flex-basis: 100%; margin: 0; color: var(--color-must); font-weight: 700; font-size: .9rem; }
+
+h1, h2, h3, h4 { text-align: left; }
+/* スマホ：新旧対照表は条ごとのカード（改定案／現行／理由）に並べ替える。帯は固定せず、印刷の説明は畳む */
+@media screen and (max-width: 720px) {
+  p, li, .note { text-align: left; }
+  .toolbar { position: static; padding: 8px 12px; }
+  .toolbar .hint, .toolbar .safari { display: none !important; }
+  table.taisho, table.taisho tbody, table.taisho tr, table.taisho td { display: block; width: auto !important; }
+  table.taisho thead { display: none; }
+  table.taisho tr { border: 1px solid var(--color-line-2); border-radius: 6px; margin: 0 0 14px; background: var(--color-surface); }
+  table.taisho td { border: 0 !important; border-top: 1px solid var(--color-line) !important; padding: 8px 10px !important; }
+  table.taisho td:first-child { border-top: 0 !important; }
+  table.taisho td::before { content: attr(data-label); display: block; font-size: .78rem; font-weight: 700; color: var(--color-ink-3); margin-bottom: 2px; }
+  tr.row-must td:first-child, tr.row-opt td:first-child { box-shadow: none; }
+  tr.row-must { border-left: 4px solid var(--color-must) !important; }
+}
+@media print {
+  .toolbar { display: none !important; }
+  /* 新旧対照表：行の番号と本文が別のページに分かれにくくする（写真に行番号が写らない、という声から） */
+  table.taisho tr { break-inside: avoid-page; page-break-inside: avoid; }
+  h1, h2, h3, h4, .tier, .arts { break-after: avoid-page; }
+  thead { display: table-header-group; }
+  .check, .cpoint, .decide, .rec, .art { break-inside: avoid; }  /* 表の行は途中で切れてよい（長い条を次のページに送ると大きな空白ができる。見出しは各ページにくり返す） */
+  p, li { orphans: 2; widows: 2; }
+  body, body.wide { margin: 0; padding: 0; font-size: 11pt; max-width: none; }
+  .art.ch { border-left-color: transparent; } .art .tag, body.final .note { display: none; }
+  a { color: inherit; text-decoration: none; }
+}
+
+@page {
+  size: A4; margin: 16mm 14mm 16mm;
+  @top-left { content: "管理規約（総会運営細則を含む）の改定案について（理事会検討資料）"; font-family: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 8pt; color: #61666d; }
+  @top-right { content: "総会提案の下書き　ID 98da78-bb9f47"; font-family: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 8pt; color: #61666d; }
+  @bottom-center { content: counter(page) " / " counter(pages); font-family: "BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 9pt; color: #474c53; }
+}
+</style></head><body>
+<div class="toolbar"><a href="./#board" class="back">← 作業の画面に戻る</a><button type="button" onclick="window.print()">印刷する</button><a href="board.docx">Word で保存（直して使う）</a><p class="safari" hidden>Safari では、各ページの上下に資料名・版の番号・ページ番号が出ません。Chrome か Edge で開いて印刷してください。</p><script>if (/^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(navigator.userAgent)) document.querySelector(".toolbar .safari").hidden = false;</script><span class="hint">A4 縦で印刷します（Chrome か Edge で印刷すると、各ページに資料名とページ番号が入ります）。変更箇所の色も印刷するには、印刷の設定で「背景のグラフィック」をオンにしてください。会議で書き込むときは、赤など色の付いたペンで書くと、写真から読み取りやすくなります。</span></div>
+<h1>管理規約（総会運営細則を含む）の改定案について（理事会検討資料）</h1>
+
+<p>2026年4月1日に施行された改正区分所有法（マンションの管理の基本ルールを定めた法律）に合わせて、管理規約と総会運営細則を見直す改定案を検討するための資料です。改定案を8つの議題にまとめ、①法律の改正に合わせる変更、②暮らしや運営に関わる変更、③古い規定や表現の整理、の順に並べています。①は法律との食い違いを解消するための変更なので内容を確認し、②は採用するか・どう書くかを判断し、③は内容が変わらないことを確認してください。理事会で方針を固めたうえで、総会に提案する議案を作ります。</p>
+<div class="tier tier1"><h2>① 法律の改正に合わせる変更：<u>理解する</u></h2><p>改正された法律に合わせるため、変えないことはできません。何が求められているかを理解し、質問があれば確認します。</p></div><section class="item">
+<h3>1. 総会の決め方（特別決議の要件と定足数、3分の2で決められる議案、建替え等）</h3>
+<p class="arts">関係する条：第49条、総会運営細則 第5条</p>
+<p>規約の変更などの特別決議（重要事項を決める多数決）を、組合員総数・議決権総数の各過半数の出席を条件に、出席者の各4分の3以上で決める形に改めます。瑕疵（危険な箇所）の除去やバリアフリー化のための共用部分の変更と、大規模滅失（建物の価格の2分の1を超える損壊）の復旧は、出席者の各3分の2以上で決める新第4項にまとめます。建替え等には、耐震性不足などの事由がある場合に各4分の3以上に下がるただし書と、新しく設けられた建物更新・建物敷地売却・建物取壊し敷地売却・取壊しの決議を加えます。あわせて基本の定足数を議決権総数の過半数に改め、規約変更の要件を重ねて定めていた細則第5条を削ります。</p>
+<h4>理解のポイント</h4><ul><li>改正法では特別決議は出席者を母数にして数えます。欠席者も母数に入れる今の第49条第3項や細則第5条の「各4分の3以上」は法律と食い違い、効力を失うおそれがあります。</li><li>3分の2で決められる議案を分けて定めないと、法律で要件が軽くなった議案も規約上は4分の3で数えることになり、規約と法律の食い違いが残ります。特別の影響を受ける組合員の承諾（新第9項）は、新第4項第一号の共用部分の変更にも及びます。</li><li>第1項の基本の定足数を「議決権総数の過半数」にする点は法律上必須ではなく、標準管理規約に合わせるための変更です。</li><li>新第4項を入れるため、今の第4項〜第10項は新第5項〜第11項に繰り下がり、今の第3項第五号は第四号になります。第3項第三号（義務違反者への訴え）は番号が変わらないため、第50条第十一号の参照はそのままです。</li></ul>
+
+
+<h4>想定される質問</h4><ul><li>Q：今回の規約改定の総会は、今の規約の「各4分の3以上」で決めるのですか？／A：いいえ。改正法の施行後なので、組合員総数の過半数かつ議決権総数の過半数の出席（書面・代理人による行使を含む）のもとで、出席組合員とその議決権の各4分の3以上の賛成で決めます。</li><li>Q：細則第5条を削ると、規約変更の要件はどこで分かりますか？／A：規約第49条第3項だけで定めます。決議要件は、普通決議で変えられる細則ではなく規約に置くのが適当なためです。</li></ul>
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b></p>
+</section><section class="item">
+<h3>2. 総会の招集手続（議案の要領、1週間前の通知、緊急時の招集）</h3>
+<p class="arts">関係する条：第45条、総会運営細則 第3条</p>
+<p>すべての議案について、招集通知に議案の要領（議案の内容の要点）を示すよう第1項に加え、一部の議案に限っていた今の第4項を削ります。緊急時に招集期間を縮める下限を5日間から1週間に改め（新第7項）、5日前の招集を認めていた細則第3条を削ります。建替え等の2か月前の通知・通知事項・説明会の対象を「マンション再生等に係る決議」に改め、今の第5項・第6項を1つの項にまとめて、耐震性不足などの事由で4分の3の決議をする場合はその旨と事由を通知する号を加えます。</p>
+<h4>理解のポイント</h4><ul><li>改正法では招集通知は少なくとも1週間前に出す必要があり、規約や細則で短くできません。5日前でよいとする今の定めのままだと法律と食い違い、その招集で開いた総会の決議の効力が争われるおそれがあります。</li><li>議案の要領はすべての議案で必要になるため、今後の総会資料では招集通知の段階で各議案の要点を示すことになります。</li><li>第2項の国内管理人あての通知は、議題「国内管理人の届出と議決権の代理」で扱います。</li><li>項の番号が変わり、今の第7項〜第9項は新第5項〜第7項になります。理事会の招集の条（第54条第4項）は議題「理事会の招集で準用する項の番号の整理」で直しています。</li></ul>
+
+
+<h4>想定される質問</h4><ul><li>Q：通常の総会の招集通知の時期は変わりますか？／A：今の規約の2週間前は変えていません。緊急時に縮める場合も1週間が下限になり、建替え等の決議は短縮の対象外です。</li></ul>
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b></p>
+</section><section class="item">
+<h3>3. 保険金・損害賠償金等の請求と受領（理事長による一元的な代理）</h3>
+<p class="arts">関係する条：第25条の2、第25条、第69条</p>
+<p>共用部分について生じた損害賠償金や不当利得返還金（本来受け取るべきでない人が得たお金の返還）を、理事長が今の区分所有者と元の区分所有者をまとめて代理して請求・受領し、訴訟もできる条を新しく設けます。区分所有権を譲渡しても別段の意思表示（自分で請求するという意思表示）をしないこと、受け取ったお金を修繕に充てることなども定めます。今の第25条第2項（保険金の代理）と第69条第3項第二号・第6項（損害賠償等の訴訟と通知）は新しい条に移すため削ります。</p>
+<h4>理解のポイント</h4><ul><li>改正法で、理事長（管理者）が今と元の区分所有者をまとめて代理できるようになりました。規約に定めることで、受け取ったお金の扱い（修繕への充当）や手続が明らかになります。</li><li>区分所有権を譲渡した人は、別段の意思表示をしないことになります。売買の際に買主・売主に伝わるよう、重要事項の説明などで周知することが考えられます。</li><li>新しい条の参照先は、標準管理規約の番号ではなく今の規約の番号（管理費は第28条、招集手続は第45条）にしています。</li><li>第69条第3項は差止め等の請求だけの1つの文になり、第70条第2項の「第69条第3項」は改定後も差止め等の訴訟を指します。</li></ul>
+
+
+<h4>想定される質問</h4><ul><li>Q：元の区分所有者が自分で請求する権利はなくなりますか？／A：なくなるわけではありません。規約では譲渡の際に別段の意思表示をしないことを定めますが、理事長が一元的に請求・受領し、修繕に充てる仕組みを明らかにするものです。</li></ul>
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b></p>
+</section><section class="item">
+<h3>4. 建替え等の決議の種類の整理に伴う用語の統一（招集請求・議決事項）</h3>
+<p class="arts">関係する条：第46条、第50条</p>
+<p>区分所有法で、建替え・建物更新・建物敷地売却・建物取壊し敷地売却・取壊しの各決議（マンション再生等に係る決議）が整理されたことに合わせ、用語と条番号をそろえます。組合員が総会の招集を請求したときの会日の特例（2か月と2週間以内）の対象を同じ用語に改め（第46条）、総会の議決事項の第十三号・第十四号を標準管理規約の用語と条番号に合わせ、新しい決議を加えます（第50条）。</p>
+<h4>理解のポイント</h4><ul><li>第46条をそろえないと、たとえば建物更新決議の招集請求で4週間以内に会日を設けなければならず、2か月前の通知と両立しなくなります。</li><li>敷地売却の決議は円滑化法から区分所有法に移ったため、旧法の用語のままでは法律との対応が分かりにくくなります。</li><li>第50条のそれ以外の号は変えていません。第十一号が指す第49条第3項第三号（義務違反者への訴え）は改定後も同じ号です。</li></ul>
+
+
+
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b></p>
+</section><section class="item">
+<h3>5. 国内管理人の届出と議決権の代理</h3>
+<p class="arts">関係する条：第33条の2、第48条、第45条</p>
+<p>改正法で、海外に住む区分所有者が国内に住む「国内管理人」を選び、総会の通知の受領や議決権の行使を任せられるようになりました。これに合わせて、国内管理人の選任・変更・終了の届出の条（第33条の2）を設け、届出があれば招集通知を国内管理人あてに送ること（第45条第2項）と、議決権の代理人に国内管理人を加えること（第48条第5項）を定めます。届出の方法は組合が選ぶ点です。</p>
+<h4>理解のポイント</h4><ul><li>利点：海外在住の区分所有者への通知先がはっきりし、議決権を行使しやすくなるため、総会の運営が安定しやすくなります。</li><li>注意点：届出の受付や名簿の管理など理事長・管理会社の事務が増えます。また、議決権の代理人の範囲が配偶者・親族・他の組合員以外にも広がります。</li><li>国内管理人を選ぶかは区分所有者の自由です。規約に届出の定めがないと、理事長がだれに通知すればよいか把握しにくくなります。</li><li>判断の目安：今、海外に住む区分所有者がいるか、今後増えそうか、を確認するとよいでしょう。</li></ul>
+
+
+<h4>想定される質問</h4><ul><li>Q：電磁的方法の利用が未定の場合、どちらを選べばよいですか？／A：理事会で利用の方針を先に決め、決まらなければ（ア）を選ぶ考え方があります。方針が決まった後で、他の届出とあわせて見直すこともできます。</li></ul>
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b>／選んだ案：第33条の2 国内管理人の届出の方法（第1項・第2項の〔選択〕の箇所）：（ア）書面により（今の規約の届出義務の条 第33条と同じく書面だけで受ける）</p>
+</section><section class="item">
+<h3>6. 理事会の招集で準用する項の番号の整理</h3>
+<p class="arts">関係する条：第54条</p>
+<p>総会の招集手続の条（第45条）の改定で項の番号が変わる（今の第5項〜第9項→新第4項〜第7項）ため、理事会の招集でこの条を準用している第54条第4項の項番号と用語（マンション再生等に係る決議）を、改定後の第45条に合わせて直します。</p>
+<h4>理解のポイント</h4><ul><li>第45条の項の番号の変更に合わせて参照先を直すもので、理事会の招集の実際の手続は変わりません。</li><li>標準管理規約第52条第4項と同じ形です。○の箇所は今の規約のままです。</li></ul>
+
+
+
+<p class="decide">判断：□ 理解した　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>理解した</b></p>
+</section><div class="tier tier2"><h2>② 暮らしや運営に関わる変更：<u>判断する</u></h2><p>法律上は必須ではありません。採用する・修正して採用する・見送るのいずれかを決め、〔選択〕の箇所はどの案にするかを決めます。</p></div><section class="item">
+<h3>7. 専有部分等での保存行為（修理など）の実施の請求</h3>
+<p class="arts">関係する条：第24条</p>
+<p>管理のために他の人の専有部分などへの立入りを請求できる今の定めに加え、自ら保存行為（修理など建物を維持するための行為）を行うことも請求できるようにします。正当な理由なく拒否した人の損害賠償、緊急時に理事長が自ら保存行為を行えることも第1項から第4項に加え、見出しを「必要箇所への立入り等」に改めます。第5項は変えていません。</p>
+<h4>判断のポイント</h4><ul><li>利点：漏水など、他の住戸を通らないと修理できない場合に、手続の根拠がはっきりし、早く対応しやすくなります。</li><li>注意点：専有部分の所有者・居住者にとっては、立入りや工事を受け入れる負担やプライバシーへの配慮が必要になります。正当な理由のない拒否には損害賠償の責任が生じ得ることも定めます。</li><li>緊急時に理事長が自ら保存行為を行えるため、理事長の判断の場面が増えます。判断の手順や事後の報告をどう運用するかも考えておくとよいでしょう。</li><li>法律で認められた内容を規約に明記し、標準管理規約と同じ形にするものです。</li></ul>
+<h4>選べる案</h4><ul><li>採用する場合：標準管理規約と同じく、保存行為の実施の請求、拒否した場合の損害賠償、緊急時の理事長による保存行為を定めます。</li><li>修正する場合：たとえば緊急時の理事長の保存行為について、理事会への速やかな報告を求める文言を加えるなどの調整が考えられます。</li><li>見送る場合：今の立入りの定めのままとなり、保存行為の実施の請求は規約上の手続がない状態で、法律に基づいて個別に対応することになります。</li></ul>
+
+<h4>想定される質問</h4><ul><li>Q：理事長が勝手に住戸に入れるようになるのですか？／A：緊急時に限った定めです。通常は請求を通じて行い、正当な理由のない拒否の場合の責任を定めるものです。</li></ul>
+<p class="decide">判断：□ 採用　□ 修正して採用　□ 見送り　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>修正して採用</b>／メモ：緊急時に理事長が自ら保存行為をしたときは、理事会に速やかに報告する旨を第4項に加える</p>
+</section><section class="item">
+<h3>8. 区分所有者の責務（相互協力と適正かつ円滑な管理）</h3>
+<p class="arts">関係する条：第21条</p>
+<p>改正法で、区分所有者は管理組合の構成員として、管理が適正かつ円滑に行われるよう相互に協力しなければならないという責務が定められました。標準管理規約にならい、区分所有者の責務の条に「相互に協力し」「適正かつ円滑な管理」の文言を加えます。それ以外の文言は変えていません。</p>
+<h4>判断のポイント</h4><ul><li>利点：管理への協力（総会への参加、理事の引受けなど）を呼びかける際に、規約上の根拠を示しやすくなります。</li><li>注意点：考え方を示す規定で、新しい具体的な義務や罰則を加えるものではありません。</li><li>見送っても法律上の責務は変わりませんが、規約と法律の考え方がそろわないままになります。</li></ul>
+<h4>選べる案</h4><ul><li>採用する場合：標準管理規約と同じ文言を加えます。</li><li>見送る場合：今の条文のままとなり、法律で定められた責務は規約には書かれない状態になります。</li></ul>
+
+
+<p class="decide">判断：□ 採用　□ 修正して採用　□ 見送り　メモ：＿＿＿＿＿＿＿＿＿＿</p><p class="rec">理事会の判断：<b>採用</b></p>
+</section>
+<h2>参考：今回の改定案に含まれていない点</h2><ul><li>修繕積立金の条（第29条）は、建替え等・敷地売却の定義が円滑化法の旧条文を引いたままで、新しい決議や標準管理規約第28条の使途も入っていません。第50条第十五号・第34条第四号とあわせて見直すとよいでしょう。</li><li>瑕疵の除去等以外の共用部分の変更に伴う専有部分の保存行為等を4分の3で決める号（標準管理規約第47条第3項第三号）は、今回の改定案には入れていません。</li><li>第49条の「出席組合員とみなす」の書き方を、標準管理規約第47条第7項のように組合員の数と議決権の数の両方に算入する形に改めるか検討するとよいでしょう。</li><li>招集通知に3分の2決議を適用する旨と理由を示す項（標準管理規約第43条第4項）は、今回の改定案には入っていません。</li><li>合意管轄裁判所の条（第70条第2項）に、新しい第25条の2第2項の訴訟を加えるか検討するとよいでしょう。</li><li>所在等不明区分所有者の除外や所有者不明専有部分管理人についても、標準管理規約にならって今後検討できます。</li><li>細則・議事録・掲示物・総会資料のひな形などで、番号が変わる条・項（第25条、第45条、第49条、第69条、細則第3条・第5条）を参照しているものがあれば直す必要があります。</li></ul>
+<h2>このあとの流れ</h2><p>理事会で②の議題の採否と、国内管理人の届出方法（ア・イ）を決め、改定案を修正します。そのうえで住民説明会などで内容を説明し、意見を踏まえて総会議案を確定します。総会では、規約の改定を特別決議（組合員総数の過半数かつ議決権総数の過半数の出席のもと、出席者の各4分の3以上）、総会運営細則の改定（第3条・第5条の削除）を普通決議（今の規約第50条第一号）として、別の議案にします。招集通知にはすべての議案の要領を示し、今の規約どおり2週間前（法律上も少なくとも1週間前）までに発します。</p>
+<p class="note">この資料は総会提案の下書きであり、法的助言ではありません。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。　改定案の条文そのものは「新旧対照表」を見てください。</p>
+</body></html>

@@ -74,11 +74,13 @@
 </div>
 
 {% if works %}
+{% set mine = works|rejectattr("persona")|list %}{% set personas = works|selectattr("persona")|list %}
 <div class="card" id="works">
 <h2>これまでの作業</h2>
+{% macro rows(list, show_who=False) %}
 <table>
 <tr><th>作業</th><th>作った日時</th><th>状態</th><th>指摘</th></tr>
-{% for w in works %}
+{% for w in list %}
 {# 同じ名前の作業が並んでも見分けられるよう、作った日時（作業の番号の頭）を出す #}
 {% set ts = w.id[:13] %}
 <tr><td><a href="/works/{{ w.id }}">{{ w.name }}</a></td>
@@ -86,6 +88,15 @@
   <td class="nowrap">{{ w.status }}</td><td class="nowrap">{{ w.findings }}件</td></tr>
 {% endfor %}
 </table>
+{% endmacro %}
+{% if mine %}{{ rows(mine) }}{% else %}<p class="muted">まだ作業はありません。</p>{% endif %}
+{% if personas %}
+{# 想定ユーザー（架空）が実際の画面で使った作業。どんな判断をして、どうなったかを確認ボードと合わせて見返せるように #}
+<details class="persona-works" open><summary><b>想定ユーザーの作業（架空・確認用）{{ personas|length }}件</b></summary>
+  <p class="small muted">改善のたびに、架空の想定ユーザー（スマホの理事長・Mac の委員・スマホの新任理事）がサンプルの規約で実際に使った作業です。判断の履歴・作業の記録・費用をそのまま見返せます。開いて操作してもかまいません（元の記録は変わりません）。</p>
+  {{ rows(personas) }}
+</details>
+{% endif %}
 </div>
 {% endif %}
 {% endblock %}

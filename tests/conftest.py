@@ -13,5 +13,6 @@ from app import store
 @pytest.fixture(autouse=True)
 def _isolated_work_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "WORK", tmp_path / "work")
+    monkeypatch.setattr(store, "SEED", tmp_path / "no_seed")  # 想定ユーザーの作業はテストでは写さない
     (tmp_path / "work").mkdir()
     yield

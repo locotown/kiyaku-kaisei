@@ -17,7 +17,25 @@ from core.config import ROOT
 from core.review import JST
 
 WORK = ROOT / "private/work"
+# 想定ユーザー（架空）が使った作業の記録。リポジトリに入れて配り、一覧を開いたときに private/work へ写す
+# （写しなので、開いて操作してもリポジトリのファイルは変わらない）。中身はアプリのサンプル（架空）だけ
+SEED = ROOT / "data/public/persona_works"
 _lock = threading.Lock()
+
+
+def seed_persona_works() -> int:
+    """想定ユーザーの作業のうち、まだ private/work にないものを写す。写した件数を返す。"""
+    import shutil
+
+    if not SEED.exists():
+        return 0
+    n = 0
+    for d in SEED.iterdir():
+        if (d / "work.json").exists() and not (WORK / d.name).exists():
+            WORK.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(d, WORK / d.name)
+            n += 1
+    return n
 
 
 class WorkNotFound(LookupError):
@@ -104,6 +122,7 @@ def display_status(data: dict) -> str:
 
 
 def list_works() -> list[dict]:
+    seed_persona_works()
     if not WORK.exists():
         return []
     out = []
@@ -113,5 +132,5 @@ def list_works() -> list[dict]:
             data = json.loads(f.read_text(encoding="utf-8"))
             status = display_status(data)  # 作業の画面の表示とそろえる
             out.append({"id": d.name, "name": data.get("name", ""), "status": status,
-                        "findings": len(data.get("findings", []))})
+                        "findings": len(data.get("findings", [])), "persona": data.get("persona")})
     return out
