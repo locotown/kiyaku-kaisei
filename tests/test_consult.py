@@ -246,3 +246,27 @@ def test_more_words_and_work_labels():
     assert mapping == {"伏せた語A": "305号室", "人物A": "木村"} and "人物A先生が説明" in masked
     assert work_label("20261103-200000-dm0001") == "11/3 20:00 作成・0001"
     assert work_label("20261103-990000-fed2b7") == "11/3 作成・d2b7"      # ありえない時刻は出さない
+
+
+def test_follow_up_masks_names_known_from_the_first_text(app_client):
+    """続けての質問で、最初の文で伏せた名前を敬称なしで書いても、AI には記号で送る。"""
+    from app import store
+
+    c = app_client
+    r = c.post("/consult", data={"mode": "check", "text": "記録：中川。講師は山田氏。", "mask": "1", "mask_more": "305号室"},
+               follow_redirects=False)
+    cid = r.headers["location"].rsplit("/", 1)[1]
+    _wait(c, cid)
+    c.post(f"/consult/{cid}/ask", data={"question": "中川の件と、305号室の件、それから新しく佐藤さんの件"})
+    _wait(c, cid)
+    d = store.load_consult(cid)
+    q = d["turns"][1]["sent_question"]
+    assert not any(w in q for w in ("中川", "305号室", "佐藤")), q
+    assert d["mapping"][q.split("の件")[0]] == "中川"
+
+
+def test_auto_pull_waits_while_consulting():
+    from pathlib import Path
+
+    s = (Path(__file__).parents[1] / "scripts/codespace_serve.sh").read_text(encoding="utf-8")
+    assert "private/consult" in s and '"status": "考え中"' in s

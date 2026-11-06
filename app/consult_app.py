@@ -175,7 +175,8 @@ def register(app, templates, corpus_for) -> None:
         if work_id:
             work_name = store.load(work_id).get("name", "")
         store.save_consult({"id": cid, "created": _now(), "mode": mode, "title": title, "text": text, "question": question,
-                            "sent_text": sent_text, "mapping": mapping, "masked": masked, "work_id": work_id, "work_name": work_name,
+                            "sent_text": sent_text, "mapping": mapping, "masked": masked,
+                            "mask_more": [w.strip() for w in re.split(r"[、,，\s]+", str(form.get("mask_more") or "")) if len(w.strip()) >= 2], "work_id": work_id, "work_name": work_name,
                             "turns": [{"mode": mode, "question": question, "sent_question": sent_q, "status": "考え中",
                                        "at": _now(), "step": "準備をしています"}], "cost_total": 0})
         _start(cid, 0)
@@ -202,8 +203,13 @@ def register(app, templates, corpus_for) -> None:
         data = store.load_consult(cid)
         if not question or any(t.get("status") == "考え中" for t in data["turns"]):
             return RedirectResponse(f"/consult/{cid}", status_code=303)
-        _, sent_q, mapping = _mask("", question[:2000], data.get("masked"), store.load_profile())
-        merged = {**(data.get("mapping") or {})}
+        known = data.get("mapping") or {}
+        q = question[:2000]
+        if data.get("masked"):   # 前に伏せた語は、敬称がなくても同じ記号にする（「中川の件ですが」など）
+            for tok, word in sorted(known.items(), key=lambda kv: len(kv[1]), reverse=True):
+                q = q.replace(word, tok)
+        _, sent_q, mapping = _mask("", q, data.get("masked"), store.load_profile(), "、".join(data.get("mask_more") or []))
+        merged = {**known}
         # 続けての質問で新しく伏せた名前は、前の記号と重ならないように付け直す
         for tok, word in mapping.items():
             existing = next((k for k, v in merged.items() if v == word), None)
