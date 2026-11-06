@@ -19,6 +19,8 @@
       <button type="submit" form="redraftform" name="mode" value="partial" class="btn" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>対象の条だけ作り直す{{ icon("arrow-right") }}</button>
     {% else %}
       <div class="t"><b>議題ごとに判断を選びます（選ぶとすぐ保存します）</b><span class="unsaved" data-board-unsaved hidden></span>{{ board_state.reason if board_state else "" }}</div>
+      {% if board_state and board_state.needs_choice %}<a class="btn" href="#questions">組合が選ぶ点へ{{ icon("arrow-right") }}</a>
+      {% else %}<a class="btn" href="#boarddec">議題の判断へ{{ icon("arrow-right") }}</a>{% endif %}
     {% endif %}
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
@@ -81,7 +83,7 @@
     {% for it in board["items"] %}
       {% set i = loop.index0 %}{% set d = board_decisions.get(i|string, {}) %}
       {% if it.tier != ns.tier %}{% set ns.tier = it.tier %}
-        <h2 class="tier">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h2>
+        <h2 class="tier gh g-tier">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h2>
         <p class="muted">{{ board_tasks[it.tier][1] }}</p>
       {% endif %}
       <div class="finding bitem">
@@ -89,10 +91,10 @@
         <p>{{ it.summary }}</p>
         <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
         {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
-        <select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
+        <div class="bdec"><select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
           <option value="">（未判断）</option>
           {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select>
+        </select><span class="bsave small" role="status"></span></div>
         {% set pts = board_points.get(i, []) %}
         {% if pts %}
           <div class="choose-ref">
@@ -150,12 +152,16 @@
           form.querySelectorAll(".cref").forEach((el) => { el.dataset.saved = valueOf(el.dataset.q); });
           show();
           const n = note(); if (n) { n.hidden = false; n.className = "saved-ok"; n.textContent = "保存しました。"; }
+          itemNote("保存しました", "ok");
         } catch (e) {
           const n = note(); if (n) { n.hidden = false; n.className = "unsaved"; n.textContent = "保存できませんでした。「理事会の判断を保存する」を押してください。"; }
+          itemNote("保存できませんでした", "ng");
         } finally { busy = false; if (again) { again = false; save(); } }
       };
       const later = (ms) => { clearTimeout(timer); timer = setTimeout(save, ms); };
-      form.addEventListener("change", () => { show(); later(150); });
+      let lastItem = null;   // 変えた議題（そのそばに保存の知らせを出す）
+      const itemNote = (text, cls) => { const n = lastItem && lastItem.querySelector(".bsave"); if (n) { n.textContent = text; n.className = "bsave small " + (cls || ""); } };
+      form.addEventListener("change", (e) => { lastItem = e.target.closest(".bitem"); itemNote("保存しています…"); show(); later(150); });
       form.addEventListener("input", (e) => { show(); if (e.target.type === "text") later(800); });
       form.addEventListener("focusout", (e) => { if (e.target.type === "text") later(0); });
       // 画面を離れる・隠れる直前に、保存していない内容をすぐ送る（選んで直後に移ると消えた、という声から）

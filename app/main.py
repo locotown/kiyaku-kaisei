@@ -341,6 +341,7 @@ def _run_explain(work_id: str) -> None:
         (store.path(work_id) / "explain.html").write_text(explain_html(ex, _org(work), draft, ident=_ident(work_id, work)),
                                                          encoding="utf-8")
         store.update(work_id, status="説明文あり", explain=ex.model_dump(), explain_metrics=measure_explanation(ex), explain_stale=False,
+                     explain_stale_reason="", explain_board=_board_snapshot(work.get("board_decisions", {})),
                      costs=store.load(work_id).get("costs", []) + [_usd_cost_entry("住民向け説明", usage)])
     except Exception as e:
         store.append_log(work_id, "error", f"{type(e).__name__}: {e}")
@@ -405,9 +406,10 @@ def board_state(work: dict) -> dict:
         # 見送りから採用に戻した議題など、作り直しで条に入れ直す必要があるもの
         st["redraft"] = redraft_targets(work)["items"]
     if not st["done"]:
-        reason = f"まだ判断していない議題が{len(st['undecided'])}件あります。"
+        n_open = len(st["undecided"]) - len(st["needs_choice"])
+        reason = f"まだ判断していない議題が{n_open}件あります。" if n_open else ""
         if st["needs_choice"]:
-            reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、案を選んでください。"
+            reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、上の「組合が選ぶ点」で案を選んでください。"
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
         targets = redraft_targets(work)["items"]
@@ -910,7 +912,7 @@ async def save_one_decision(request: Request, work_id: str, index: int):
     work.update(decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     store.update(work_id, decisions=decisions, draft_stale=stale, decisions_saved_at=now)
     item = decisions[key] | {"lines": [finding_line(e) for e in reversed(decisions[key]["history"])]}
-    return JSONResponse(decision_summary(work) | {"item": item})
+    return JSONResponse(decision_summary(work) | {"item": item, "ai_draft": ai_note("redraft" if work.get("draft") else "draft", work)})
 
 
 @app.post("/works/{work_id}/draft")
@@ -957,7 +959,8 @@ async def save_meeting(request: Request, work_id: str):
     meeting = {"name": str(form.get("m_name", "")).strip(), "date": str(form.get("m_date", "")).strip(),
                "effective": str(form.get("m_effective", "")).strip(), "results": results, "edits": edits,
                "saved_at": _now()}
-    store.update(work_id, meeting=meeting, board_changed_after_meeting="")
+    store.update(work_id, meeting=meeting, board_changed_after_meeting="", board_changed_reason="",
+                 meeting_board=_board_snapshot(store.load(work_id).get("board_decisions", {})))
     # 結果を1つも選んでいないときは「保存しました」と出さず、選ぶよう知らせる（何も入れずに終えたと思い込まないように）
     done = "meeting" if any(results.values()) else "meeting_empty"
     return RedirectResponse(f"/works/{work_id}?done={done}#meeting", status_code=303)
@@ -1157,10 +1160,24 @@ def _apply_board_form(work_id: str, form) -> None:
     if work.get("board_applied") and _board_snapshot(decisions) == work["board_applied"]:
         changes["draft_reflects_board"] = True
     # 総会の結果を記録したあとで判断を変えたら、印を付ける（最新の規約・住民向け説明と食い違うため。黙って書き換えない）
-    if changed_any and any(((work.get("meeting") or {}).get("results") or {}).values()):
-        changes["board_changed_after_meeting"] = now
-    if changed_any and work.get("explain"):
-        changes["explain_stale"] = True
+    # 説明・総会の結果を作ったときの判断に戻したら、判断のせいで付けた印は外す（戻しただけで作り直しや費用を求めない。想定ユーザーでの確認で分かった）
+    snap = _board_snapshot(decisions)
+    if any(((work.get("meeting") or {}).get("results") or {}).values()):
+        if "meeting_board" in work and snap == work["meeting_board"]:
+            if work.get("board_changed_reason") == "board":
+                changes["board_changed_after_meeting"], changes["board_changed_reason"] = "", ""
+        elif changed_any:
+            changes["board_changed_after_meeting"] = now
+            if not work.get("board_changed_after_meeting"):
+                changes["board_changed_reason"] = "board"
+    if work.get("explain"):
+        if "explain_board" in work and snap == work["explain_board"]:
+            if work.get("explain_stale_reason") == "board":
+                changes["explain_stale"], changes["explain_stale_reason"] = False, ""
+        elif changed_any:
+            changes["explain_stale"] = True
+            if not work.get("explain_stale"):
+                changes["explain_stale_reason"] = "board"
     store.update(work_id, **changes)
     (store.path(work_id) / "board.html").write_text(board_html(paper, decisions, _org(work), points, ident=_ident(work_id, work)),
                                                     encoding="utf-8")
@@ -1202,8 +1219,10 @@ def _mark_after_meeting(data: dict) -> None:
     住民向け説明を作ったあとなら、説明が古くなった印も付ける（ステップ5にも注意を出す）。"""
     if any(((data.get("meeting") or {}).get("results") or {}).values()):
         data["board_changed_after_meeting"] = _now()
+        data["board_changed_reason"] = "other"   # 判断を戻しても外さない（条の文が変わったなど）
     if data.get("explain"):
         data["explain_stale"] = True
+        data["explain_stale_reason"] = "other"
 
 
 def _board_snapshot(decisions: dict) -> dict:

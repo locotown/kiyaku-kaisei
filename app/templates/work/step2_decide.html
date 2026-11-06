@@ -36,13 +36,14 @@
   {% set cats = {"必須": "改定案に必ず入れる箇所", "推奨": "法改正に関係し、見直しを勧められている箇所", "参考": "標準管理規約と違う箇所"} %}
   {% set counts = {} %}{% for c in cats %}{% set _ = counts.update({c: rows|selectattr("1.category", "equalto", c)|list|length}) %}{% endfor %}
   {# 数のタイル：押すと、その指摘だけに絞り込む（共通部品 .tiles） #}
+  <p class="small tiles-help">タイルを押すと、その指摘だけを表示します。</p>
   <div class="tiles" id="filters" role="tablist" aria-label="絞り込み">
     {% if n_choose %}<button type="button" class="tile fbtn t-main" data-filter="decide" role="tab"><span class="tn">{{ n_choose }}</span><span class="tl">決めること</span><span class="ts">推奨{{ n_rec }}・参考{{ n_ref }}</span></button>
     <button type="button" class="tile fbtn t-hold" data-filter="保留" role="tab"><span class="tn" data-tally="保留">{{ tally["保留"] }}</span><span class="tl">あとで決める</span><span class="ts">まだ決めていない</span></button>{% endif %}
     {% if counts["必須"] %}<button type="button" class="tile fbtn t-must" data-filter="必須" role="tab"><span class="tn">{{ counts["必須"] }}</span><span class="tl">必須</span><span class="ts">改定案に入っています</span></button>{% endif %}
     {% if counts["推奨"] %}<button type="button" class="tile fbtn t-rec" data-filter="推奨" role="tab"><span class="tn">{{ counts["推奨"] }}</span><span class="tl">推奨</span><span class="ts">見直しを勧められている</span></button>{% endif %}
     {% if counts["参考"] %}<button type="button" class="tile fbtn t-ref" data-filter="参考" role="tab"><span class="tn">{{ counts["参考"] }}</span><span class="tl">参考</span><span class="ts">標準と違う</span></button>{% endif %}
-    <button type="button" class="tile fbtn t-hold" data-filter="all" role="tab"><span class="tn">{{ rows|length }}</span><span class="tl">すべて</span><span class="ts">指摘の全体</span></button>
+    <button type="button" class="tile fbtn t-all" data-filter="all" role="tab"><span class="tn">{{ rows|length }}</span><span class="tl">すべて</span><span class="ts">指摘の全体</span></button>
   </div>
   {% if n_choose %}
   <details class="bulk bulkbox card2" id="bulk"><summary>委員会でまとめて決めたときは、<span class="link">推奨・参考を、まとめて判断する</span>こともできます。</summary>
@@ -89,13 +90,14 @@
   </details>
 
   <div id="flist-top"></div>
+  <p class="flist-now" id="flist-now" role="status"></p>
   <p class="muted fempty" id="fempty" hidden>この絞り込みの指摘はありません。</p>
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
   {% set ns2 = namespace(cat="") %}
   {% for i, f in rows %}
   {% set d = decisions[i|string] %}{% set v = views[i] %}
   {% if f.category != ns2.cat %}{% set ns2.cat = f.category %}
-  <h3 class="gh cathead g-{{ cat_cls.get(f.category, 'ref') }}" data-cat="{{ f.category }}">{{ f.category }}<span class="small">{{ counts.get(f.category, 0) }}件・{{ cats.get(f.category, "") }}</span></h3>
+  <h3 class="gh cathead g-{{ cat_cls.get(f.category, 'ref') }}" data-cat="{{ f.category }}">{{ f.category }}<span class="small"><span data-catn>{{ counts.get(f.category, 0) }}</span>件・{{ cats.get(f.category, "") }}</span></h3>
   {% endif %}
   <details class="item finding fcard fc-{{ f.category }}" data-cat="{{ f.category }}" data-dec="{{ d.decision }}" id="f-{{ i }}">
     <summary class="h">
@@ -183,6 +185,7 @@
       if (tt && tt.querySelector('[data-left]') && dn >= N) tt.textContent = '判断がそろいました。改定案を作りましょう';
       if ($('meter')) $('meter').style.width = (N ? Math.round(100 * dn / N) : 100) + '%';
       lastSaved = '最後に保存：' + sum.saved_at;
+      if (sum.ai_draft) document.querySelectorAll('button[form="draftform"][data-ai]').forEach(function (b) { b.dataset.ai = sum.ai_draft; });
     }
     function label(v) { return LABEL[v] || 'あとで決める'; }
     function open(i, text, reason) {
@@ -214,6 +217,7 @@
           var it = sum.item;
           $('db-' + i).dataset.saved = it.decision;
           $('f-' + i).dataset.dec = it.decision;
+          $('f-' + i).dataset.keep = '1';
           state(i, it.decision);
           if (window.kiyakuFilter) window.kiyakuFilter();
           $('cr-' + i).textContent = it.reason || '（未記入）';
@@ -271,23 +275,26 @@
         var ok = current === 'all' || c.dataset.cat === current ||
                  (current === 'decide' && c.dataset.cat !== '必須') ||
                  (current === '保留' && c.dataset.cat !== '必須' && c.dataset.dec !== '採用' && c.dataset.dec !== '不採用');
-        // 確定前の選択中の指摘は、絞り込みで消さない
-        if (!ok && c.querySelector('.pending:not([hidden])')) ok = true;
-        c.hidden = !ok; if (ok) { shown++; cats[c.dataset.cat] = 1; }
+        // 確定前の選択中の指摘と、この絞り込みの中で決めた指摘は、絞り込みを変えるまで消さない
+        if (!ok && (c.querySelector('.pending:not([hidden])') || c.dataset.keep)) ok = true;
+        c.hidden = !ok; if (ok) { shown++; cats[c.dataset.cat] = (cats[c.dataset.cat] || 0) + 1; }
       });
-      document.querySelectorAll('.cathead').forEach(function (h) { h.hidden = !cats[h.dataset.cat]; });
+      document.querySelectorAll('.cathead').forEach(function (h) { h.hidden = !cats[h.dataset.cat];
+        var n = h.querySelector('[data-catn]'); if (n) n.textContent = cats[h.dataset.cat] || 0; });
       bar.querySelectorAll('.fbtn').forEach(function (b) { var on = b.dataset.filter === current; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      var onb = bar.querySelector('.fbtn.on .tl');
+      document.getElementById('flist-now').textContent = onb ? '表示中：' + onb.textContent + '（' + shown + '件）。上のタイルを押すと切り替わります' : '';
       document.getElementById('fempty').hidden = shown > 0;
     }
     window.kiyakuFilter = apply;
     bar.addEventListener('click', function (e) {
       var b = e.target.closest('.fbtn'); if (!b) return;
       current = b.dataset.filter;
+      document.querySelectorAll('.fcard[data-keep]').forEach(function (c) { delete c.dataset.keep; });
       try { sessionStorage.setItem('kiyaku-filter-{{ id }}', current); } catch (e2) {}
       apply();
       // 一覧の先頭へ移る（絞り込みは上に固定表示なので、その高さの分だけずらす）
-      var top = document.getElementById('flist-top').getBoundingClientRect().top + window.scrollY;
-      if (top < window.scrollY) window.scrollTo(0, top - bar.offsetHeight - 8);
+      document.getElementById('flist-now').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     apply();
   })();

@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}条の文を直す｜{{ work.name }}｜ととのう規約{% endblock %}
+{% block title %}条の文を直す｜{{ work.name }}｜ととのう規約<script>
+(() => {  // 保存の前の位置を覚え、保存したあとはそこへ戻す（「保存しました」は画面の下に少しのあいだ出す）
+  const form = document.getElementById("artform"); if (!form) return;
+  form.addEventListener("submit", () => { try { sessionStorage.setItem("art-scroll-{{ id }}", String(window.scrollY)); } catch (e) {} });
+  document.querySelectorAll('button[form="artform"]').forEach((b) => b.addEventListener("click", () => {
+    try { sessionStorage.setItem("art-scroll-{{ id }}", String(window.scrollY)); } catch (e) {} }));
+  const note = document.getElementById("saved-note"); let y = null;
+  try { y = sessionStorage.getItem("art-scroll-{{ id }}"); sessionStorage.removeItem("art-scroll-{{ id }}"); } catch (e) {}
+  if (note && y !== null && !location.hash) {
+    window.scrollTo(0, parseInt(y, 10) || 0);
+    const t = note.cloneNode(true); t.id = ""; t.classList.add("toast"); document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+})();
+</script>
+{% endblock %}
 {% block content %}
 {# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
 <p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}（印刷した資料の右上と同じ番号です）</span></p>
@@ -12,7 +27,7 @@
   <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 
 {% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
-{% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
+{% if saved %}<div class="justdone" id="saved-note">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
 {% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
 
 <div class="review-top sec" id="row-top">

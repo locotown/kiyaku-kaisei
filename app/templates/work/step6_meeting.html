@@ -7,6 +7,8 @@
   {# 総会のあとで変わったときは、保存し直すボタンを上の枠に出す（ボタンを探して下までスクロールした、という声から） #}
   {% set nextbar %}{% if finals and work.board_changed_after_meeting %}<div class="t"><b>総会の結果を保存し直してください</b><span class="muted">総会で可決した内容と合っているか確かめてから</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button>
+    {%- elif finals and finals|selectattr("left")|list %}<div class="t"><b>改定案に〔選択〕が残っているため、最新の規約を作れない文書があります</b><span class="muted">理事会で案を選び、改定案を作り直してから作ってください</span></div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
     {%- elif finals %}<div class="t"><b>最新の規約ができました</b><span class="muted">下の「最新の規約・細則」から Word でダウンロードできます</span></div>
       <a class="btn" href="#finals">最新の規約へ{{ icon("arrow-right") }}</a>
     {%- else %}<div class="t"><b>総会の結果を記録しましょう</b><span class="muted">議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>

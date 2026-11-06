@@ -8,6 +8,9 @@
       {# 指示を1つにそろえる（作り直しが必要なのに「説明ができました」と出て迷った、という声から） #}
       <div class="t"><b>先に、改定案の作り直しが必要です</b>ステップ4の「対象の条だけ作り直す」を押してください</div>
       <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {% elif not (board_state and board_state.ready) %}
+      <div class="t"><b>先に、理事会での検討を終えましょう</b><span class="muted">{{ board_state.reason if board_state else "" }}</span></div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
     {% elif work.explain and work.explain_stale %}
       <div class="t"><b>改定案や理事会の判断が変わりました</b>説明を作り直してください</div>
       <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文を作り直す{{ icon("arrow-right") }}</button>
