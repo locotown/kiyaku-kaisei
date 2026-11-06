@@ -5,7 +5,9 @@
   <div class="stepttl"><p class="eyebrow">ステップ 6 ／ 6</p><h1 class="page-title">総会の結果と、最新の規約</h1>
     <p class="lead">総会のあとに使います。議案ごとの結果を記録すると、可決した改定を反映した<b>最新の規約・細則の全文</b>を作ります（AI は使わず、今の規約に改定を重ねて組み立てます）。</p></div>
   {# 総会のあとで変わったときは、保存し直すボタンを上の枠に出す（ボタンを探して下までスクロールした、という声から） #}
-  {% set nextbar %}{% if finals and work.board_changed_after_meeting %}<div class="t"><b>総会の結果を保存し直してください</b><span class="muted">総会で可決した内容と合っているか確かめてから</span></div>
+  {% set nextbar %}{% if finals and finals|selectattr("left")|list %}<div class="t"><b>改定案に〔選択〕が残っているため、最新の規約を作れない文書があります</b><span class="muted">理事会で案を選び、改定案を作り直してから作ってください</span></div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {%- elif finals and work.board_changed_after_meeting %}<div class="t"><b>総会の結果を保存し直してください</b><span class="muted">総会で可決した内容と合っているか確かめてから</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button>
     {%- elif finals and finals|selectattr("left")|list %}<div class="t"><b>改定案に〔選択〕が残っているため、最新の規約を作れない文書があります</b><span class="muted">理事会で案を選び、改定案を作り直してから作ってください</span></div>
       <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>

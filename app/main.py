@@ -409,7 +409,7 @@ def board_state(work: dict) -> dict:
         n_open = len(st["undecided"]) - len(st["needs_choice"])
         reason = f"まだ判断していない議題が{n_open}件あります。" if n_open else ""
         if st["needs_choice"]:
-            reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、上の「組合が選ぶ点」で案を選んでください。"
+            reason += f"〔選択〕のある議題（{'、'.join(st['needs_choice'])}）は、「組合が選ぶ点」で案を選んでください。"
         return {**st, "ready": False, "needs_redraft": False, "reason": reason}
     if st["redraft"] and not work.get("draft_reflects_board"):
         targets = redraft_targets(work)["items"]

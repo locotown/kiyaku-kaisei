@@ -11,7 +11,7 @@
   <div class="tiles">
     <div class="tile t-hold"><span class="tn">{{ work.info["型"] }}</span><span class="tl">規約の型</span></div>
     <div class="tile t-main"><span class="tn">{{ work.articles }}</span><span class="tl">規約本体の条</span></div>
-    <div class="tile {{ 't-must' if work.findings else 't-hold' }}"><span class="tn">{{ work.findings|length }}</span><span class="tl">見つかった指摘</span>{% if work.findings %}<span class="ts">必須 {{ work.findings|selectattr("category", "equalto", "必須")|list|length }}件</span>{% endif %}</div>
+    <div class="tile t-all"><span class="tn">{{ work.findings|length }}</span><span class="tl">見つかった指摘</span>{% if work.findings %}<span class="ts">必須 {{ work.findings|selectattr("category", "equalto", "必須")|list|length }}件</span>{% endif %}</div>
   </div>
   <details class="orgedit" {% if done == "org" %}open{% endif %}><summary>マンション名・管理組合名：<b>{{ work.org or "（未入力）" }}</b>{% if done == "org" %} <span class="ok">{{ icon("check") }}保存しました</span>{% endif %}</summary>
     <form action="/works/{{ id }}/org" method="post">

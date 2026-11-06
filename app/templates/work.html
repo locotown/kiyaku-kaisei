@@ -54,10 +54,10 @@
   if (!panels.length) return;
   document.documentElement.classList.add('js');
   var DEFAULT = '{{ ns_cur.key }}';
-  var flow = document.getElementById('journey');
-  function show(key) {
-    panels.forEach(function (p) { p.hidden = p.dataset.step !== key; });
-    flow.querySelectorAll('li').forEach(function (li) { li.classList.toggle('view', li.dataset.step === key); });
+  function show(key) {  // 画面の一部を入れ替えることがあるので、毎回探し直す（ステップ4の保存のあと）
+    document.querySelectorAll('.panel[data-step]').forEach(function (p) { p.hidden = p.dataset.step !== key; });
+    var flow = document.getElementById('journey');
+    if (flow) flow.querySelectorAll('li').forEach(function (li) { li.classList.toggle('view', li.dataset.step === key); });
   }
   function route(first) {
     var h = '';

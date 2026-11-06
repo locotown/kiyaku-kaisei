@@ -27,7 +27,7 @@
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "説明文作成中" and work.explain %}<div class="justdone">{{ icon("check") }}<span>住民向けの説明ができました。「説明資料を開く」で確認してください。</span></div>{% endif %}
-  {% if work.explain and work.explain_stale %}<p class="warn"><b class="w">説明を作ったあとで、改定案や理事会の判断が変わりました。</b>今の説明は前の判断のままです。下の「説明文を作り直す」で作り直してください。</p>{% endif %}
+  {% if work.explain and work.explain_stale and board_state and board_state.ready %}<p class="warn"><b class="w">説明を作ったあとで、改定案や理事会の判断が変わりました。</b>今の説明は前の判断のままです。下の「説明文を作り直す」で作り直してください。</p>{% endif %}
   {% if work.explain %}
     {% set m = work.explain_metrics or {} %}{% set ex = work.explain %}
     {# 説明文そのものをその場で見せる（数字だけが大きく出て、説明が見えない、という声から） #}

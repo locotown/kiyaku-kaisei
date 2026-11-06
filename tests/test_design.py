@@ -50,3 +50,11 @@ def test_decision_save_returns_new_cost_note(board_work):
     M, store, c, wid, _, _ = board_work
     j = c.post(f"/works/{wid}/decisions/0", data={"decision": "採用", "reason": ""}).json()
     assert "ai_draft" in j and "改定案" in j["ai_draft"]
+
+
+def test_articles_title_has_no_script(board_work):
+    """条の文を直す画面の題名にスクリプトが入らない（タブにプログラムの文が出て、位置を戻す仕組みも動かなかった）。"""
+    M, store, c, wid, _, _ = board_work
+    page = c.get(f"/works/{wid}/articles").text
+    title = page[page.index("<title>"):page.index("</title>")]
+    assert "<script" not in title and "art-scroll-" in page
