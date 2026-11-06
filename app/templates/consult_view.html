@@ -33,12 +33,12 @@
   {% if loop.index > 1 %}<div class="cs-q"><span class="small">{{ "もう一度答えてもらった" if t.rerun else "続けての質問" }}（{{ t.at }}）</span><b>{{ t.question or "（同じ文章をもう一度）" }}</b></div>{% endif %}
 
   {% if t.status == "考え中" %}{% set ph = t.phase or 0 %}
-    <div class="cs-progress" role="status" aria-live="polite" data-started="{{ t.started or now }}">
-      <div class="cs-prog-head"><span class="cs-spin" aria-hidden="true"></span>
-        <div><b>AI が考えています</b><span class="cs-elapsed" data-elapsed>経過 0:00</span>
+    <div class="runbox cs-progress" role="status" aria-live="polite" data-started="{{ t.started or now }}">
+      <div class="rb-head"><span class="rb-spin" aria-hidden="true"></span>
+        <div><b>AI が考えています</b><span class="rb-el" data-elapsed>経過 0:00</span>
           <p class="small">1〜3分ほどかかります。終わると、この画面が自動で答えに切り替わります（閉じても、あとで「相談の一覧」から見られます）。</p></div></div>
-      <ol class="cs-phases">{% for p in phases %}<li class="{{ 'done' if loop.index0 < ph else ('now' if loop.index0 == ph else '') }}" data-phase="{{ loop.index0 }}">{{ p }}</li>{% endfor %}</ol>
-      <p class="small cs-stepnow">今：<span data-step>{{ t.step or "準備をしています" }}</span></p>
+      <ol class="rb-phases">{% for p in phases %}<li class="{{ 'done' if loop.index0 < ph else ('now' if loop.index0 == ph else '') }}" data-phase="{{ loop.index0 }}">{{ p }}</li>{% endfor %}</ol>
+      <p class="small rb-now">今：<span data-step>{{ t.step or "準備をしています" }}</span></p>
     </div>
   {% elif t.status == "エラー" %}
     <div class="cs-err"><b>{{ icon("alert") }}答えられませんでした。</b><p>{{ t.error }}</p>

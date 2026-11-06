@@ -41,14 +41,21 @@
 {% endmacro %}
 {% set done_n = b.photos|selectattr("status", "equalto", "読み取り済み")|list|length %}
 {% set back = "#next" if b.doc == "taisho" else "#board" %}
+{% set left_n = b.proposals|selectattr("status", "equalto", "未確認")|list|length %}
+{% set notes_next %}<div class="t">{% if left_n %}<b>提案ごとに「反映する」「反映しない」を選び、反映しましょう</b><span class="muted">まだ選んでいない提案 {{ left_n }}件。反映は AI を使わずに行い、判断の履歴に残します</span>{% else %}<b>提案はすべて確かめ終えました</b><span class="muted">足したい書き込みがあれば、下の「写真にない内容を足す」から足せます</span>{% endif %}</div>
+  <a class="tbtn2" href="/works/{{ id }}{{ back }}">作業の画面に戻る</a>
+  <button type="submit" form="applyform" class="btn">{{ "選んだものを反映する" if left_n else "足した書き込みを反映する" }}</button>{% endset %}
 <p class="eyebrow wk"><a href="/works/{{ id }}{{ back }}">{{ work.name }}</a>　<span class="muted">{{ b.at }} に読み込んだ写真 {{ b.photos|length }}枚</span></p>
 <div class="stepttl"><p class="eyebrow">書き込みの反映</p><h1 class="page-title">{{ doc_name }}の書き込みを確かめる</h1>
   <p class="lead">写真から読み取った書き込みを、反映の提案にしました。提案ごとに「反映する」か「反映しない」を選び、必要なら文を直してから、下の「選んだものを反映する」を押してください。<b>選ばなかった提案は、そのまま残ります。</b></p></div>
+{% if b.status != "読み取り中" %}<div class="nx nxb"><p class="nx-k">次にすること</p>{{ notes_next }}</div>{% endif %}
 
 {% if done %}<div class="justdone">{{ icon("check") }}<span>{{ done }}件を反映しました。<a href="/works/{{ id }}{{ back }}">作業の画面</a>で確かめられます。</span></div>{% endif %}
 {% if texts %}<p class="warn"><b class="w">条の文を直しました。</b>新旧対照表の「変更の理由」が、直した文と合っているか確かめてください。理由は<a href="/works/{{ id }}/articles">「条の文を直す」画面</a>で直せます（AI の費用はかかりません）。</p>{% endif %}
 {% if b.status == "読み取り中" %}
-  <div class="warn"><b class="w">読み取っています（写真 {{ done_n }} ／ {{ b.photos|length }}枚）。</b>写真が1枚読めるたびに、この画面が切り替わります。読み取りが済んだ写真の提案から、先に確かめられます。</div>
+  <div class="runbox" role="status"><div class="rb-head"><span class="rb-spin" aria-hidden="true"></span>
+    <div><b>写真の書き込みを読み取っています</b><span class="rb-el">写真 {{ done_n }} ／ {{ b.photos|length }}枚</span>
+      <p class="small">写真が1枚読めるたびに、この画面が切り替わります（1枚 20秒ほど）。読み取りが済んだ写真の提案から、先に確かめられます。</p></div></div></div>
   <script>
   (() => { const shown = {{ b.photos|selectattr("status", "in", ["読み取り済み", "失敗"])|list|length }};
     const t = setInterval(async () => {
@@ -124,8 +131,5 @@ document.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("clic
 </section>
 </form>
 <p class="small">条の文を直すと、新旧対照表などの資料と版の番号が変わります。次の会議の前に、印刷し直してください。委員会で直した文は、あとで「改定案を作り直す」を押しても上書きされません。</p>
-{% set left_n = b.proposals|selectattr("status", "equalto", "未確認")|list|length %}
-<div class="bar"><div class="in"><div class="t">{% if left_n %}<b>選んだ提案を反映します</b>　反映は AI を使わずに行い、判断の履歴に残します{% else %}<b>提案はすべて確かめ終えました</b>　足したい書き込みがあれば、上の欄から足せます{% endif %}</div>
-  <a class="tbtn2" href="/works/{{ id }}{{ back }}">作業の画面に戻る</a>
-  <button type="submit" form="applyform" class="btn">{{ "選んだものを反映する" if left_n else "足した書き込みを反映する" }}</button></div></div>
+<div class="actend">{{ notes_next }}</div>
 {% endblock %}

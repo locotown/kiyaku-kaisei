@@ -5,8 +5,11 @@
 {# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
 <p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}（印刷した資料の右上と同じ番号です）</span></p>
 <div class="stepttl"><p class="eyebrow">改定案の手直し</p><h1 class="page-title">条の文を直す</h1>
-  <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、下の「直した文を保存する」を押してください。
+  <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、「直した文を保存する」を押してください。
     <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>保存には AI を使いません。</p></div>
+<div class="nx nxb"><p class="nx-k">次にすること</p>
+  <div class="t"><b>直したい条の文を書き換えて、保存しましょう</b><span class="muted">保存ボタンは、この枠・各条の下・画面の最後にあります（どれを押しても同じです）。資料も AI を使わずに直します</span></div>
+  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 
 {% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
 {% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
@@ -106,10 +109,11 @@ document.addEventListener("click", (e) => {
       <button type="submit" form="revertform" name="key" value="{{ key }}" class="boxed revertbtn" data-twostep
               data-confirm="もう一度押すと戻します（直した文と補足は消えます）">AI が作った文に戻す</button>
     {% endif %}
+    {% if a.kind != "削除" %}<p class="art-save"><button type="submit" form="artform" class="boxed" {% if busy %}disabled{% endif %}>直した文を保存する</button></p>{% endif %}
   </section>
   {% endfor %}
 </form>
-<div class="bar"><div class="in"><div class="t"><b>直した文を保存します</b>　新旧対照表・検討資料などの資料も、AI を使わずに直します</div>
+<div class="actend"><div class="t"><b>直した文を保存します</b><span class="muted">新旧対照表・検討資料などの資料も、AI を使わずに直します</span></div>
   <a class="tbtn2" href="/works/{{ id }}#next">作業の画面に戻る</a>
-  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div></div>
+  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 {% endblock %}

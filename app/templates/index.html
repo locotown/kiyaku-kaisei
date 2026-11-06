@@ -4,7 +4,7 @@
 <p>現行の管理規約を読み込むと、改正区分所有法と標準管理規約（単棟型）に照らして、対応が必要な箇所を<strong>根拠条文付き</strong>で洗い出します。採用した指摘から、改定案と新旧対照表を作ります。</p>
 <p class="toplinks">手元に規約がなければ → <a href="#samples">サンプルで試す</a>{% if works %}　／　続きから → <a href="#works">これまでの作業</a>{% endif %}</p>
 
-<div class="card">
+<div class="card card2 accent top-main">
 <h2>1. 規約を読み込む</h2>
 <form action="/works" method="post" enctype="multipart/form-data">
   <label for="name">作業の名前</label>
@@ -56,7 +56,7 @@
 </form>
 </div>
 
-<div class="card" id="samples">
+<div class="card card2" id="samples">
 <h2>サンプルで試す</h2>
 <p class="muted">手元に規約がなくても、次のサンプルで流れを確かめられます（公開資料をもとにした規約と、架空の規約です）。点検から総会後の最新規約まで通すと、時間は15〜50分ほど、AI の費用は$2〜10ほどかかります（点検 約$1、改定案は採用する指摘の数しだいで$1〜8。理事会の判断で作り直すと、その分も加わります）。</p>
 <div class="samples">
@@ -75,7 +75,7 @@
 
 {% if works %}
 {% set mine = works|rejectattr("persona")|list %}{% set personas = works|selectattr("persona")|list %}
-<div class="card" id="works">
+<div class="card card2" id="works">
 <h2>これまでの作業</h2>
 {% macro rows(list, show_who=False) %}
 <table>
