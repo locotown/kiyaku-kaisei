@@ -16,8 +16,11 @@
   {% if work.findings %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% endif %}
-  {% set cv = current_variants(id, work) if work.findings else [] %}
-  {% if cv %}<p class="note2"><b class="w">今の規約に、どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ cv|join("、") }}</b>。標準管理規約の両案を写したままと思われます。このツールは、今回の改正に関係しない両案は選びません。組合で採用している案を確かめ、理事会で一方に決めておいてください（最新の規約を作るときにも、もう一度知らせます）。</p>{% endif %}
+  {% set cv0 = current_variants(id, work) if work.findings else [] %}
+  {% set vv = variant_view(id, work) if cv0 else {"chosen": [], "manual": []} %}
+  {% set cv = cv0|reject("in", vv.chosen)|list %}
+  {% if cv0 and not cv %}<p class="note2"><b class="w">今の規約の両案は、すべて採用する案を選びました</b>（{{ vv.chosen|join("、") }}）。最新の規約には、選んだ案だけが残ります。<a href="#variants">選んだ案を見る・変える</a></p>{% endif %}
+  {% if cv %}<p class="note2"><b class="w">今の規約に、どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ cv|join("、") }}</b>。標準管理規約の両案を写したままと思われます。{% set sel = cv|reject("in", vv.manual or [])|list %}{% if sel %}{{ sel|join("、") }}は、「4. 理事会で検討」の「今の規約の両案」で採用している案を選べます（選ぶと、最新の規約にはその案だけが残ります）。{% endif %}{% if vv.manual and cv|select("in", vv.manual)|list %}{{ cv|select("in", vv.manual)|join("、") }}は、別の案の文が本文の同じ行につながっていて機械では分けられないため、最新の規約を Word で保存したあとに、採用している案だけを残してください。{% endif %}</p>{% endif %}
   <div class="tiles">
     <div class="tile t-hold"><span class="tn">{{ work.info["型"] }}</span><span class="tl">規約の型</span></div>
     <div class="tile t-main"><span class="tn">{{ work.articles }}</span><span class="tl">規約本体の条</span></div>

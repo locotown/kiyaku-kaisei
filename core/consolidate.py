@@ -71,20 +71,30 @@ def _amendment_lines(am: Amendment, style: str) -> list[str]:
 
 
 def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
-                effective: date | None = None, meeting: str = "") -> list[Block]:
-    """今の規約に改定を重ねて、最新の全文をブロックの並びにする。"""
+                effective: date | None = None, meeting: str = "", pick: dict[str, str] | None = None) -> list[Block]:
+    """今の規約に改定を重ねて、最新の全文をブロックの並びにする。
+
+    pick は、今の規約にもともとある両案（（ア）（イ）など）で組合が選んだ案 {条番号: 案の記号}（core/variants.py）。
+    選んだ条は、その案だけを残し、案の印（〔ア案〕）を外す。選んでいない条は、今までどおり両案を残す。"""
+    pick = pick or {}
     style = kiyaku.articles[0].style if kiyaku.articles else "条"
     by_num = {normalize_article_ref(a.article): a for a in amendments}
     rows: list[tuple[tuple[int, ...], int, str, list[str], str]] = []  # (並び順, 元の順, 章, 行, 変更)
     seen: set[str] = set()
     for order, art in enumerate(kiyaku.articles):
+        chosen = pick.get(art.number) if art.variant and art.number not in by_num else None
+        if chosen and art.variant != chosen:
+            continue                          # 選ばなかった案は残さない
         if art.number in seen:  # 選択式の規定（ア・イ）は、改定があれば1つにまとめて差し替える
             if art.number in by_num:
                 continue
         seen.add(art.number)
         am = by_num.get(art.number)
         if am is None:
-            rows.append((_key(art.number), order, art.chapter, _article_lines(art), ""))
+            lines = _article_lines(art)
+            if chosen and lines and lines[0] == f"〔{art.variant}案〕":
+                lines = lines[1:]             # 選んだ案だけになったので、案の印は外す
+            rows.append((_key(art.number), order, art.chapter, lines, ""))
         elif am.kind == "削除":
             rows.append((_key(art.number), order, art.chapter, [f"{_label(art.number, style)}　削除"], "削除"))
         else:

@@ -538,6 +538,9 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     if not adopted:
         return []
     corpus = _corpus(work_id)
+    from core.variants import groups as vgroups, picks as vpicks_of
+
+    vpicks = vpicks_of(vgroups(corpus), work.get("variant_choices"))
     held = date.fromisoformat(meeting["date"]) if meeting.get("date") else None
     effective = date.fromisoformat(meeting["effective"]) if meeting.get("effective") else held
     docs = []
@@ -545,7 +548,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         left = [ref_name(a) for a in ams if CHOICE_MARK in a.text]
         title = _doc_title(work, doc)
         kiyaku = corpus.get(doc)
-        blocks = consolidate(kiyaku, ams, title, effective, meeting.get("name", "")) if kiyaku and not left else []
+        pick = vpicks.get(corpus.resolve(doc) or doc, {})   # 今の規約の両案で、組合が選んだ案（計画A）
+        blocks = consolidate(kiyaku, ams, title, effective, meeting.get("name", ""), pick) if kiyaku and not left else []
         changed = "・".join(a.article for a in ams)
         history = (f"{meeting.get('name', '総会')}（{wareki(held) if held else '日付未入力'}）"
                    f"{'特別決議' if doc == '規約' else '普通決議'}により改正（{changed}）")
@@ -575,6 +579,30 @@ def variant_articles(blocks) -> list[str]:
             if any(_INLINE_VARIANT.search(ln) for ln in b.lines):
                 found[no].update({"ア", "イ"})
     return [no for no, marks in found.items() if {"ア", "イ"} <= marks]
+
+
+def variant_view(work_id: str, work: dict) -> dict:
+    """ステップ4の「今の規約の両案」：問（改定案で書き直す条は除く）・選んだ案・機械で分けられない両案の条。"""
+    from core.sources import normalize_article_ref
+    from core.variants import groups
+
+    try:
+        corpus = _corpus(work_id)
+    except Exception:  # noqa: BLE001  読めないときは出さない
+        return {"groups": [], "choices": {}, "manual": [], "open": 0}
+    amended = {(corpus.resolve(a.get("document") or "規約") or "規約", normalize_article_ref(a["article"]))
+               for a in (work.get("draft") or {}).get("amendments", [])}
+    gs = groups(corpus, amended)
+    choices = work.get("variant_choices") or {}
+    in_groups = {f"第{n.replace('の', '条の', 1)}" if "の" in n else f"第{n}条" for g in gs if g["doc"] == "規約" for n in g["articles"] + g["amended"]}
+    manual = [x for x in current_variants(work_id, work) if x not in in_groups]
+    chosen = {(f"第{n.replace('の', '条の', 1)}" if "の" in n else f"第{n}条") for g in gs if g["doc"] == "規約" and choices.get(g["key"])
+              for n in g["articles"]}
+    # 理事会が改定案の〔選択〕で選んだ案のうち、電磁的方法に関わるもの（作り直したあとも記録に残る）。両案の問と方針をそろえてもらう
+    elec = list(dict.fromkeys(v for d in (work.get("board_decisions") or {}).values() for v in (d.get("picked") or {}).values()
+                              if v and "電磁的方法" in v))
+    return {"groups": gs, "choices": choices, "manual": manual, "chosen": sorted(chosen), "elec_picks": elec,
+            "open": sum(1 for g in gs if not choices.get(g["key"]))}
 
 
 def latest_corpus(work_id: str, work: dict | None = None):
@@ -927,6 +955,31 @@ async def save_org(request: Request, work_id: str):
     return RedirectResponse(f"/works/{work_id}?done=org", status_code=303)
 
 
+@app.post("/works/{work_id}/variants")
+async def save_variants(request: Request, work_id: str):
+    """今の規約の両案で、組合が選んだ案を保存する（AI は使わない。最新の規約を作るときに、選んだ案だけを残す）。"""
+    from core.variants import groups
+
+    form = await request.form()
+    store.load(work_id)
+    valid = {g["key"]: {o["mark"] for o in g["options"]} for g in groups(_corpus(work_id))}
+    picked = {k[2:]: str(v) for k, v in form.items() if k.startswith("v_") and k[2:] in valid}
+
+    def fn(d):
+        ch = dict(d.get("variant_choices") or {})
+        for k, v in picked.items():
+            if v in valid[k]:
+                ch[k] = v
+            else:
+                ch.pop(k, None)                    # 「まだ選ばない」に戻す
+        d["variant_choices"] = ch
+        d.setdefault("variant_history", []).append({"at": _now(), "picked": picked})
+    store.mutate(work_id, fn)
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "saved_at": _now(), "choices": store.load(work_id).get("variant_choices", {})})
+    return RedirectResponse(f"/works/{work_id}?done=variants#variants", status_code=303)
+
+
 BULK_SCOPES = {"推奨": ("推奨",), "参考": ("参考",), "推奨・参考": ("推奨", "参考"),
                "足す": ("推奨", "参考")}   # 足す：必須以外で、今の規約に定めがない指摘（ステップ2の「足す」の表）
 
@@ -1067,8 +1120,8 @@ def final_html(work_id: str, n: int):
 
     d = _final(work_id, n)
     v = d.get("variants") or variant_articles(d["blocks"])
-    warn = (f"【注意】どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{'、'.join(v)}。組合で採用している案だけを残し、"
-            "もう一方を消してから規約原本にしてください（今回の改定では選んでいない案です）。") if v else ""
+    warn = (f"【注意】どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{'、'.join(v)}。作業の画面の「4. 理事会で検討」の"
+            "「今の規約の両案」で採用している案を選ぶと、その案だけが残ります。選べない形の条は、Word で保存したあとに採用している案だけを残してください。") if v else ""
     return HTMLResponse(final_to_html(d["blocks"], warn + "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
                                                    "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx",
                                       ident=_ident(work_id, store.load(work_id))))
@@ -2032,6 +2085,7 @@ def board_preview(work: dict) -> dict:
 
 templates.env.globals["board_preview"] = board_preview
 templates.env.globals["current_variants"] = current_variants
+templates.env.globals["variant_view"] = variant_view
 
 
 def draft_side_notes(work: dict) -> list[str]:

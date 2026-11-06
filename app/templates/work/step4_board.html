@@ -141,6 +141,7 @@
     {% if board.notes %}<p class="muted">参考：今回の改定案に含まれていない点</p><ul class="muted">{% for n in board.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
     <noscript><p><button type="submit" class="boxed">理事会の判断を保存する</button></p></noscript>
     </form>
+    {% include "work/_variants.html" %}
     <script>
     // 理事会の判断は、選んだらすぐ保存する（保存を押し忘れて、再読み込みや画面の移動で消えるのを防ぐ。想定ユーザーでの確認で分かった）
     // 上の「組合が選ぶ点」で選んだ案は、議題の「選ぶ点」にもその場で出す

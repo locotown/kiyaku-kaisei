@@ -11,8 +11,8 @@
       <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button>
     {%- elif finals and finals|selectattr("variants")|list %}{% set vs = finals|map(attribute="variants")|sum(start=[]) %}
       {# 両案が残るあいだは「できました」と言わない（下の注意と食い違わないように） #}
-      <div class="t"><b>最新の規約を作りました。使う前に、両案が残る条（{{ vs|join("、") }}）を直してください</b><span class="muted">Word でダウンロードし、組合で採用している案だけを残してください</span></div>
-      <a class="btn" href="#finals">最新の規約へ{{ icon("arrow-right") }}</a>
+      <div class="t"><b>最新の規約を作りました。使う前に、両案が残る条（{{ vs|join("、") }}）を直してください</b><span class="muted">「4. 理事会で検討」の「今の規約の両案」で採用している案を選ぶと、その案だけが残ります（選べない形の条は Word で直します）</span></div>
+      <a class="btn" href="#variants">両案を選ぶ{{ icon("arrow-right") }}</a>
     {%- elif finals %}<div class="t"><b>最新の規約ができました</b><span class="muted">下の「最新の規約・細則」から Word でダウンロードできます</span></div>
       <a class="btn" href="#finals">最新の規約へ{{ icon("arrow-right") }}</a>
     {%- elif not work.explain or work.explain_stale %}
@@ -61,7 +61,7 @@
     {% for f in finals %}
       <div class="doc final">{{ icon("file") }}<div style="flex:1;min-width:0">
         <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
-        {% if f.variants %}<p class="warn"><b class="w">どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ f.variants|join("、") }}</b>。今の規約にもともとある両案で、今回の改定では選んでいません。組合で採用している案だけを残し、もう一方を消してから規約原本にしてください（Word で保存したあとに直せます）。</p>{% endif %}
+        {% if f.variants %}<p class="warn"><b class="w">どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ f.variants|join("、") }}</b>。今の規約にもともとある両案です。<a href="#variants">「4. 理事会で検討」の「今の規約の両案」</a>で組合で採用している案を選ぶと、最新の規約にはその案だけが残ります。選べない形の条は、Word で保存したあとに、採用している案だけを残してください。</p>{% endif %}
         {% if f.left %}<p class="warn"><b class="w">改定案に〔選択〕が残っています</b>（{{ f.left|join("、") }}）。理事会で案を選び、改定案を作り直してから作ってください。</p>
         {% else %}<div class="acts"><a class="tbtn2" href="/works/{{ id }}/final/{{ f.n }}/view">画面で確認（変更した条に色）</a></div>{% endif %}</div>
         {% if not f.left %}<a class="btn" href="/works/{{ id }}/final/{{ f.n }}.docx">{{ icon("download") }}Word でダウンロード</a>{% endif %}
