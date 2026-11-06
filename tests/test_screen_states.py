@@ -179,5 +179,6 @@ def test_consult_says_when_owner_count_was_assumed():
 
 
 def test_explain_prompt_keeps_subject_and_direction():
-    from core.explain import SYSTEM
+    from core.explain import SYSTEM, ExplainItem
     assert "主語と向き" in SYSTEM and "自ら修理" in SYSTEM
+    assert "厳しくなるのか緩くなるのか" in ExplainItem.model_fields["impact"].description

@@ -38,7 +38,9 @@ class ExplainItem(BaseModel):
         description="どの段に載せるか。参照先の直し・言い回しの統一・古い制度名の更新など、住民の暮らしや運営に実質的に関わらないものは「古い規定や表現の整理」")
     what: str = Field(description="何が変わるか。2〜4文")
     why: str = Field(description="なぜ変えるか。2〜3文")
-    impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文")
+    impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文。"
+                              "決議の割合・定足数・期限・届出などの要件が変わる変更では、今より厳しくなるのか緩くなるのか（向き）を必ず1文で書く"
+                              "（例：ちょうど半数の出席では総会が成り立たなくなり、わずかに厳しくなります）")
     finding_refs: list[str] = Field(default_factory=list, description="この項目が扱う論点ID（改定案の finding_refs から。この項目の変更に当たるものだけ）")
 
 
