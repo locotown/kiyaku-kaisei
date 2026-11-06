@@ -188,8 +188,12 @@ def is_skipped(skipped: set | None, a) -> bool:
 
 def edit_note(edits: dict | None, a) -> str:
     """委員会で直した条の補足（直した理由・経緯）。理由の欄に添え、AI の理由だけが残って食い違わないようにする。"""
+    import re
+
     e = (edits or {}).get(f"{a.document or '規約'}|{a.article}") or {}
-    return str(e.get("note") or "").strip() if e.get("text") == a.text else ""
+    note = str(e.get("note") or "").strip() if e.get("text") == a.text else ""
+    # 前の版で「／」でつないで書き足した経緯も、日付ごとに改行で分けて見せる
+    return re.sub(r"／(?=\d{1,2}月\d{1,2}日 \d{1,2}:\d{2}：)", "\n", note)
 
 
 def summary_line(all_rows: list[dict], n_required: int, skipped: set | None) -> str:

@@ -255,3 +255,11 @@ def test_diff_ignores_line_break_differences():
     cur = "第1条　一\n\n2　二\n\n3　三"
     assert changes(cur, "第1条　一\r\n2　二\n3　三") == []
     assert len(changes(cur, "第1条　一\n2　二を直した\n3　三")) == 1
+
+
+def test_old_slash_joined_notes_are_split_by_date():
+    from core.taisho import edit_note
+
+    a = Amendment("改正", "第38条の2", None, "c", "第38条の2　…", "", [], [], [])
+    edits = {"規約|第38条の2": {"text": "第38条の2　…", "note": "最初の経緯／11月06日 08:57：二つ目"}}
+    assert edit_note(edits, a) == "最初の経緯\n11月06日 08:57：二つ目"
