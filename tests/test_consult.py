@@ -124,7 +124,7 @@ def app_client(monkeypatch):
     import app.main as M
     from app import consult_app
 
-    def fake_consult(mode, text, question, *, profile, corpus=None, history=None, effort="medium", on_step=None):
+    def fake_consult(mode, text, question, *, profile, corpus=None, history=None, effort="medium", on_step=None, rules="原本"):
         if on_step:
             on_step("get_law_articles")
         need = C.missing(profile)
@@ -270,3 +270,51 @@ def test_auto_pull_waits_while_consulting():
 
     s = (Path(__file__).parents[1] / "scripts/codespace_serve.sh").read_text(encoding="utf-8")
     assert "private/consult" in s and '"status": "考え中"' in s
+
+
+def test_consult_with_latest_rules(monkeypatch):
+    """総会の結果を記録した作業は「最新の規約」（総会で可決した改定を反映）で照らせる（作者の依頼）。"""
+    import shutil
+    from pathlib import Path
+
+    import app.main as M
+    from app import consult_app, store
+
+    src = Path(__file__).resolve().parent.parent / "data" / "public" / "persona_works" / "20261106-220948-f85ddb"
+    wid = store.new_id()
+    shutil.copytree(src, store.path(wid))
+    got = {}
+
+    def fake_consult(mode, text, question, *, profile, corpus=None, history=None, effort="medium", on_step=None, rules="原本"):
+        got["rules"], got["corpus"] = rules, corpus
+        return C.finalize({**ANSWER, "need_info": []}, None, text), 0.1, ["record_answer"]
+
+    monkeypatch.setattr(C, "consult", fake_consult)
+    consult_app.RUNNING.clear()
+    c = TestClient(M.app)
+    try:
+        assert M.has_latest(wid)
+        latest, orig = M.latest_corpus(wid), M._corpus(wid)
+        assert len(latest.main.articles) > len(orig.main.articles)          # 総会で新設した条が入る
+        assert [a for a in latest.main.articles if a.number == "49"][0].text() != [a for a in orig.main.articles if a.number == "49"][0].text()
+        page = c.get("/consult").text
+        assert f'value="{wid}|最新"' in page and "最新の規約（総会で可決した改定を含む）" in page
+        r = c.post("/consult", data={"mode": "ask", "question": "定足数は？", "work_id": f"{wid}|最新"}, follow_redirects=False)
+        cid = r.headers["location"].rsplit("/", 1)[1]
+        _wait(c, cid)
+        assert store.load_consult(cid)["rules"] == "最新" and got["rules"] == "最新"
+        assert len(got["corpus"].main.articles) == len(latest.main.articles)
+        assert "最新の規約</b>（総会で可決した改定を含む）" in c.get(f"/consult/{cid}").text
+        # 原本を選んだときは、これまでどおり読み込んだ規約
+        r = c.post("/consult", data={"mode": "ask", "question": "定足数は？", "work_id": wid}, follow_redirects=False)
+        cid = r.headers["location"].rsplit("/", 1)[1]
+        _wait(c, cid)
+        assert got["rules"] == "原本" and len(got["corpus"].main.articles) == len(orig.main.articles)
+    finally:
+        shutil.rmtree(store.path(wid))
+
+
+def test_latest_note_reaches_ai():
+    m = C.user_message("ask", "", "q", [], True, rules="最新")
+    assert "総会で可決した改定を反映した最新の規約" in m
+    assert "読み込んだときの規約" in C.user_message("ask", "", "q", [], True)

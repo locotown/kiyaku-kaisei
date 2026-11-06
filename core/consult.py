@@ -473,7 +473,13 @@ def today_line(today=None) -> str:
                if done else "改正区分所有法の施行（2026年4月1日）より前。施行日をまたぐ総会の扱い（招集手続きを始めた日で決まる）に注意して答える"))
 
 
-def user_message(mode: str, text: str, question: str, history: list[dict], has_rules: bool, today=None) -> str:
+RULES_NOTE = {
+    "原本": "読み込んだときの規約（今回の改定の前の文）",
+    "最新": "総会で可決した改定を反映した最新の規約（今回の改定のあとの文。可決しなかった改定は入っていない）",
+}
+
+
+def user_message(mode: str, text: str, question: str, history: list[dict], has_rules: bool, today=None, rules: str = "原本") -> str:
     """AI に送る依頼の文。history は前のやり取り（質問と、答えのまとめ）。"""
     parts = ["# 今日\n" + today_line(today) + "\n文章の中の「来年」「今年」「来月」や、年の書いていない日付・曜日は、今日を基準に読む。文章が書かれた年を勝手に決めつけない"]
     if mode == "check":
@@ -488,18 +494,19 @@ def user_message(mode: str, text: str, question: str, history: list[dict], has_r
     if history:
         parts.append("# これまでのやり取り（同じ相談の続き）\n" + "\n".join(
             f"- 質問：{h.get('question') or '（文章の確認）'}\n  答えのまとめ：{h.get('summary', '')}" for h in history))
-    parts.append("# 照らす規約\n" + ("選ばれている（list_articles・get_articles で読める）" if has_rules else "選ばれていない"))
+    parts.append("# 照らす規約\n" + (f"選ばれている（list_articles・get_articles で読める）。これは{RULES_NOTE.get(rules, RULES_NOTE['原本'])}。"
+                                     "答えで規約の条に触れるときは、どちらの規約の条かが分かるように書く" if has_rules else "選ばれていない"))
     return "\n\n".join(parts)
 
 
 def consult(mode: str, text: str, question: str, *, profile: dict, corpus=None, history: list[dict] | None = None,
-            effort: str = "medium", on_step=None) -> tuple[dict, float, list[str]]:
+            effort: str = "medium", on_step=None, rules: str = "原本") -> tuple[dict, float, list[str]]:
     """相談を1回する。返すのは (答え, 費用の概算（ドル）, 使った道具)。"""
     handler = Handler(profile=profile or {}, corpus=corpus, pasted=text if mode == "check" else "")
     c = client()
     tools = [dict(t) for t in TOOL_DEFS] + [dict(RECORD_DEF)]
     tools[-1]["cache_control"] = {"type": "ephemeral"}
-    messages = [{"role": "user", "content": user_message(mode, text, question, history or [], corpus is not None)}]
+    messages = [{"role": "user", "content": user_message(mode, text, question, history or [], corpus is not None, rules=rules)}]
     usage_total: dict = {}
     for _turn in range(MAX_TURNS):
         with c.beta.messages.stream(

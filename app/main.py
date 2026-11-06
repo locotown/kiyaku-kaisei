@@ -572,6 +572,40 @@ def variant_articles(blocks) -> list[str]:
     return [no for no, marks in found.items() if {"ア", "イ"} <= marks]
 
 
+def latest_corpus(work_id: str, work: dict | None = None):
+    """総会で可決した改定を反映した最新の規約（最新の規約の画面・Word と同じ文）を、条ごとに読み直した Corpus。
+    最新の規約を作れない（総会の結果がない・〔選択〕が残る）ときは None。改定のない細則は元のまま。"""
+    from core.consolidate import to_text
+    from core.corpus import MAIN
+    from core.split import split_kiyaku
+
+    work = work or store.load(work_id)
+    docs = [d for d in (final_documents(work_id, work) if work.get("meeting") else []) if d["blocks"]]
+    if not docs:
+        return None
+    corpus = _corpus(work_id)
+    for d in docs:
+        k = split_kiyaku(to_text(d["blocks"]).splitlines())
+        name = corpus.resolve(d["doc"])
+        if name == MAIN:
+            corpus.main = k
+        elif name:
+            corpus.rules[name] = k
+    return corpus
+
+
+def has_latest(work_id: str) -> bool:
+    """相談で「最新の規約で照らす」を選べるか（総会で可決した改定があり、〔選択〕が残っていない）。"""
+    from core.draft import CHOICE_MARK
+
+    try:
+        work = store.load(work_id)
+    except store.WorkNotFound:
+        return False
+    adopted = adopted_by_meeting(work) if work.get("meeting") else {}
+    return bool(adopted) and not any(CHOICE_MARK in a.text for ams in adopted.values() for a in ams)
+
+
 def current_variants(work_id: str, work: dict) -> list[str]:
     """今の規約（読み込んだ原本）に、両案が残ったままの条。点検の結果の画面で早めに知らせる。"""
     if "variants" in work:
@@ -2205,4 +2239,4 @@ def _review_progress(human: dict) -> dict | None:
 # ---- ととのう規約に相談する（AI 相談）。画面は app/consult_app.py -------------------------
 from app import consult_app  # noqa: E402
 
-consult_app.register(app, templates, _corpus)
+consult_app.register(app, templates, _corpus, latest_corpus, has_latest)

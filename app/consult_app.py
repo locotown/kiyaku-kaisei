@@ -62,8 +62,16 @@ def work_label(work_id: str) -> str:
     return f"{when} 作成・{tail[-4:]}"
 
 
-def register(app, templates, corpus_for) -> None:
-    """ルートを登録する。corpus_for(work_id) は照らす規約（core.corpus.Corpus）を返す関数。"""
+def split_work(value: str) -> tuple[str, str]:
+    """選択肢の値「作業の id」「作業の id|最新」を、（作業の id、照らす規約の版）に分ける。"""
+    wid, _, ver = str(value or "").partition("|")
+    return wid.strip(), ("最新" if ver == "最新" else "原本")
+
+
+def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> None:
+    """ルートを登録する。corpus_for(work_id) は読み込んだ規約（原本）、latest_for(work_id) は総会で可決した改定を
+    反映した最新の規約（作れなければ None）の core.corpus.Corpus を返す関数。has_latest(work_id) は最新を選べるか。"""
+    templates.env.globals["has_latest"] = has_latest or (lambda _wid: False)
     templates.env.globals["profile_line"] = profile_line
     templates.env.globals["consult_counts"] = C.counts
     templates.env.globals["work_label"] = work_label
@@ -90,7 +98,10 @@ def register(app, templates, corpus_for) -> None:
             corpus = None
             if data.get("work_id"):
                 try:
-                    corpus = corpus_for(data["work_id"])
+                    if data.get("rules") == "最新" and latest_for:
+                        corpus = latest_for(data["work_id"])
+                    if corpus is None:
+                        corpus = corpus_for(data["work_id"])
                 except Exception:  # 作業が消えていても、規約なしで答える
                     corpus = None
             history = [{"question": t.get("question", ""), "summary": (t.get("answer_masked") or {}).get("summary", "")}
@@ -105,7 +116,8 @@ def register(app, templates, corpus_for) -> None:
 
             text = data.get("sent_text", "")
             answer, cost, calls = C.consult(turn["mode"], text, turn.get("sent_question", turn.get("question", "")),
-                                            profile=profile, corpus=corpus, history=history, on_step=step)
+                                            profile=profile, corpus=corpus, history=history, on_step=step,
+                                            rules=data.get("rules", "原本"))
             shown = C.unmask(answer, data.get("mapping") or {})
 
             def done(d):
@@ -165,12 +177,14 @@ def register(app, templates, corpus_for) -> None:
             return RedirectResponse("/consult?saved=empty_text", status_code=303)
         if mode == "ask" and not question:
             return RedirectResponse("/consult?saved=empty_question", status_code=303)
-        work_id = str(form.get("work_id") or "")
+        work_id, rules = split_work(form.get("work_id"))
         if work_id:
             try:
                 store.load(work_id)
             except store.WorkNotFound:
                 work_id = ""
+        if rules == "最新" and not (work_id and has_latest and has_latest(work_id)):
+            rules = "原本"
         profile = store.load_profile()
         masked = bool(form.get("mask"))
         sent_text, sent_q, mapping = _mask(text[:20000], question[:2000], masked, profile, str(form.get("mask_more") or ""))
@@ -185,7 +199,7 @@ def register(app, templates, corpus_for) -> None:
             work_name = store.load(work_id).get("name", "")
         store.save_consult({"id": cid, "created": _now(), "mode": mode, "title": title, "text": text, "question": question,
                             "sent_text": sent_text, "mapping": mapping, "masked": masked,
-                            "mask_more": [w.strip() for w in re.split(r"[、,，\s]+", str(form.get("mask_more") or "")) if len(w.strip()) >= 2], "work_id": work_id, "work_name": work_name,
+                            "mask_more": [w.strip() for w in re.split(r"[、,，\s]+", str(form.get("mask_more") or "")) if len(w.strip()) >= 2], "work_id": work_id, "work_name": work_name, "rules": rules,
                             "turns": [{"mode": mode, "question": question, "sent_question": sent_q, "status": "考え中",
                                        "at": _now(), "started": time.time(), "step": "準備をしています"}], "cost_total": 0})
         _start(cid, 0)
