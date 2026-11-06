@@ -236,3 +236,13 @@ def test_today_is_given_and_results_sorted_by_importance():
     assert [i["verdict"] for i in ans["items"]] == ["誤り", "言い方に注意", "資料の外"]
     p = C.clean_profile({"units": "48", "owners": "116", "votes_total": "10000", "vote_rule": "1戸1議決権"})
     assert (p["owners"], p["votes_total"]) == (48, 48)        # 1戸1議決権に戻したら、前の数を残さない
+
+
+def test_more_words_and_work_labels():
+    """ほかに伏せる語は「伏せた語A」に（マンション名とは別の記号）。同じ名前の作業を作成日時と ID の末尾で見分ける（2回目の確認で分かった）。"""
+    from app.consult_app import work_label
+
+    masked, mapping = C.mask_names("講師：木村先生（架空）。305号室の方。木村先生が説明。", ["サンプル台"], ["305号室"])
+    assert mapping == {"伏せた語A": "305号室", "人物A": "木村"} and "人物A先生が説明" in masked
+    assert work_label("20261103-200000-dm0001") == "11/3 20:00 作成・0001"
+    assert work_label("20261103-990000-fed2b7") == "11/3 作成・d2b7"      # ありえない時刻は出さない

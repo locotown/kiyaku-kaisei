@@ -460,3 +460,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk .eyebrow.wk a { display: inline-flex; align-items: center; min-height: 44px; }
 @media (max-width: 640px) { .tbtn.keep .lbl { display: inline; font-size: var(--text-sm); white-space: nowrap; } .brand b { white-space: nowrap; } .hdr .tbtn { padding-left: 6px; padding-right: 6px; } }
 @media (max-width: 420px) { .brand b { font-size: 17px; } .brand { gap: 6px; } .hdr .tbtn { min-width: 40px; padding-left: 4px; padding-right: 4px; gap: 4px; flex-shrink: 0; } .hdr { padding: 0 var(--space-3); gap: 4px; } .hdr .brand { flex-shrink: 0; } }
+.cs-box [hidden], .pf [hidden], .cs-turn [hidden] { display: none !important; }
+.tk .cs-ttl .lead, .tk .cs-list li { text-align: left; }
+.tk .cs-fu button { text-align: left; justify-content: flex-start; }
+@media (max-width: 420px) { .tk .cs-seg label { font-size: 15px; padding: var(--space-2) var(--space-3); } }

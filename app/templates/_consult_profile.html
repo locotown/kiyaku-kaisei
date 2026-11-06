@@ -14,7 +14,7 @@
   <p class="small">1人で2戸以上をお持ちの方がいれば、組合員の数は住戸の数より少なくなります。議決権を専有面積の割合などで決めている規約では、議決権の総数を規約の別表で確かめて入れてください。</p>
   <details class="more"><summary>マンション名・照らす規約・メモ（任意）</summary>
     <label>マンション名<span class="small">（「人名を伏せて送る」ときに一緒に伏せます。AI には送りません）</span><input type="text" name="name" value="{{ profile.name or '' }}"></label>
-    <label>いつも照らす規約<select name="work_id"><option value="">選ばない</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if profile.work_id == w.id }}>{{ w.name }}（{{ w.id[4:6]|int }}/{{ w.id[6:8]|int }} {{ w.id[9:11] }}:{{ w.id[11:13] }}）</option>{% endfor %}</select></label>
+    <label>いつも照らす規約<select name="work_id"><option value="">選ばない</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if profile.work_id == w.id }}>{{ w.name }}（{{ work_label(w.id) }}）</option>{% endfor %}</select></label>
     <label>AI に伝えておきたいこと<span class="small">（例：総会の定足数は規約で3分の2にしている。人名は書かない）</span><textarea name="note" rows="2">{{ profile.note or '' }}</textarea></label>
   </details>
   <button type="submit" class="{{ 'btn' if rerun else 'boxed' }}" {% if rerun %}data-ai="{{ ai_note }}"{% endif %}>{{ "基本情報を保存して、もう一度答えてもらう" if rerun else "基本情報を保存する" }}</button>
@@ -24,7 +24,7 @@
   const f = document.currentScript.previousElementSibling; if (!f || !f.matches("form.pf")) return;
   const r = f.querySelector("[data-rule]"), u = f.querySelector("[name=units]"), o = f.querySelector("[data-owners]");
   const w = f.querySelector("[data-votes-wrap]"), a = f.querySelector("[data-votes-auto]"), v = f.querySelector("[data-votes]");
-  const s = () => { const one = r.value === "1戸1議決権"; w.hidden = one; a.hidden = !one; v.required = !one;
+  const s = () => { const one = r.value === "1戸1議決権"; w.hidden = one; a.hidden = !one; v.required = r.value === "専有面積の割合など";
     if (one && o.value && u.value && +o.value > +u.value) o.value = ""; };
   r.addEventListener("change", s); u.addEventListener("input", s); s();
 })();

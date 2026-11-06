@@ -47,10 +47,21 @@ def profile_line(p: dict) -> str:
     return s
 
 
+def work_label(work_id: str) -> str:
+    """照らす規約の選択肢で、同じ名前の作業を見分けるための印（作成日時と ID の末尾）。"""
+    m = re.match(r"^\d{4}(\d{2})(\d{2})-(\d{2})(\d{2})\d{2}-(\w+)$", work_id)
+    if not m:
+        return work_id
+    mo, d, h, mi, tail = m.groups()
+    when = f"{int(mo)}/{int(d)}" + (f" {h}:{mi}" if int(h) < 24 and int(mi) < 60 else "")
+    return f"{when} 作成・{tail[-4:]}"
+
+
 def register(app, templates, corpus_for) -> None:
     """ルートを登録する。corpus_for(work_id) は照らす規約（core.corpus.Corpus）を返す関数。"""
     templates.env.globals["profile_line"] = profile_line
     templates.env.globals["consult_counts"] = C.counts
+    templates.env.globals["work_label"] = work_label
 
     def _stopped(data: dict) -> bool:
         return any(t.get("status") == "考え中" for t in data.get("turns", [])) and data["id"] not in RUNNING
@@ -109,8 +120,8 @@ def register(app, templates, corpus_for) -> None:
         if not masked:
             return text, question, {}
         extra = [profile.get("name", "")] if profile.get("name") else []
-        extra += [w.strip() for w in re.split(r"[、,，\s]+", more or "") if len(w.strip()) >= 2]
-        joined, mapping = C.mask_names(text + "\n␞\n" + question, extra)
+        others = [w.strip() for w in re.split(r"[、,，\s]+", more or "") if len(w.strip()) >= 2]
+        joined, mapping = C.mask_names(text + "\n␞\n" + question, extra, others)
         t, _, q = joined.partition("\n␞\n")
         return t, q, mapping
 
@@ -155,7 +166,10 @@ def register(app, templates, corpus_for) -> None:
         masked = bool(form.get("mask"))
         sent_text, sent_q, mapping = _mask(text[:20000], question[:2000], masked, profile, str(form.get("mask_more") or ""))
         first = next((ln.strip(" ◆■●・　") for ln in (text if mode == "check" else question).split("\n") if ln.strip(" ◆■●・　")), "")
-        title = (first[:40] + ("…" if len(first) > 40 else "")) or "相談"
+        cut = first[:40]
+        if len(first) > 40 and cut.count("（") > cut.count("）"):   # かっこの途中で切らない
+            cut = cut[:cut.rindex("（")]
+        title = (cut + ("…" if len(first) > len(cut) else "")) or "相談"
         cid = _new_id()
         work_name = ""
         if work_id:

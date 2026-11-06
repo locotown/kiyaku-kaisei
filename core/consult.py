@@ -125,8 +125,8 @@ _NOT_NAMES = {"管理員", "管理人", "住民", "皆", "組合員", "理事長
               "委員会", "同", "本", "各", "前", "新", "旧", "副", "現", "元", "当", "総", "全"}
 
 
-def mask_names(text: str, extra: list[str] | None = None) -> tuple[str, dict[str, str]]:
-    """「◯◯さん」「◯◯氏」などの人名と、指定した語（マンション名など）を記号に置き換える。返すのは (伏せた文, 記号→元の語)。"""
+def mask_names(text: str, extra: list[str] | None = None, more: list[str] | None = None) -> tuple[str, dict[str, str]]:
+    """「◯◯さん」「◯◯氏」などの人名と、マンション名（extra）・ほかに伏せる語（more）を記号に置き換える。返すのは (伏せた文, 記号→元の語)。"""
     mapping: dict[str, str] = {}
     back: dict[str, str] = {}
 
@@ -137,14 +137,16 @@ def mask_names(text: str, extra: list[str] | None = None) -> tuple[str, dict[str
             back[word], mapping[tok] = tok, word
         return back[word]
 
-    for w in sorted({w.strip() for w in (extra or []) if w and w.strip()}, key=len, reverse=True):
-        text = text.replace(w, token(w, "マンション"))
+    for words, prefix in ((extra, "マンション"), (more, "伏せた語")):   # 文にない語は記号にしない（伏せた語の数を正しく出す）
+        for w in sorted({w.strip() for w in (words or []) if w and w.strip()}, key=len, reverse=True):
+            if w in text:
+                text = text.replace(w, token(w, prefix))
 
     found = {m.group(1) for m in _NAME.finditer(text) if m.group(1) not in _NOT_NAMES}
     for m in _ROLE_NAME.finditer(text):   # 役の後に「、」で並べた名前（敬称なし）
         for part in re.split(r"[、，,・／/]", m.group(1)):
             part = re.split(r"[:：　]", part.strip())[-1]   # 「、記録：中川」のように続けて書いた役
-            mm = _ROLE_PART.match(part.strip().removesuffix("氏").removesuffix("さん"))
+            mm = _ROLE_PART.match(re.sub(r"(氏|さん|様|先生)(?=[（(]|$)", "", part.strip()))
             if mm and mm.group(1) not in _NOT_NAMES:
                 found.add(mm.group(1))
     for w in sorted(found, key=len, reverse=True):   # 長い名前から（「山本一郎」を「山本」より先に）
@@ -262,8 +264,9 @@ SYSTEM = f"""あなたは「ととのう規約」の相談役です。マンシ�
 - 改正法附則（経過措置）は source を「改正法附則」・ref を「第2条第3項」のように、国交省の資料は「国交省資料」・ref を資料名に、
   calc_votes の結果は source を「計算」・ref を決議の種類（例：特別決議の定足数と賛成の数）にする。道具の名前（calc_votes など）は答えの文に書かない
 - 「出席」には書面・代理人・電磁的方法による議決権の行使も含まれることなど、住民が誤解しやすい点は補う
+- 定足数・出席・賛成の割合に触れる文章や質問で、マンションの基本情報があれば、calc_votes でこのマンションでの具体的な数（何戸・何人）も示す
 - 専門家でない人に分かる言葉で書く。答えは総会提案の下書きを見直すための参考であり、法的助言ではない
-- 文中の「人物A」「マンションA」などは、名前を伏せた記号。そのまま使う
+- 文中の「人物A」（人名）「マンションA」（マンション名）「伏せた語A」（部屋番号など）は、名前を伏せた記号。そのまま使う
 
 {KNOWLEDGE}"""
 

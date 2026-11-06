@@ -7,7 +7,7 @@
 {% set VERDICT_HELP = {"正しい": "根拠で裏付けられます", "言い方に注意": "大筋は合っていますが、誤解を招くおそれがあります", "誤り": "根拠と食い違います",
                        "資料の外": "ととのう規約の資料では確かめられません", "体裁": "表記や文章内の食い違い", "説明": "根拠のある説明"} %}
 <p class="eyebrow wk"><a href="/consult#history">相談の一覧</a>　<span class="muted">{{ c.created }}・{{ modes[c.mode] }}</span></p>
-<div class="stepttl"><p class="eyebrow">AI 相談</p><h1 class="page-title">{{ c.title }}</h1></div>
+<div class="stepttl cs-ttl"><p class="eyebrow">AI 相談</p><h1 class="page-title">{{ c.title }}</h1></div>
 {% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
 
 <details class="more cs-src" {{ 'open' if c.mode == 'check' and c.turns|length == 1 and c.turns[0].status != '済み' }}>
