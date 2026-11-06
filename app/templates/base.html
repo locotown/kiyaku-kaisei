@@ -15,7 +15,7 @@
   <a href="/" class="brand"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="1" y="1" width="28" height="28" rx="6" style="fill:var(--color-primary)"/><path d="M8 10h14M8 15h14M8 20h9" style="stroke:var(--color-surface)" stroke-width="2.4" stroke-linecap="round"/></svg><b>ととのう規約</b><span class="tagline">管理規約を、改正法に合わせる</span></a>
   <span class="sp"></span>
   <button class="tbtn" type="button" id="textsize" aria-pressed="false" aria-label="文字の大きさ">{{ icon("text-size") }}<span class="lbl">文字の大きさ</span></button>
-  <a class="tbtn" href="/consult" aria-label="相談する">{{ icon("chat") }}<span class="lbl">相談する</span></a>
+  <a class="tbtn keep" href="/consult" aria-label="相談する">{{ icon("chat") }}<span class="lbl">相談する</span></a>
   <a class="tbtn" href="/#works" aria-label="これまでの見直し">{{ icon("list") }}<span class="lbl">これまでの見直し</span></a>
 </header>
 <main>{% block content %}{% endblock %}</main>
@@ -36,7 +36,11 @@
 // AI を動かすボタンは、何をするか・時間・費用の目安を確かめてから動かす（押し間違いで費用がかからないように。想定ユーザーでの確認で分かった）
 document.addEventListener('click', function (e) {
   var b = e.target.closest('[data-ai]');
-  if (b && !b.disabled && !window.confirm(b.dataset.ai)) { e.preventDefault(); e.stopPropagation(); }
+  if (!b || b.disabled) return;
+  // 入力が足りないときは、費用の確認より先にブラウザの入力チェックを出す（空のまま押して費用の確認が出ないように）
+  var f = b.form || (b.getAttribute('form') && document.getElementById(b.getAttribute('form')));
+  if (f && f.checkValidity && !f.checkValidity()) return;
+  if (!window.confirm(b.dataset.ai)) { e.preventDefault(); e.stopPropagation(); }
 }, true);
 </script>
 </body>

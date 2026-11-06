@@ -39,7 +39,7 @@
     </div>
     <div class="cs-opts">
       <label>照らす規約<span class="small">（任意。選ぶと、お使いの規約の条とも照らします）</span>
-        <select name="work_id"><option value="">選ばない（区分所有法と標準管理規約で答える）</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if work_id == w.id }}>{{ w.name }}{{ "（想定ユーザー・架空）" if w.persona }}</option>{% endfor %}</select></label>
+        <select name="work_id"><option value="">選ばない（区分所有法と標準管理規約で答える）</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if work_id == w.id }}>{{ w.name }}（{{ w.id[4:6]|int }}/{{ w.id[6:8]|int }} {{ w.id[9:11] }}:{{ w.id[11:13] }} 作成{{ "・想定ユーザー（架空）" if w.persona }}）</option>{% endfor %}</select></label>
       <label class="ck"><input type="checkbox" name="mask" value="1" checked><span>人名を伏せて送る<span class="small cs-ckhelp">「◯◯さん」「◯◯氏」「記録：◯◯」などの名前を記号にして AI に送り、答えでは元の名前に戻します。マンション名は、基本情報に入れると一緒に伏せます。伏せた語は、答えの画面で確かめられます。</span></span></label>
       <label>ほかに伏せる語<span class="small">（任意。「、」で区切る。例：敬称を付けずに書いた名前、部屋番号）</span><input type="text" name="mask_more" placeholder="例：中川、305号室"></label>
     </div>
@@ -81,12 +81,6 @@
     if (form.querySelector("input[name=mode]:checked").value === "check") form.question.value = form.question_check.value;
   });
   sync();
-  // 1戸1議決権なら、組合員・議決権の数は空でよい（住戸の数を使う）
-  document.querySelectorAll("form.pf").forEach((f) => {
-    const r = f.querySelector("[data-rule]"), o = f.querySelector("[data-owners]"), v = f.querySelector("[data-votes]");
-    const s = () => { const one = r.value === "1戸1議決権"; v.placeholder = one ? "空なら住戸の数" : "規約の別表で確かめて入れる"; v.required = !one; };
-    r.addEventListener("change", s); s();
-  });
 })();
 </script>
 {% endblock %}

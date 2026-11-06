@@ -47,8 +47,9 @@ def clean_profile(raw: dict) -> dict:
          "vote_rule": raw.get("vote_rule") if raw.get("vote_rule") in VOTE_RULES else "分からない",
          "work_id": str(raw.get("work_id") or "").strip(), "note": str(raw.get("note") or "").strip()[:400]}
     if p["vote_rule"] == "1戸1議決権" and p["units"]:
-        p["votes_total"] = p["votes_total"] or p["units"]   # 1戸1議決権なら、議決権の総数は住戸の数
-        p["owners"] = p["owners"] or p["units"]
+        p["votes_total"] = p["units"]                        # 1戸1議決権なら、議決権の総数は住戸の数（前の数を残さない）
+        if not p["owners"] or p["owners"] > p["units"]:      # 組合員は、1人で2戸以上持つ人がいれば住戸の数より少ない
+            p["owners"] = p["units"]
     return p
 
 
@@ -116,7 +117,7 @@ def votes(profile: dict | None, kind: str, present_owners: int | None = None, pr
 
 # ---- 人名を伏せる -------------------------------------------------------------------
 
-_NAME = re.compile(r"([一-龥々ヶ]{1,4}|[ァ-ヴー]{2,8})(?=\s?(?:さん|氏|様|君|くん|委員長|理事長|副理事長|理事|監事))")
+_NAME = re.compile(r"([一-龥々ヶ]{1,4}|[ァ-ヴー]{2,8})(?=\s?(?:さん|氏|様|君|くん|先生|委員長|理事長|副理事長|理事|監事))")
 # 「記録：中川」「講師：森田一郎（…）」「司会　山田」のように、役の後に書いた名前
 _ROLE_NAME = re.compile(r"(?:記録|講師|司会|議長|書記|作成|文責|担当|報告者|発言者|説明者|出席者?|欠席者?)\s*[:：　]\s*([^。\n]{1,80})")
 _ROLE_PART = re.compile(r"^([一-龥々ヶ]{2,4})(?:[（(].*)?$")
@@ -429,10 +430,9 @@ def finalize(answer: dict, handler: Handler | None, pasted: str) -> dict:
         it["quote_found"] = (not it["quote"]) or re.sub(r"\s+", "", it["quote"]) in flat
         items.append(it)
     order = {v: i for i, v in enumerate(("誤り", "言い方に注意", "資料の外", "体裁", "正しい", "説明"))}
-    if pasted:  # 文章を確かめるときは、貼った文の順に並べる（見つからない抜き出しは後ろ）
-        items.sort(key=lambda x: (flat.find(re.sub(r"\s+", "", x["quote"])) if x["quote"] and x["quote_found"] else 10**9))
-    else:
-        items.sort(key=lambda x: order.get(x["verdict"], 9))
+    # 大事な順（誤り → 言い方に注意 → 資料で確かめられない → 体裁 → 正しい）。同じ判定の中は、貼った文の順（想定ユーザーでの確認で分かった）
+    items.sort(key=lambda x: (order.get(x["verdict"], 9),
+                              flat.find(re.sub(r"\s+", "", x["quote"])) if x["quote"] and x["quote_found"] else 10**9))
     return {"summary": answer.get("summary", ""), "items": items,
             "need_info": [n for n in (answer.get("need_info") or []) if n in PROFILE_FIELDS.values()],
             "followups": list(answer.get("followups") or [])[:3]}
@@ -445,9 +445,26 @@ def counts(answer: dict) -> dict[str, int]:
     return out
 
 
-def user_message(mode: str, text: str, question: str, history: list[dict], has_rules: bool) -> str:
+WEEKDAYS = "月火水木金土日"
+
+
+def today_line(today=None) -> str:
+    """今日の日付と、改正法が施行済みかどうか（「来年」「今年」を今日を基準に読ませる。想定ユーザーでの確認で分かった）。"""
+    from datetime import date, datetime
+
+    from core.review import JST
+
+    d = today or datetime.now(JST).date()
+    done = d >= date(2026, 4, 1)
+    return (f"今日は {d.year}年{d.month}月{d.day}日（{WEEKDAYS[d.weekday()]}）。"
+            + ("改正区分所有法はすでに施行されている（2026年4月1日）。これから招集する総会は、すべて改正後のルールによる。"
+               "経過措置（2026年3月までに招集した総会は旧ルール）は、すでに過ぎた総会の扱いを聞かれたときだけ触れ、目立たせない"
+               if done else "改正区分所有法の施行（2026年4月1日）より前。施行日をまたぐ総会の扱い（招集手続きを始めた日で決まる）に注意して答える"))
+
+
+def user_message(mode: str, text: str, question: str, history: list[dict], has_rules: bool, today=None) -> str:
     """AI に送る依頼の文。history は前のやり取り（質問と、答えのまとめ）。"""
-    parts = []
+    parts = ["# 今日\n" + today_line(today) + "\n文章の中の「来年」「今年」「来月」や、年の書いていない日付・曜日は、今日を基準に読む。文章が書かれた年を勝手に決めつけない"]
     if mode == "check":
         parts.append("# 依頼\n次の文章を確かめてください（住民向けのニュース原稿・議事録・説明文など）。")
         if question:

@@ -3,6 +3,7 @@
 {% block title %}{{ c.title }}｜相談｜ととのう規約{% endblock %}
 {% block content %}
 {% from "_consult_profile.html" import profile_form with context %}
+{% set VLABEL = {"資料の外": "資料で確かめられない"} %}
 {% set VERDICT_HELP = {"正しい": "根拠で裏付けられます", "言い方に注意": "大筋は合っていますが、誤解を招くおそれがあります", "誤り": "根拠と食い違います",
                        "資料の外": "ととのう規約の資料では確かめられません", "体裁": "表記や文章内の食い違い", "説明": "根拠のある説明"} %}
 <p class="eyebrow wk"><a href="/consult#history">相談の一覧</a>　<span class="muted">{{ c.created }}・{{ modes[c.mode] }}</span></p>
@@ -30,7 +31,7 @@
   {% elif a %}{% set n = consult_counts(a) %}
     {% if t.profile_used %}<p class="small cs-used">計算に使った基本情報：{{ t.profile_used }}</p>{% endif %}
     <div class="cs-summary"><p>{{ a.summary }}</p><button type="button" class="linkish" data-copy="{{ a.summary }}">この答えをコピー</button>
-      {% if n %}<p class="cs-chips">{% for v in ["誤り", "言い方に注意", "資料の外", "体裁", "正しい", "説明"] if n[v] %}<span class="v v-{{ v }}" title="{{ VERDICT_HELP[v] }}">{{ v }} {{ n[v] }}</span>{% endfor %}</p>{% endif %}</div>
+      {% if n %}<p class="cs-chips">{% for v in ["誤り", "言い方に注意", "資料の外", "体裁", "正しい", "説明"] if n[v] %}<span class="v v-{{ v }}" title="{{ VERDICT_HELP[v] }}">{{ VLABEL.get(v, v) }} {{ n[v] }}</span>{% endfor %}</p>{% endif %}</div>
     {% if a.need_info %}
       <div class="cs-need" id="need-{{ loop.index }}">
         <p><b>{{ icon("alert") }}この答えには、マンションの基本情報が足りません：{{ a.need_info|join("・") }}</b><br>
@@ -41,7 +42,7 @@
     {% endif %}
     <ol class="cs-items">{% for it in a["items"] %}
       <li class="cs-item v-{{ it.verdict }}">
-        <p class="cs-ih"><span class="v v-{{ it.verdict }}">{{ it.verdict }}</span>{% if it.quote %}<q>{{ it.quote }}</q>{% if not it.quote_found %}<span class="small">（貼った文と完全には一致しません）</span>{% endif %}{% endif %}</p>
+        <p class="cs-ih"><span class="v v-{{ it.verdict }}">{{ VLABEL.get(it.verdict, it.verdict) }}</span>{% if it.quote %}<q>{{ it.quote }}</q>{% if not it.quote_found %}<span class="small">（貼った文と完全には一致しません）</span>{% endif %}{% endif %}</p>
         <p class="cs-comment">{{ it.comment }}</p>
         {% if it.suggestion %}<div class="cs-sugg"><span class="small">{{ "直し案" if it.verdict in ("言い方に注意", "誤り", "体裁") else ("確かめ方" if it.verdict == "資料の外" else "補足") }}</span>
           <p>{{ it.suggestion }}</p>{% if it.verdict != "資料の外" %}<button type="button" class="linkish" data-copy="{{ it.suggestion }}">直し案をコピー</button>{% endif %}</div>{% endif %}
@@ -49,6 +50,7 @@
       </li>{% endfor %}</ol>
     {% if a.followups and loop.last %}<p class="small cs-fu">続けて聞くなら：{% for f in a.followups %}<button type="button" class="linkish" data-fu="{{ f }}">{{ f }}</button>{% endfor %}</p>{% endif %}
     <p class="small muted">{{ t.done_at }}　答えは総会提案の下書きを見直すための参考で、法的助言ではありません。数字と根拠は、原資料（条文・規約）でも確かめてください。</p>
+    {% if loop.last %}<p class="cs-use"><button type="button" class="boxed" data-reply>返信用にコピー</button><span class="small">まとめ・各項目・直し案・根拠を、理事会への返信に貼れる文にしてコピーします</span></p>{% endif %}
   {% endif %}
 </section>
 {% endfor %}
@@ -58,16 +60,13 @@
   <h2 id="fu-h">続けて質問する</h2>
   <form method="post" action="/consult/{{ c.id }}/ask" id="fuform">
     <textarea name="question" rows="3" required placeholder="例：この点、住民向けの案内にはどう書けばよいですか？"></textarea>
-    <p class="small">これまでのやり取り{{ "と貼った文章" if c.mode == "check" }}を踏まえて答えます。</p>
+    <div class="cs-go"><button type="submit" class="btn" data-ai="{{ ai_note }}">続けて質問する</button>
+      <span class="small">これまでのやり取り{{ "と貼った文章" if c.mode == "check" }}を踏まえて答えます。1回 約$0.1〜0.5。</span></div>
   </form>
 </section>
 {% endif %}
 
 <textarea id="replytext" class="sr" style="left:0;top:0" aria-hidden="true" tabindex="-1"></textarea>
-<div class="bar"><div class="in"><div class="t">{% if busy %}<b>AI が考えています</b>　終わると、この画面が切り替わります{% else %}<b>答えを使う</b>　<span class="muted">返信用の文にまとめてコピーできます</span>{% endif %}</div>
-  {% if not busy %}<button type="button" class="tbtn2 boxed" data-reply>返信用にコピー</button>
-  <button type="submit" form="fuform" class="btn" data-ai="{{ ai_note }}">続けて質問する</button>{% endif %}</div></div>
-
 <script>
 (() => {
   {% if busy %}  // 考え中：3秒ごとに進み具合を聞き、終わったら画面を切り替える
@@ -99,7 +98,7 @@
       lines.push(`${i + 1}. 【${v}】` + (q ? `「${q.textContent.trim()}」` : ""));
       lines.push("   " + li.querySelector(".cs-comment").textContent.trim());
       const s = li.querySelector(".cs-sugg p");
-      if (s) lines.push("   " + (v === "資料の外" ? "確かめ方：" : v === "正しい" || v === "説明" ? "補足：" : "直し案：") + s.textContent.trim());
+      if (s) lines.push("   " + (v === "資料で確かめられない" ? "確かめ方：" : v === "正しい" || v === "説明" ? "補足：" : "直し案：") + s.textContent.trim());
       const bs = [...li.querySelectorAll(".cs-basis span")].map((x) => x.textContent.trim());
       if (bs.length) lines.push("   （根拠：" + bs.join("、") + "）");
     });

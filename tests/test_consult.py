@@ -34,9 +34,9 @@ def test_votes_need_profile_and_area_based_votes():
 
 
 def test_mask_names_and_unmask():
-    text = "木下氏も評価。山田さんと鈴木理事長、管理員さんにも。サンプル台マンションの規約。"
+    text = "木下氏も評価。山田さんと鈴木理事長、木村先生、管理員さんにも。サンプル台マンションの規約。"
     masked, mapping = C.mask_names(text, ["サンプル台マンション"])
-    assert "木下" not in masked and "山田" not in masked and "鈴木" not in masked and "サンプル台" not in masked
+    assert not any(n in masked for n in ("木下", "山田", "鈴木", "木村", "サンプル台"))
     assert "管理員さん" in masked
     assert C.unmask(masked, mapping) == text
     assert C.unmask({"a": [masked]}, mapping) == {"a": [text]}
@@ -57,7 +57,7 @@ def test_record_answer_requires_reading_the_cited_article():
     assert "受け付けませんでした" in r                          # 根拠のない「誤り」
     r = json.loads(h.run("record_answer", {"summary": "s", "items": [item, {"verdict": "誤り", "comment": "根拠なし", "basis": []}]}))
     assert r == {"受け付けました": 2}                            # 3回目は受け付け、根拠のない項目は下げる
-    assert [i["verdict"] for i in h.answer["items"]] == ["正しい", "資料の外"] and h.answer["items"][0]["quote_found"]
+    assert [i["verdict"] for i in h.answer["items"]] == ["資料の外", "正しい"] and h.answer["items"][1]["quote_found"]
 
 
 def test_calc_basis_needs_calc_tool():
@@ -220,3 +220,19 @@ def test_reply_copy_and_profile_used(app_client):
     assert 'lines.push("   （根拠：" + bs.join("、")' in view          # 返信用の文で根拠を区切る
     page = c.get("/consult").text
     assert 'class="bar"' not in page and "ほかに伏せる語" in page   # 帯が基本情報の保存ボタンを隠さない
+
+
+def test_today_is_given_and_results_sorted_by_importance():
+    """AI に今日の日付を渡す（「来年4月から」を今日基準で読む）。結果は誤りを先に（想定ユーザーでの確認で分かった）。"""
+    from datetime import date
+
+    assert "2026年11月6日（金）" in C.today_line(date(2026, 11, 6)) and "すでに施行" in C.today_line(date(2026, 11, 6))
+    assert "施行（2026年4月1日）より前" in C.today_line(date(2026, 2, 1))
+    assert C.user_message("check", "t", "", [], False, today=date(2026, 11, 6)).startswith("# 今日")
+    ans = C.finalize({"summary": "s", "items": [
+        {"quote": "a", "verdict": "資料の外", "comment": "", "basis": []},
+        {"quote": "b", "verdict": "誤り", "comment": "", "basis": [{"source": "貼った文", "ref": "x"}]},
+        {"quote": "c", "verdict": "言い方に注意", "comment": "", "basis": [{"source": "貼った文", "ref": "x"}]}]}, None, "a b c")
+    assert [i["verdict"] for i in ans["items"]] == ["誤り", "言い方に注意", "資料の外"]
+    p = C.clean_profile({"units": "48", "owners": "116", "votes_total": "10000", "vote_rule": "1戸1議決権"})
+    assert (p["owners"], p["votes_total"]) == (48, 48)        # 1戸1議決権に戻したら、前の数を残さない
