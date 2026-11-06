@@ -117,7 +117,10 @@ def votes(profile: dict | None, kind: str, present_owners: int | None = None, pr
 # ---- 人名を伏せる -------------------------------------------------------------------
 
 _NAME = re.compile(r"([一-龥々ヶ]{1,4}|[ァ-ヴー]{2,8})(?=\s?(?:さん|氏|様|君|くん|委員長|理事長|副理事長|理事|監事))")
-_NOT_NAMES = {"管理員", "管理人", "住民", "皆", "組合員", "区分所有者", "委員", "役員", "国内管理人", "専門家", "居住者", "管理会社", "理事会",
+# 「記録：中川」「講師：森田一郎（…）」「司会　山田」のように、役の後に書いた名前
+_ROLE_NAME = re.compile(r"(?:記録|講師|司会|議長|書記|作成|文責|担当|報告者|発言者|説明者|出席者?|欠席者?)\s*[:：　]\s*([^。\n]{1,80})")
+_ROLE_PART = re.compile(r"^([一-龥々ヶ]{2,4})(?:[（(].*)?$")
+_NOT_NAMES = {"管理員", "管理人", "住民", "皆", "組合員", "理事長", "理事", "監事", "委員長", "管理会社", "理事会", "未定", "全員", "なし", "区分所有者", "委員", "役員", "国内管理人", "専門家", "居住者", "管理会社", "理事会",
               "委員会", "同", "本", "各", "前", "新", "旧", "副", "現", "元", "当", "総", "全"}
 
 
@@ -136,11 +139,16 @@ def mask_names(text: str, extra: list[str] | None = None) -> tuple[str, dict[str
     for w in sorted({w.strip() for w in (extra or []) if w and w.strip()}, key=len, reverse=True):
         text = text.replace(w, token(w, "マンション"))
 
-    def repl(m):
-        w = m.group(1)
-        return w if w in _NOT_NAMES else token(w, "人物")
-
-    return _NAME.sub(repl, text), mapping
+    found = {m.group(1) for m in _NAME.finditer(text) if m.group(1) not in _NOT_NAMES}
+    for m in _ROLE_NAME.finditer(text):   # 役の後に「、」で並べた名前（敬称なし）
+        for part in re.split(r"[、，,・／/]", m.group(1)):
+            part = re.split(r"[:：　]", part.strip())[-1]   # 「、記録：中川」のように続けて書いた役
+            mm = _ROLE_PART.match(part.strip().removesuffix("氏").removesuffix("さん"))
+            if mm and mm.group(1) not in _NOT_NAMES:
+                found.add(mm.group(1))
+    for w in sorted(found, key=len, reverse=True):   # 長い名前から（「山本一郎」を「山本」より先に）
+        text = text.replace(w, token(w, "人物"))
+    return text, mapping
 
 
 def unmask(value, mapping: dict[str, str]):

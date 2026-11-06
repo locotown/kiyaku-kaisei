@@ -8,12 +8,12 @@
   <p class="lead">改正区分所有法（2026年4月施行）と標準管理規約（2025年10月改正）について質問したり、住民向けのニュース原稿・議事録・説明文を貼って確かめてもらったりできます。
   AI は、改定案づくりと同じ資料（区分所有法の条文・標準管理規約・改正の論点・お使いの規約）を読んで、<b>根拠の条番号を付けて</b>答えます。資料で確かめられないことは「資料の外」として分け、断定しません。</p></div>
 
-{% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
 {% if saved == "deleted" %}<div class="justdone">{{ icon("check") }}<span>相談の記録を消しました。</span></div>{% endif %}
 {% if saved in ("empty_text", "empty_question") %}<p class="warn"><b class="w">{{ "確かめる文章を貼ってください。" if saved == "empty_text" else "質問を書いてください。" }}</b></p>{% endif %}
 
 <section class="cs-box" id="profile" aria-labelledby="pf-h">
   <h2 id="pf-h">マンションの基本情報</h2>
+  {% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
   {% if missing %}
     <p>定足数や、可決に必要な賛成の数を答えるときに使います。<b>数はこの情報からアプリが計算します</b>（AI に推測させません）。入れていなくても相談はできます。</p>
     {{ profile_form(open=True) }}
@@ -40,10 +40,12 @@
     <div class="cs-opts">
       <label>照らす規約<span class="small">（任意。選ぶと、お使いの規約の条とも照らします）</span>
         <select name="work_id"><option value="">選ばない（区分所有法と標準管理規約で答える）</option>{% for w in works %}<option value="{{ w.id }}" {{ 'selected' if work_id == w.id }}>{{ w.name }}{{ "（想定ユーザー・架空）" if w.persona }}</option>{% endfor %}</select></label>
-      <label class="ck"><input type="checkbox" name="mask" value="1" checked><span>人名を伏せて送る<span class="small cs-ckhelp">「◯◯さん」「◯◯氏」などを記号にして AI に送り、答えでは元の名前に戻します。マンション名は、基本情報に入れると一緒に伏せます。</span></span></label>
+      <label class="ck"><input type="checkbox" name="mask" value="1" checked><span>人名を伏せて送る<span class="small cs-ckhelp">「◯◯さん」「◯◯氏」「記録：◯◯」などの名前を記号にして AI に送り、答えでは元の名前に戻します。マンション名は、基本情報に入れると一緒に伏せます。伏せた語は、答えの画面で確かめられます。</span></span></label>
+      <label>ほかに伏せる語<span class="small">（任意。「、」で区切る。例：敬称を付けずに書いた名前、部屋番号）</span><input type="text" name="mask_more" placeholder="例：中川、305号室"></label>
     </div>
     <p class="warn" data-needinfo hidden><b class="w">数を答えるには、マンションの基本情報が要ります。</b>上の<a href="#profile">「マンションの基本情報」</a>に住戸の数などを入れてから送ると、定足数や賛成の数まで答えられます（入れずに送ると、数は「基本情報が必要」と返します）。</p>
-    <p class="small">答えは総会提案の下書きを見直すための参考で、法的助言ではありません。</p>
+    <div class="cs-go"><button type="submit" class="btn" data-ai="{{ ai_note }}">{{ icon("arrow-right") }}<span data-go>質問する</span></button>
+      <span class="small">AI に相談します。1〜3分ほど・1回 約$0.1〜0.5。答えは総会提案の下書きを見直すための参考で、法的助言ではありません。</span></div>
   </form>
 </section>
 
@@ -57,9 +59,6 @@
   {% endfor %}</ul>
   {% else %}<p class="muted">まだ相談はありません。</p>{% endif %}
 </section>
-
-<div class="bar"><div class="in"><div class="t"><b>AI に相談します</b>　1〜3分ほど・1回 約$0.1〜0.5</div>
-  <button type="submit" form="cform" class="btn" data-ai="{{ ai_note }}">{{ icon("arrow-right") }}<span data-go>質問する</span></button></div></div>
 
 <script>
 (() => {  // 相談のしかたで、入れる欄を切り替える。数に関わる質問で基本情報がなければ、先に入れるよう促す

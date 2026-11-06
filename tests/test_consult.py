@@ -197,3 +197,26 @@ def test_work_page_links_to_consult_with_its_rules(board_work):
     M, store, c, wid, _, _ = board_work
     assert f'href="/consult?work={wid}"' in c.get(f"/works/{wid}").text
     assert f'<option value="{wid}" selected' in c.get(f"/consult?work={wid}").text
+
+
+def test_mask_names_after_roles_without_honorifics():
+    """「記録：中川」「出席：佐藤、鈴木」のように敬称のない名前も伏せ、同じ名前は文中のどこでも伏せる（想定ユーザーでの確認で分かった）。"""
+    masked, mapping = C.mask_names("講師：森田一郎氏（管理士）、記録：中川。中川から説明。出席：佐藤、鈴木（監事）。記録：理事会")
+    assert not any(n in masked for n in ("森田", "中川", "佐藤", "鈴木")) and "記録：理事会" in masked
+    assert set(mapping.values()) == {"森田一郎", "中川", "佐藤", "鈴木"}
+
+
+def test_reply_copy_and_profile_used(app_client):
+    from app import store
+
+    c = app_client
+    store.save_profile(C.clean_profile({"units": "48", "vote_rule": "1戸1議決権"}))
+    r = c.post("/consult", data={"mode": "check", "text": "記録：中川。総会出席者の4分の3以上", "mask": "1", "mask_more": "305号室"},
+               follow_redirects=False)
+    cid = r.headers["location"].rsplit("/", 1)[1]
+    _wait(c, cid)
+    view = c.get(f"/consult/{cid}").text
+    assert "伏せた語を見る" in view and "中川 → 人物A" in view
+    assert 'lines.push("   （根拠：" + bs.join("、")' in view          # 返信用の文で根拠を区切る
+    page = c.get("/consult").text
+    assert 'class="bar"' not in page and "ほかに伏せる語" in page   # 帯が基本情報の保存ボタンを隠さない

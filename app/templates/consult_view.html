@@ -14,7 +14,10 @@
   {% if c.mode == "check" %}<div class="quote cs-text">{{ c.text }}</div>{% if c.question %}<p class="small">特に見てほしいこと：{{ c.question }}</p>{% endif %}
   {% else %}<div class="quote cs-text">{{ c.question }}</div>{% endif %}
 </details>
-<p class="small cs-meta">照らす規約：{{ c.work_name or "選ばない（区分所有法と標準管理規約で答える）" }}{% if c.masked %}　・人名を伏せて送りました{% if c.mapping %}（{{ c.mapping|length }}語）{% endif %}{% endif %}{% if c.cost_total %}　・AI の費用 約${{ "%.2f"|format(c.cost_total) }}{% endif %}</p>
+<p class="small cs-meta">照らす規約：{{ c.work_name or "選ばない（区分所有法と標準管理規約で答える）" }}{% if c.cost_total %}　・AI の費用 約${{ "%.2f"|format(c.cost_total) }}{% endif %}</p>
+{% if c.masked %}<details class="more cs-masked"><summary>人名を伏せて送りました（{{ c.mapping|length }}語）。伏せた語を見る</summary>
+  {% if c.mapping %}<p class="small">{% for tok, word in c.mapping.items() %}<span class="nowrap">{{ word }} → {{ tok }}</span>{{ "、" if not loop.last }}{% endfor %}</p>{% else %}<p class="small">伏せた語はありません。</p>{% endif %}
+  <p class="small">伏せ忘れた名前があれば、新しく相談するときに「ほかに伏せる語」に入れてください（この相談で送った文は、もう AI に届いています）。</p></details>{% endif %}
 
 {% for t in c.turns %}{% set a = t.answer %}
 <section class="cs-turn" id="turn-{{ loop.index }}">
@@ -25,6 +28,7 @@
     <div class="warn"><b class="w">答えられませんでした。</b>{{ t.error }}
       {% if loop.last %}<form method="post" action="/consult/{{ c.id }}/rerun"><button type="submit" class="boxed" data-ai="{{ ai_note }}">{{ icon("refresh") }}もう一度答えてもらう</button></form>{% endif %}</div>
   {% elif a %}{% set n = consult_counts(a) %}
+    {% if t.profile_used %}<p class="small cs-used">計算に使った基本情報：{{ t.profile_used }}</p>{% endif %}
     <div class="cs-summary"><p>{{ a.summary }}</p><button type="button" class="linkish" data-copy="{{ a.summary }}">この答えをコピー</button>
       {% if n %}<p class="cs-chips">{% for v in ["誤り", "言い方に注意", "資料の外", "体裁", "正しい", "説明"] if n[v] %}<span class="v v-{{ v }}" title="{{ VERDICT_HELP[v] }}">{{ v }} {{ n[v] }}</span>{% endfor %}</p>{% endif %}</div>
     {% if a.need_info %}
@@ -94,10 +98,13 @@
       const v = li.querySelector(".v").textContent.trim(), q = li.querySelector("q");
       lines.push(`${i + 1}. 【${v}】` + (q ? `「${q.textContent.trim()}」` : ""));
       lines.push("   " + li.querySelector(".cs-comment").textContent.trim());
-      const s = li.querySelector(".cs-sugg p"); if (s) lines.push("   → " + s.textContent.trim());
-      const bs = li.querySelector(".cs-basis"); if (bs) lines.push("   （" + bs.textContent.trim() + "）");
+      const s = li.querySelector(".cs-sugg p");
+      if (s) lines.push("   " + (v === "資料の外" ? "確かめ方：" : v === "正しい" || v === "説明" ? "補足：" : "直し案：") + s.textContent.trim());
+      const bs = [...li.querySelectorAll(".cs-basis span")].map((x) => x.textContent.trim());
+      if (bs.length) lines.push("   （根拠：" + bs.join("、") + "）");
     });
-    lines.push("", "※ ととのう規約（AI）による確認です。総会提案の下書きを見直すための参考で、法的助言ではありません。");
+    lines.unshift({{ ("「" ~ c.title ~ "」について") | tojson }}, "");
+    lines.push("", {{ ("※ ととのう規約（AI）による" ~ ("確認" if c.mode == "check" else "回答") ~ "です。総会提案の下書きを見直すための参考で、法的助言ではありません。") | tojson }});
     copy(lines.join("\n"), reply);
   });
 })();

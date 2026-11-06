@@ -449,3 +449,9 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 }
 .eyebrow.wk .wk-ask { margin-left: var(--space-3); font-size: var(--text-xs); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .eyebrow.wk .wk-ask .icon { width: 14px; height: 14px; }
+.tk .cs-fu, .tk .cs-basis, .tk .cs-ih, .tk .cs-meta, .tk .cs-used, .tk .cs-masked p { text-align: left; }
+.cs-go { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; margin-top: var(--space-4); }
+.cs-used { color: var(--color-ok); margin: 0 0 var(--space-2); }
+.cs-masked { margin: 0 0 var(--space-3); }
+.pf label, .pf details label { display: block; margin: var(--space-3) 0 0; font-weight: 700; }
+.pf input[type=text], .pf select, .pf textarea { width: 100%; margin-top: 4px; }

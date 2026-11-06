@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 import traceback
 from datetime import datetime
@@ -89,7 +90,8 @@ def register(app, templates, corpus_for) -> None:
 
             def done(d):
                 t = d["turns"][n]
-                t.update(status="済み", answer=shown, answer_masked=answer, cost=cost, tools=calls, done_at=_now(), step="")
+                t.update(status="済み", answer=shown, answer_masked=answer, cost=cost, tools=calls, done_at=_now(), step="",
+                         profile_used=profile_line(profile) if "calc_votes" in calls or "get_building_info" in calls else "")
                 d["cost_total"] = round(sum(x.get("cost") or 0 for x in d["turns"]), 4)
             store.update_consult(cid, done)
         except Exception as e:  # 画面に出す（APIキーの値などは出さない）
@@ -103,10 +105,11 @@ def register(app, templates, corpus_for) -> None:
         RUNNING.add(cid)
         threading.Thread(target=_run, args=(cid, n), daemon=True).start()
 
-    def _mask(text: str, question: str, masked: bool, profile: dict) -> tuple[str, str, dict]:
+    def _mask(text: str, question: str, masked: bool, profile: dict, more: str = "") -> tuple[str, str, dict]:
         if not masked:
             return text, question, {}
         extra = [profile.get("name", "")] if profile.get("name") else []
+        extra += [w.strip() for w in re.split(r"[、,，\s]+", more or "") if len(w.strip()) >= 2]
         joined, mapping = C.mask_names(text + "\n␞\n" + question, extra)
         t, _, q = joined.partition("\n␞\n")
         return t, q, mapping
@@ -150,9 +153,9 @@ def register(app, templates, corpus_for) -> None:
                 work_id = ""
         profile = store.load_profile()
         masked = bool(form.get("mask"))
-        sent_text, sent_q, mapping = _mask(text[:20000], question[:2000], masked, profile)
+        sent_text, sent_q, mapping = _mask(text[:20000], question[:2000], masked, profile, str(form.get("mask_more") or ""))
         first = next((ln.strip(" ◆■●・　") for ln in (text if mode == "check" else question).split("\n") if ln.strip(" ◆■●・　")), "")
-        title = first[:40] or "相談"
+        title = (first[:40] + ("…" if len(first) > 40 else "")) or "相談"
         cid = _new_id()
         work_name = ""
         if work_id:
