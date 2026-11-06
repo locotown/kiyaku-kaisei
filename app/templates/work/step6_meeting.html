@@ -9,10 +9,12 @@
       <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
     {%- elif finals and work.board_changed_after_meeting %}<div class="t"><b>総会の結果を保存し直してください</b><span class="muted">総会で可決した内容と合っているか確かめてから</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button>
-    {%- elif finals and finals|selectattr("left")|list %}<div class="t"><b>改定案に〔選択〕が残っているため、最新の規約を作れない文書があります</b><span class="muted">理事会で案を選び、改定案を作り直してから作ってください</span></div>
-      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
     {%- elif finals %}<div class="t"><b>最新の規約ができました</b><span class="muted">下の「最新の規約・細則」から Word でダウンロードできます</span></div>
       <a class="btn" href="#finals">最新の規約へ{{ icon("arrow-right") }}</a>
+    {%- elif not work.explain or work.explain_stale %}
+      {# 総会の前の段階：先に説明を作る（作り直す）よう案内する。総会が済んでいれば、下で記録もできる（画面の総点検で分かった） #}
+      <div class="t"><b>総会の前に、住民向けの説明を{{ "作り直しましょう" if work.explain else "作りましょう" }}</b>このステップは総会のあとに使います。総会が済んでいれば、下で議案ごとの結果を選んで <button type="submit" form="meetingform">総会の結果を保存する</button></div>
+      <a class="btn" href="#explain">ステップ5へ{{ icon("arrow-right") }}</a>
     {%- else %}<div class="t"><b>総会の結果を記録しましょう</b><span class="muted">議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存する</button>{% endif %}{% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>

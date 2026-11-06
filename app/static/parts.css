@@ -5,6 +5,7 @@
    .tiles    数のタイル（大きい数字と短い名前。押すとその場所へ移る・絞り込む）
    .gh       見出し付きのまとまり（色の縦線と件数）
    .alertbox 注意の枠（何が起きたか・どうすればよいか）
+   .note2 知らせの枠（注意ほど強くない）
    .card2    入力・結果のカード（白い面の枠。.accent で上に濃い線）
    .actend   内容の最後に置く、主なボタンの行
 */
@@ -224,3 +225,14 @@
   .tk .ar-line { grid-template-columns: 1fr; }
   .tk .mini2 { width: 100%; grid-template-columns: repeat(3, 1fr); } .tk .mini2 label { text-align: center; }
 }
+
+/* 資料を作る前の見込み（ステップ4・5） */
+.tk .preview h2 { font-size: var(--text-lg); margin: 0 0 var(--space-1); }
+.tk .preview p { margin: var(--space-2) 0 0; text-align: left; }
+.tk .tierlist { list-style: none; padding: 0; margin: var(--space-3) 0 0; display: grid; gap: var(--space-2); }
+.tk .tierlist li { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border-left: 4px solid var(--color-primary); background: var(--color-bg); border-radius: 0 var(--radius-2) var(--radius-2) 0; margin: 0; }
+.tk .tierlist li span { font-size: var(--text-sm); color: var(--color-ink-2); }
+.tk .bp-n { font-size: var(--text-md, 1.0625rem); }
+/* 知らせの枠（注意ほど強くない。例：総会の結果を記録済みで、判断を変えるとどうなるか） */
+.tk .note2 { border-left: 4px solid var(--color-ink-3); background: var(--color-bg); border-radius: 0 var(--radius-1) var(--radius-1) 0; padding: var(--space-2) var(--space-3); margin: var(--space-3) 0 var(--space-4); text-align: left; }
+.tk .note2 .w { color: var(--color-ink); }

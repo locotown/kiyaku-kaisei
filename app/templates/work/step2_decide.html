@@ -48,8 +48,8 @@
       <span class="cat {{ {'必須': 'must', '推奨': 'rec', '参考': 'ref'}.get(f.category, 'ref') }}">{{ f.category }}</span>
       <span class="tt ftitle">{{ v.title }}{% if f.needs_confirmation %}<span class="tag">法律上必要かは確認中</span>{% endif %}
         <span class="sub">対象：{{ v.target }}{% if v.chapter %}（{{ v.chapter }}）{% endif %}</span>
-        {% if kind == "chg" %}<span class="cmp1"><span class="cmp1-k">今</span><span>{{ f.current_excerpt|truncate(70, True, "…") }}</span>
-          <span class="cmp1-k new">改定案</span><span class="cmp1-new">{{ v.proposal|truncate(80, True, "…") }}</span></span>{% endif %}</span>
+        {% if kind == "chg" %}<span class="cmp1"><span class="cmp1-k">今</span><span>{{ f.current_excerpt|striptags|truncate(70, True, "…") }}</span>
+          <span class="cmp1-k new">改定案</span><span class="cmp1-new">{{ v.proposal|striptags|truncate(80, True, "…") }}</span></span>{% endif %}</span>
       {% if f.category == "必須" %}<span class="st ok">{{ icon("check") }}改定案に入っています</span>
       {% else %}<span class="st {{ {'採用': 'ok', '不採用': 'no'}.get(d.decision, 'hold') }}" id="st-{{ i }}">{% if d.decision == "採用" %}{{ icon("check") }}{% endif %}{{ choice_help.get(d.decision, "あとで決める") }}</span>{% endif %}
       <span class="chev">{{ icon("chev-down") }}</span>
@@ -76,6 +76,7 @@
     <div>
       <p class="nx-k">次にすること</p>
       <p class="nx-t" data-nx-title>{% if busy %}AI が作業しています。終わるまでお待ちください
+        {%- elif work.status == "改定案エラー" %}改定案づくりが途中で止まりました。もう一度作りましょう
         {%- elif has_draft %}改定案ができています。「3. 改定案」で確かめましょう
         {%- elif work.draft %}判断が変わりました。改定案を作り直してください
         {%- elif not n_choose %}決めることはありません。改定案を作りましょう
@@ -87,7 +88,7 @@
         {% if not has_draft %}{% set pl = draft_plan_for(work) %}改定案づくりは 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど。{% endif %}</p>
     </div>
     {% if has_draft %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
-    {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>{% endif %}
+    {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案をもう一度作る" if work.status == "改定案エラー" else ("改定案を作り直す" if work.draft else "改定案を作る")) }}{{ icon("arrow-right") }}</button>{% endif %}
   </div>
 
   {# 区分：足す＝必須以外で今の規約に定めがない指摘、変える＝推奨で定めがある、参考＝参考で定めがある（作者の声：足すは軽く、変えるは比べて） #}
@@ -157,7 +158,7 @@
         <div class="ar-line">
           <button type="button" class="ar-name" data-row="{{ i }}" aria-expanded="false" aria-controls="am-{{ i }}">
             <b><span class="ar-tri" aria-hidden="true">▸</span> {{ v.title }}{% if f.category != "推奨" %} <span class="cat ref">{{ f.category }}</span>{% endif %}</b>
-            <span>{% if f.choice_needed %}<span class="w">⚠ 〔選択〕あり：理事会で案を選びます</span>{% elif f.needs_confirmation %}<span class="w">⚠ 法律上必要かは確認中</span>{% else %}{{ v.issue|truncate(48, True, "…") }}{% endif %}</span></button>
+            <span>{% if f.choice_needed %}<span class="w">⚠ 〔選択〕あり：理事会で案を選びます</span>{% elif f.needs_confirmation %}<span class="w">⚠ 法律上必要かは確認中</span>{% else %}{{ v.issue|striptags|truncate(48, True, "…") }}{% endif %}</span></button>
           <div class="decbox ar-dec" id="db-{{ i }}" data-index="{{ i }}" data-saved="{{ d.decision }}">
             <div class="mini2" role="radiogroup" aria-label="{{ v.title }} を改定案に入れるかどうか">{% for c, lab in (("採用", "入れる"), ("不採用", "見送る"), ("保留", "あとで")) %}
               <label><input type="radio" name="decision_{{ i }}" value="{{ c }}" {% if d.decision == c or (c == "保留" and d.decision not in ("採用", "不採用")) %}checked{% endif %}>{{ lab }}</label>{% endfor %}</div>

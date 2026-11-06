@@ -7,9 +7,19 @@
     {% if board %}この改定案の議題は {% for t in tiers %}{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(t)] }}{% endfor %} の段にあります。{% endif %}
     ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p></div>
   {% set nextbar %}
-    {% if not board %}
+    {% if not board and work.status == "検討資料エラー" %}
+      <div class="t"><b>検討資料づくりが途中で止まりました</b>もう一度作りましょう（上の赤い枠に、止まった理由があります）</div>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>検討資料をもう一度作る{{ icon("arrow-right") }}</button>
+    {% elif not board %}
       <div class="t"><b>理事会の検討資料を作ります</b>改定案を、理解する・判断する・確認するの3段に分けます</div>
       <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% elif board_state and board_state.ready and work.board_changed_after_meeting %}
+      {# 総会の結果を記録したあとで判断を変えた：済んだとは言わず、説明と最新の規約の作り直しへ（画面の総点検で分かった） #}
+      <div class="t"><b>総会のあとで判断を変えました</b><span class="unsaved" data-board-unsaved hidden></span>住民向け説明と最新の規約が、総会で可決した内容と変わっています。説明から作り直してください。</div>
+      <a class="btn" href="#explain">住民への説明を作り直す{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.ready and work.meeting and (work.meeting.results or {}).values()|select|list %}
+      <div class="t"><b>理事会での検討と総会の結果の記録が済んでいます</b><span class="unsaved" data-board-unsaved hidden></span>ここで判断を変えると、すぐ保存します。<button type="submit" form="boarddec">判断を保存し直す</button></div>
+      <a class="btn" href="#meeting">総会の結果を見る{{ icon("arrow-right") }}</a>
     {% elif board_state and board_state.ready %}
       <div class="t"><b>理事会での検討が済みました</b><span class="unsaved" data-board-unsaved hidden></span>判断を変えると、すぐ保存します。<button type="submit" form="boarddec">判断を保存し直す</button></div>
       <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
@@ -25,6 +35,17 @@
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選んでください（選ぶとすぐ保存します）。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if not board and work.draft %}{% set bp = board_preview(work) %}
+  {# 作る前でも、理事会で何をするかと、この改定案がどう分かれる見込みかを見せる #}
+  <section class="card2 preview" aria-labelledby="bp-h">
+    <h2 id="bp-h">理事会の検討資料でできること</h2>
+    <p class="small">改定案の条を議題にまとめ、次の3段に分けます。理事会（委員会）では、段ごとにすることが違います。</p>
+    <ol class="tierlist">{% for t in ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"] %}
+      <li><b>{{ "①②③"[loop.index0] }} {{ t }}：{{ board_tasks[t][0] }}</b><span>{{ board_tasks[t][1] }}</span></li>{% endfor %}</ol>
+    <p class="bp-n">この改定案は <b>{{ bp.total }}条</b>。法律の改正に合わせる変更 <b>{{ bp.required }}条</b>は①に、それ以外の <b>{{ bp.other }}条</b>は②か③に入ります（AI が議題にまとめます）。{% if bp.choices %}〔選択〕のある条 <b>{{ bp.choices }}条</b>は、②で案を選びます。{% endif %}</p>
+    <p class="small">作ると、印刷できる検討資料（Word でも保存できます）と、議題ごとに判断を記録する欄がこの画面にできます。判断は選ぶとすぐ保存し、必要なら対象の条だけを作り直します。</p>
+  </section>
+  {% endif %}
   {% if board %}
     <div class="acts">
       <a class="tbtn2" href="/works/{{ id }}/board">{{ icon("printer") }}検討資料を開く（印刷用）</a>
@@ -36,7 +57,7 @@
     {% if reasons %}<details class="more decreasons"><summary>ステップ2で、理由を書いた判断（{{ reasons|length }}件。まとめて決めたものは除く）</summary>
       <ul>{% for i, f, d in reasons %}<li><b>{{ views[i].title if views and i in views else f.issue[:30] }}</b>：{{ choice_help.get(d.decision, d.decision) }}　<span class="small">理由：{{ d.reason }}</span></li>{% endfor %}</ul>
       <p class="small">議事録や引き継ぎに使えます。判断や理由は、ステップ2で直せます。</p></details>{% endif %}
-    {% if work.meeting and (work.meeting.results or {}).values()|select|list %}<p class="warn"><b class="w">総会の結果を記録済みです。</b>ここで判断を変えると、最新の規約と住民向け説明が、総会で可決した内容と変わります。変えた場合は、ステップ5・6で作り直してください。</p>{% endif %}
+    {% if work.meeting and (work.meeting.results or {}).values()|select|list %}<p class="{{ 'warn' if work.board_changed_after_meeting else 'note2' }}"><b class="w">総会の結果を記録済みです。</b>ここで判断を変えると、最新の規約と住民向け説明が、総会で可決した内容と変わります。変えた場合は、ステップ5・6で作り直してください。</p>{% endif %}
     <div id="board-state">
     {% if board_state %}
       {% include "work/_partial_result.html" %}
@@ -187,5 +208,5 @@
   <form action="/works/{{ id }}/board" method="post" id="boardmake">
     {% if board %}<button type="submit" data-ai="{{ ai_note('board_redo', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
   </form>
-  <div class="actend nxs">{{ nextbar }}</div>
+  {% if board %}<div class="actend nxs">{{ nextbar }}</div>{% endif %}
 </section>

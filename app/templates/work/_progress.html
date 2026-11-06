@@ -13,7 +13,7 @@
       <p class="small">{{ "AI が理事会の判断を対象の条だけに反映し、別の AI が直した条を確かめています。ほかの条は今の文のまま残ります。" if part else what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます。あとで、トップ画面の「これまでの作業」から戻れます）。終わると、結果の画面に自動で移ります。</p></div></div>
   <ol class="rb-phases" id="steps">{% for st in progress.steps %}
     <li class="{{ 'done' if loop.index0 < progress.stage else ('now' if loop.index0 == progress.stage else '') }}">{{ st }}</li>{% endfor %}</ol>
-  <p class="small rb-now">今：<span id="current">{{ progress.current|replace("採点役", "確認役") }}</span>　<span class="nowrap"><span class="pulse"></span>最後の動き <span id="lastage">{{ progress.last_age }}秒前</span></span></p>
+  <p class="small rb-now">今：<span id="current">{{ progress.current|replace("採点役", "確認役") }}</span>　<span class="nowrap"><span class="pulse"></span>最後の動き {% set la = progress.last_age %}<span id="lastage">{% if la < 60 %}{{ la }}秒{% elif la >= 3600 %}{{ la // 3600 }}時間{{ la % 3600 // 60 }}分{% else %}{{ la // 60 }}分{{ "%02d"|format(la % 60) }}秒{% endif %}前</span></span></p>
   <p class="small rb-quiet" id="quiet"></p>
   {% if work.status == "点検中" %}
   <div class="pcounts small" id="counts">確認した規約の条 <b data-c="規約の条">{{ progress.counts["規約の条"] }}</b>回・標準管理規約との照合 <b data-c="標準管理規約">{{ progress.counts["標準管理規約"] }}</b>回・区分所有法との照合 <b data-c="区分所有法">{{ progress.counts["区分所有法"] }}</b>回・受け付けた指摘 <b data-c="指摘">{{ progress.counts["指摘"] }}</b>件</div>

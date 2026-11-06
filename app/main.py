@@ -1931,6 +1931,19 @@ def edit_counts(work: dict) -> dict:
 
 
 templates.env.globals["edit_counts"] = edit_counts
+
+
+def board_preview(work: dict) -> dict:
+    """理事会の検討資料を作る前の見込み：改定する条のうち、法律の改正に合わせる変更（①に入る）とそれ以外（②か③）、〔選択〕のある条。"""
+    from core.topics import REQUIRED_TOPIC_IDS
+
+    ams = (work.get("draft") or {}).get("amendments", [])
+    req = sum(1 for a in ams if set(a.get("finding_refs") or []) & set(REQUIRED_TOPIC_IDS))
+    return {"total": len(ams), "required": req, "other": len(ams) - req,
+            "choices": sum(1 for a in ams if a.get("choices"))}
+
+
+templates.env.globals["board_preview"] = board_preview
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
     from core.progress import draft_plan

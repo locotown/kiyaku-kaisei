@@ -2,9 +2,17 @@
 {% from "_icons.html" import icon %}
 <section class="panel" data-step="review" id="documents">
   <div class="stepttl"><p class="eyebrow">ステップ 1 ／ 6</p><h1 class="page-title">読み込んだ規約</h1>
-    <p class="lead">{% if work.findings %}規約を読み込み、点検が済みました。次は、指摘を判断します。{% elif busy %}規約を読み込み、点検しています。終わると、指摘の判断の画面に移ります。{% else %}規約を読み込みました。{% endif %}</p></div>
-  {% set nextbar %}<div class="t"><b>点検が済みました。次は、指摘を判断します</b><span class="muted">見つかった指摘 {{ work.findings|length }}件を、改定案に入れるかどうか決めます</span></div>
-    <a class="btn" href="#findings">指摘を判断する{{ icon("arrow-right") }}</a>{% endset %}
+    <p class="lead">{% if work.findings %}規約を読み込み、点検が済みました。{% if not work.draft %}次は、指摘を判断します。{% endif %}{% elif busy %}規約を読み込み、点検しています。終わると、指摘の判断の画面に移ります。{% else %}規約を読み込みました。{% endif %}</p></div>
+  {% set jcur = (journey.steps|selectattr("key", "equalto", journey.current)|list or [none])[0] %}
+  {% set nextbar %}{% if jcur and journey.current not in ("review", "decide") %}
+    {# 先へ進んでいる作業では、いまの段階へ案内する（「次は指摘を判断」と出続けていた。画面の総点検で分かった） #}
+    <div class="t"><b>点検は済んでいます。今は「{{ journey.steps.index(jcur) + 1 }}. {{ jcur.label }}」の段階です</b><span class="muted">{{ journey.next }}</span></div>
+    <a class="btn" href="#{{ jcur.anchor }}">{{ jcur.label }}へ{{ icon("arrow-right") }}</a>
+  {% elif not journey.current %}
+    <div class="t"><b>点検は済んでいます。すべての段階が済みました</b><span class="muted">最新の規約は「6. 総会のあと」から開けます</span></div>
+    <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
+  {% else %}<div class="t"><b>点検が済みました。次は、指摘を判断します</b><span class="muted">見つかった指摘 {{ work.findings|length }}件を、改定案に入れるかどうか決めます</span></div>
+    <a class="btn" href="#findings">指摘を判断する{{ icon("arrow-right") }}</a>{% endif %}{% endset %}
   {% if work.findings %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% endif %}
