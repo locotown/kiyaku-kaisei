@@ -3,10 +3,15 @@
 <section class="panel" data-step="review" id="documents">
   <div class="stepttl"><p class="eyebrow">ステップ 1 ／ 6</p><h1 class="page-title">読み込んだ規約</h1>
     <p class="lead">{% if work.findings %}規約を読み込み、点検が済みました。次は、指摘を判断します。{% elif busy %}規約を読み込み、点検しています。終わると、指摘の判断の画面に移ります。{% else %}規約を読み込みました。{% endif %}</p></div>
-  <div class="stats">
-    <div><div class="k">規約の型</div><div class="v">{{ work.info["型"] }}</div></div>
-    <div><div class="k">規約本体</div><div class="v">{{ work.articles }}<small>条</small></div></div>
-    <div><div class="k">見つかった指摘</div><div class="v">{{ work.findings|length }}<small>件</small></div></div>
+  {% set nextbar %}<div class="t"><b>点検が済みました。次は、指摘を判断します</b><span class="muted">見つかった指摘 {{ work.findings|length }}件を、改定案に入れるかどうか決めます</span></div>
+    <a class="btn" href="#findings">指摘を判断する{{ icon("arrow-right") }}</a>{% endset %}
+  {% if work.findings %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
+  {% endif %}
+  <div class="tiles">
+    <div class="tile t-hold"><span class="tn">{{ work.info["型"] }}</span><span class="tl">規約の型</span></div>
+    <div class="tile t-main"><span class="tn">{{ work.articles }}</span><span class="tl">規約本体の条</span></div>
+    <div class="tile t-must"><span class="tn">{{ work.findings|length }}</span><span class="tl">見つかった指摘</span>{% if work.findings %}<span class="ts">必須 {{ work.findings|selectattr("category", "equalto", "必須")|list|length }}件</span>{% endif %}</div>
   </div>
   <details class="orgedit" {% if done == "org" %}open{% endif %}><summary>マンション名・管理組合名：<b>{{ work.org or "（未入力）" }}</b>{% if done == "org" %} <span class="ok">{{ icon("check") }}保存しました</span>{% endif %}</summary>
     <form action="/works/{{ id }}/org" method="post">
@@ -30,7 +35,6 @@
   </details>
   {% endif %}
   {% if work.findings %}
-  <div class="bar"><div class="in"><div class="t"><b>点検が済みました</b>　次は、指摘の判断です</div>
-    <a class="btn" href="#findings">指摘を判断する{{ icon("arrow-right") }}</a></div></div>
+  <div class="actend nxs">{{ nextbar }}</div>
   {% endif %}
 </section>

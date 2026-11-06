@@ -6,6 +6,22 @@
     {% set tiers = (board or {}).get("items", [])|map(attribute="tier")|unique|list if board else [] %}
     {% if board %}この改定案の議題は {% for t in tiers %}{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(t)] }}{% endfor %} の段にあります。{% endif %}
     ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p></div>
+  {% set nextbar %}
+    {% if not board %}
+      <div class="t"><b>理事会の検討資料を作ります</b>改定案を、理解する・判断する・確認するの3段に分けます</div>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% elif board_state and board_state.ready %}
+      <div class="t"><b>理事会での検討が済みました</b><span class="unsaved" data-board-unsaved hidden></span>判断を変えると、すぐ保存します。<button type="submit" form="boarddec">判断を保存し直す</button></div>
+      <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.needs_redraft and redraft_targets(work).amendments %}
+      {# 作り直しが必要なときは、次にすること（対象の条だけ作り直す）を主のボタンにする（「保存する」を押し続けて先へ進めない、という声から） #}
+      <div class="t"><b>次は、対象の条だけ作り直します</b><span class="unsaved" data-board-unsaved hidden></span>作り直す条：{{ redraft_targets(work).refs|join("、") }}</div>
+      <button type="submit" form="redraftform" name="mode" value="partial" class="btn" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>対象の条だけ作り直す{{ icon("arrow-right") }}</button>
+    {% else %}
+      <div class="t"><b>議題ごとに判断を選びます（選ぶとすぐ保存します）</b><span class="unsaved" data-board-unsaved hidden></span>{{ board_state.reason if board_state else "" }}</div>
+    {% endif %}
+  {% endset %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選んでください（選ぶとすぐ保存します）。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
   {% if board %}
     <div class="acts">
@@ -100,7 +116,10 @@
     (() => {
       const form = document.getElementById("boarddec"); if (!form) return;
       const valueOf = (k) => { const x = form.querySelector(`input[name="b_q_${k}"]:checked, input[type=text][name="b_q_${k}"]`); return x ? x.value.trim() : ""; };
-      const note = () => document.getElementById("board-unsaved");
+      // 保存の知らせ（上の「次にすること」と下のボタンの行の2か所）。1つ目を代表に返し、setNote で両方を変える
+      const notes = () => document.querySelectorAll("[data-board-unsaved]");
+      const note = () => { const n = notes(); return n.length ? { set hidden(v) { n.forEach((x) => { x.hidden = v; }); },
+        set textContent(v) { n.forEach((x) => { x.textContent = v; }); }, set className(v) { n.forEach((x) => { x.className = v; }); } } : null; };
       const show = () => {
         let dirty = false;
         form.querySelectorAll(".cref").forEach((el) => {
@@ -123,8 +142,9 @@
           // 保存した結果（作り直しが必要か・下の帯）を、画面を読み直さずに入れ替える（書いている途中の欄はそのまま）
           const doc = new DOMParser().parseFromString(await (await fetch(location.pathname, { cache: "no-store" })).text(), "text/html");
           const st = doc.getElementById("board-state"); if (st) document.getElementById("board-state").replaceWith(st);
-          const bar = doc.querySelector('[data-step=board] .bar'), mine = document.querySelector('[data-step=board] .bar');
-          if (bar && mine) mine.replaceWith(bar);
+          // 「次にすること」の枠と、下のボタンの行を入れ替える
+          const theirs = doc.querySelectorAll('[data-step=board] .nxs'), mine = document.querySelectorAll('[data-step=board] .nxs');
+          if (theirs.length === mine.length) mine.forEach((m, x) => m.replaceWith(theirs[x]));
           const jn = doc.getElementById("j-next"), jm = document.getElementById("j-next");  // 上の「次にすること」も入れ替える
           if (jn && jm) jm.replaceWith(jn);
           form.querySelectorAll(".cref").forEach((el) => { el.dataset.saved = valueOf(el.dataset.q); });
@@ -154,19 +174,5 @@
   <form action="/works/{{ id }}/board" method="post" id="boardmake">
     {% if board %}<button type="submit" data-ai="{{ ai_note('board_redo', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
   </form>
-  <div class="bar"><div class="in">
-    {% if not board %}
-      <div class="t"><b>理事会の検討資料を作ります</b>　改定案を、理解する・判断する・確認するの3段に分けます</div>
-      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
-    {% elif board_state and board_state.ready %}
-      <div class="t"><b>理事会での検討が済みました</b>　<span class="unsaved" id="board-unsaved" hidden></span>判断を変えると、すぐ保存します。<button type="submit" form="boarddec">判断を保存し直す</button></div>
-      <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
-    {% elif board_state and board_state.needs_redraft and redraft_targets(work).amendments %}
-      {# 作り直しが必要なときは、次にすること（対象の条だけ作り直す）を主のボタンにする（「保存する」を押し続けて先へ進めない、という声から） #}
-      <div class="t"><b>次は、対象の条だけ作り直します</b>　<span class="unsaved" id="board-unsaved" hidden></span>作り直す条：{{ redraft_targets(work).refs|join("、") }}</div>
-      <button type="submit" form="redraftform" name="mode" value="partial" class="btn" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>対象の条だけ作り直す{{ icon("arrow-right") }}</button>
-    {% else %}
-      <div class="t"><b>議題ごとに判断を選びます（選ぶとすぐ保存します）</b>　<span class="unsaved" id="board-unsaved" hidden></span>{{ board_state.reason if board_state else "" }}</div>
-    {% endif %}
-  </div></div>
+  <div class="actend nxs">{{ nextbar }}</div>
 </section>

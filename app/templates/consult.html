@@ -56,7 +56,7 @@
   <ul class="cs-list">{% for c in consults %}{% set last = c.turns[-1] %}{% set n = consult_counts(last.answer) if last.answer else {} %}
     <li><a href="/consult/{{ c.id }}"><b>{{ c.title }}</b></a>
       <span class="small">{{ c.created }}・{{ modes[c.mode] }}{% if c.turns|length > 1 %}・やり取り {{ c.turns|length }}回{% endif %}・{{ last.status }}{% if c.cost_total %}・約${{ "%.2f"|format(c.cost_total) }}{% endif %}</span>
-      {% if n %}<span class="cs-chips">{% for v, k in n.items() %}<span class="v v-{{ v }}">{{ "資料で確かめられない" if v == "資料の外" else v }} {{ k }}</span>{% endfor %}</span>{% endif %}</li>
+      {% if n %}<span class="cs-chips">{% for v, k in n.items() %}<span class="vd v-{{ v }}">{{ "資料で確かめられない" if v == "資料の外" else v }} {{ k }}</span>{% endfor %}</span>{% endif %}</li>
   {% endfor %}</ul>
   {% else %}<p class="muted">まだ相談はありません。</p>{% endif %}
 </section>

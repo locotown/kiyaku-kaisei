@@ -3,6 +3,24 @@
 <section class="panel" data-step="draft" id="next">
   <div class="stepttl"><p class="eyebrow">ステップ 3 ／ 6</p><h1 class="page-title">{{ "改定案を確かめる" if work.draft else "改定案を作る" }}</h1>
     <p class="lead">{% if work.draft %}改定案ができました。規約の改定は総会の特別決議、細則の改定は普通決議です。{% else %}判断した指摘から、改定案と新旧対照表を作ります。{% endif %}</p></div>
+  {% set resumable = work.status == "改定案エラー" and work.interrupted_session %}
+  {% set nextbar %}
+    {% if resumable %}
+      <div class="t"><b>改定案づくりが途中で止まりました</b>続きから進めると、最初から作り直すより費用を抑えられます。
+        <button type="submit" form="draftform" data-ai="{{ ai_note('redraft', work) }}" {% if work.draft_with_board %}formaction="/works/{{ id }}/board/redraft"{% endif %}>最初から作り直す</button></div>
+      <button type="submit" form="resumeform" class="btn" data-ai="{{ ai_note('resume', work) }}">途中から再開する{{ icon("arrow-right") }}</button>
+    {% elif not work.draft or work.draft_stale %}
+      <div class="t"><b>{{ "判断が変わりました" if work.draft_stale else "改定案を作ります" }}</b><span class="muted">{{ summary.next }}</span></div>
+      <button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>
+    {% elif not board %}
+      <div class="t"><b>次は、理事会での検討です</b>印刷用の検討資料を作り、議題ごとに判断を記録します</div>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% else %}
+      <div class="t"><b>次は、理事会での検討です</b>検討資料はできています</div>
+      <a class="btn" href="#board">理事会の検討へ{{ icon("arrow-right") }}</a>
+    {% endif %}
+  {% endset %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "改定案作成中" and work.draft %}
     {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}条）。下の「新旧対照表で確かめる」で中身を確認し、次は理事会での検討です。</span></div>
     {% else %}<div class="justdone warn">{{ icon("alert") }}<span>改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}条）。下の「確かめた結果」を読んでから進んでください。</span></div>{% endif %}
@@ -76,25 +94,9 @@
   {% endif %}
   {% if work.draft %}{% set note_doc = "taisho" %}{% include "work/_notes_box.html" %}{% endif %}
   {# 途中で止まった改定案づくりは、AI のセッションにつなぎ直して続きから進められる（最初から作り直すより費用を抑えられる） #}
-  {% set resumable = work.status == "改定案エラー" and work.interrupted_session %}
   <form action="/works/{{ id }}/draft" method="post" id="draftform">
     {% if work.draft and not work.draft_stale and not resumable %}<button type="submit" data-ai="{{ ai_note('redraft', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}改定案を作り直す</button>{% endif %}
   </form>
   <form action="/works/{{ id }}/draft/resume" method="post" id="resumeform"></form>
-  <div class="bar"><div class="in">
-    {% if resumable %}
-      <div class="t"><b>改定案づくりが途中で止まりました</b>　続きから進めると、最初から作り直すより費用を抑えられます。
-        <button type="submit" form="draftform" data-ai="{{ ai_note('redraft', work) }}" {% if work.draft_with_board %}formaction="/works/{{ id }}/board/redraft"{% endif %}>最初から作り直す</button></div>
-      <button type="submit" form="resumeform" class="btn" data-ai="{{ ai_note('resume', work) }}">途中から再開する{{ icon("arrow-right") }}</button>
-    {% elif not work.draft or work.draft_stale %}
-      <div class="t"><b>{{ "判断が変わりました" if work.draft_stale else "改定案を作ります" }}</b>　<span class="muted">{{ summary.next }}</span></div>
-      <button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>
-    {% elif not board %}
-      <div class="t"><b>次は、理事会での検討です</b>　印刷用の検討資料を作り、議題ごとに判断を記録します</div>
-      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
-    {% else %}
-      <div class="t"><b>次は、理事会での検討です</b>　検討資料はできています</div>
-      <a class="btn" href="#board">理事会の検討へ{{ icon("arrow-right") }}</a>
-    {% endif %}
-  </div></div>
+  <div class="actend nxs">{{ nextbar }}</div>
 </section>

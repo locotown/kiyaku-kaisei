@@ -72,3 +72,29 @@
 .tk [data-step="decide"] .bulkbox { margin-top: 0; }
 /* 「次にすること」の枠があるステップを見ているときは、上の1行の案内を出さない（同じことを2回言わない） */
 .tk main:has(.panel:not([hidden]) .nx) #j-next { display: none; }
+
+/* ---- 「次にすること」の枠（ステップ1・3〜6：文とボタンの組み立てを、下の行と共通にした形） ---- */
+.tk .nx.nxb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); }
+.nxb > .nx-k { flex-basis: 100%; margin: 0; }
+.tk .nxb > .t, .tk .actend > .t { flex: 1 1 320px; min-width: 0; text-align: left; }
+.tk .nxb > .t > b:first-child { display: block; font-size: var(--text-lg); color: var(--color-ink); line-height: 1.5; }
+.tk .nxb > .t .muted, .tk .actend > .t .muted { font-size: var(--text-sm); }
+.tk .actend > .t > b:first-child { margin-right: var(--space-2); }
+
+/* ---- 既存の部品を、共通部品の見た目にそろえる（各画面の書き換えを少なくするため、CSS で寄せる） ---- */
+/* 数の表 → 数のタイル */
+.tk .stats { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-2); border: 0; margin: 0 0 var(--space-4); }
+.tk .stats > div, .tk .stats > div + div { background: var(--color-surface); border: 1px solid var(--color-line-2); border-top: 4px solid var(--color-primary);
+  border-radius: var(--radius-1); padding: var(--space-2) var(--space-3); grid-column: auto; }
+.tk .stats .k { font-weight: 700; color: var(--color-ink-2); }
+.tk .stats .v { font-size: 28px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; } .tk .stats .v small { margin-left: 0; }
+/* 注意 → 注意の枠 */
+.tk .warn { border: 2px solid var(--color-must); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: var(--space-3) 0 var(--space-4); }
+.tk .warn > strong:first-child, .tk .warn > b:first-child { display: inline; }
+/* 済んだことの知らせ → 緑の枠 */
+.tk .justdone { border: 1px solid var(--color-ok); border-left: 4px solid var(--color-ok); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); }
+.tk .justdone.warn { border-color: var(--color-must); }
+@media (max-width: 640px) {
+  .tk .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk .stats > div:nth-child(3) { grid-column: auto; border-left: 1px solid var(--color-line-2); padding-left: var(--space-3); border-top: 4px solid var(--color-primary); }
+}

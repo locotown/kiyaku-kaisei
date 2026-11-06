@@ -69,7 +69,7 @@
       <h3 class="cs-gh v-{{ v }}" id="g-{{ v }}-{{ ti }}">{{ VLABEL.get(v, v) }}<span class="small">{{ group|length }}件・{{ VERDICT_HELP[v] }}</span></h3>
       <ol class="cs-items">{% for it in group %}
         <li class="cs-item v-{{ it.verdict }}">
-          <p class="cs-ih"><span class="v v-{{ it.verdict }}">{{ VLABEL.get(it.verdict, it.verdict) }}</span>{% if it.quote %}<q>{{ it.quote }}</q>{% if not it.quote_found %}<span class="small">（貼った文と完全には一致しません）</span>{% endif %}{% endif %}</p>
+          <p class="cs-ih"><span class="vd v-{{ it.verdict }}">{{ VLABEL.get(it.verdict, it.verdict) }}</span>{% if it.quote %}<q>{{ it.quote }}</q>{% if not it.quote_found %}<span class="small">（貼った文と完全には一致しません）</span>{% endif %}{% endif %}</p>
           <p class="cs-comment">{{ it.comment }}</p>
           {% if it.suggestion %}<div class="cs-sugg"><span class="small">{{ "直し案" if it.verdict in ("言い方に注意", "誤り", "体裁") else ("確かめ方" if it.verdict == "資料の外" else "補足") }}</span>
             <p>{{ it.suggestion }}</p>{% if it.verdict != "資料の外" %}<button type="button" class="linkish" data-copy="{{ it.suggestion }}">直し案をコピー</button>{% endif %}</div>{% endif %}
@@ -138,7 +138,7 @@
     const lines = [];
     const sum = last.querySelector(".cs-summary p"); if (sum) lines.push(sum.textContent.trim(), "");
     last.querySelectorAll(".cs-item").forEach((li, i) => {
-      const v = li.querySelector(".v").textContent.trim(), q = li.querySelector("q");
+      const v = li.querySelector(".vd").textContent.trim(), q = li.querySelector("q");
       lines.push(`${i + 1}. 【${v}】` + (q ? `「${q.textContent.trim()}」` : ""));
       lines.push("   " + li.querySelector(".cs-comment").textContent.trim());
       const s = li.querySelector(".cs-sugg p");

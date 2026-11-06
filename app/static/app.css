@@ -415,7 +415,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .cs-list li { padding: var(--space-3) 0; border-top: 1px solid var(--color-line); display: flex; flex-wrap: wrap; gap: 4px var(--space-3); align-items: baseline; }
 .cs-list li:first-child { border-top: 0; }
 .cs-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0; }
-.v { display: inline-block; font-size: var(--text-xs); font-weight: 700; padding: 1px 0 1px 8px; border-left: 3px solid currentColor; white-space: nowrap; line-height: 1.4; }
+.vd { display: inline-block; font-size: var(--text-xs); font-weight: 700; padding: 1px 0 1px 8px; border-left: 3px solid currentColor; white-space: nowrap; line-height: 1.4; }
 .v-誤り { color: var(--color-must); } .v-言い方に注意 { color: #8a5a00; } .v-資料の外 { color: var(--color-ref); }
 .v-体裁 { color: var(--color-ink-2); } .v-正しい { color: var(--color-ok); } .v-説明 { color: var(--color-rec); }
 .cs-meta { margin: var(--space-2) 0 var(--space-4); }
@@ -433,8 +433,8 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .cs-item.v-誤り { border-left-color: var(--color-must); } .cs-item.v-言い方に注意 { border-left-color: #8a5a00; } .cs-item.v-正しい { border-left-color: var(--color-ok); } .cs-item.v-説明 { border-left-color: var(--color-rec); }
 .cs-ih { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; margin: 0 0 var(--space-2); }
 .cs-ih q { font-weight: 700; } .cs-ih q::before { content: "「"; } .cs-ih q::after { content: "」"; }
-.cs-ih .v { color: inherit; } .cs-item.v-誤り .cs-ih .v { color: var(--color-must); } .cs-item.v-言い方に注意 .cs-ih .v { color: #8a5a00; }
-.cs-item.v-資料の外 .cs-ih .v { color: var(--color-ref); } .cs-item.v-正しい .cs-ih .v { color: var(--color-ok); } .cs-item.v-説明 .cs-ih .v { color: var(--color-rec); } .cs-item.v-体裁 .cs-ih .v { color: var(--color-ink-2); }
+.cs-ih .vd { color: inherit; } .cs-item.v-誤り .cs-ih .vd { color: var(--color-must); } .cs-item.v-言い方に注意 .cs-ih .vd { color: #8a5a00; }
+.cs-item.v-資料の外 .cs-ih .vd { color: var(--color-ref); } .cs-item.v-正しい .cs-ih .vd { color: var(--color-ok); } .cs-item.v-説明 .cs-ih .vd { color: var(--color-rec); } .cs-item.v-体裁 .cs-ih .vd { color: var(--color-ink-2); }
 .cs-comment { margin: 0 0 var(--space-2); }
 .cs-sugg { background: var(--color-bg); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); margin: 0 0 var(--space-2); }
 .cs-sugg p { margin: 2px 0; white-space: pre-wrap; }
@@ -527,5 +527,5 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk .cs-sub { background: transparent; }
 .cs-sub h2, #history h2 { font-size: var(--text-md); }
 .cs-main .cs-go .btn { min-width: 200px; justify-content: center; }
-.cs-gh + .cs-items .cs-ih .v { display: none; }   /* 見出しで判定が分かるので、カードの中では繰り返さない（返信用の文には使う） */
+.cs-gh + .cs-items .cs-ih .vd { display: none; }   /* 見出しで判定が分かるので、カードの中では繰り返さない（返信用の文には使う） */
 .cs-pf-line .w { color: var(--color-must); }

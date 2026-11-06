@@ -15,7 +15,7 @@
   {% set left = n_choose - decided %}
   {% set has_draft = work.draft and not work.draft_stale %}
   {# 次にすること：このステップで何をして、最後にどのボタンを押すか（共通部品 .nx） #}
-  <div class="nx" id="nx">
+  <div class="nx nxs" id="nx">
     <div>
       <p class="nx-k">次にすること</p>
       <p class="nx-t" data-nx-title>{% if busy %}AI が作業しています。終わるまでお待ちください
@@ -155,7 +155,7 @@
   <noscript><p><button type="submit" class="boxed">判断を保存する</button></p></noscript>
   </form>
   </div>
-  <div class="actend">
+  <div class="actend nxs">
     <p><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span class="small muted">「あとで決める」のままでも先へ進めます</span></p>
     {% if has_draft %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
     {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>{% endif %}
