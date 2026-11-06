@@ -174,3 +174,22 @@ def test_empty_meeting_save_keeps_previous_results(board_work):
     store.update(wid, meeting={"results": {"規約": "可決"}, "name": "総会"})
     c.post(f"/works/{wid}/meeting", data={"m_name": "総会"})
     assert store.load(wid)["meeting"]["results"] == {"規約": "可決"}
+
+
+def test_applied_items_are_not_redrafted_again(board_work):
+    """前の作り直しで反映した議題は、判断・メモが変わっていなければ、次の作り直しの対象にしない。"""
+    M, store, c, wid, _, _ = board_work
+    _mixed_work(store, wid)
+    d = store.load(wid)["board_decisions"]
+    d["1"] = {"decision": "修正して採用", "note": "言い回しを平易に", "choice": ""}
+    store.update(wid, board_decisions=d, draft_reflects_board=False)
+    assert "国内管理人" in M.redraft_targets(store.load(wid))["items"]
+    store.update(wid, board_applied=M._board_snapshot(d))
+    assert "国内管理人" not in M.redraft_targets(store.load(wid))["items"]
+
+
+def test_article_edit_after_meeting_is_flagged(board_work):
+    M, store, c, wid, _, _ = board_work
+    store.update(wid, meeting={"results": {"規約": "可決"}})
+    M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　総会のあとで直した文", "note": ""}], "log")
+    assert store.load(wid).get("board_changed_after_meeting")
