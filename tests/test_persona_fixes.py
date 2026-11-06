@@ -207,3 +207,32 @@ def test_reverting_a_decision_clears_the_redraft(board_work):
     c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "見送り"})
     w = store.load(wid)
     assert not M.board_state(w)["needs_redraft"] and w["draft_reflects_board"]
+
+
+def test_journey_follows_stale_steps(board_work):
+    """判断が変わって説明が古くなったら、上の「次にすること」も説明のステップを案内する（「すべて済み」にしない）。"""
+    M, store, c, wid, _, _ = board_work
+    w = store.load(wid)
+    w.update(explain={"title": "t", "items": []}, explain_stale=True, board_decisions={
+        str(i): {"decision": "理解した" if it["tier"] == T1 else "採用"} for i, it in enumerate(w["board"]["items"])})
+    j = M.journey(w, {"ready": True})
+    assert j["current"] in ("explain", "board", "draft") and "すべての段階が済みました" not in j["next"]
+
+
+def test_backfill_applied_record_for_older_works(board_work):
+    """反映の記録がない（前に作り直した）作業でも、判断を変える前の判断を反映済みとして補う。"""
+    M, store, c, wid, _, _ = board_work
+    _mixed_work(store, wid)
+    store.update(wid, board_applied=None)
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "採用"})
+    c.post(f"/works/{wid}/board/decisions", data={"b_decision_0": "理解した", "b_decision_1": "見送り"})
+    w = store.load(wid)
+    assert w["board_applied"] and not M.board_state(w)["needs_redraft"]
+
+
+def test_edits_normalize_newlines_and_mark_explain_stale(board_work):
+    M, store, c, wid, _, _ = board_work
+    store.update(wid, explain={"title": "t", "items": []})
+    M._edit_articles(wid, [{"document": "規約", "article": "第47条", "text": "第47条　一\r\n2　二", "note": ""}], "log")
+    w = store.load(wid)
+    assert "\r" not in w["draft"]["amendments"][0]["text"] and w.get("explain_stale")
