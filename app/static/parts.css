@@ -1,0 +1,74 @@
+/* 共通部品（11/7〜）。「相談する」の画面で作った見せ方を、全体の決まりにする。
+   色・文字・余白は tokens.css の値だけを使う。部品の名前は役割で付ける。
+
+   .nx       次にすること（色付きの枠：太字の一文・進み具合・主なボタン）
+   .tiles    数のタイル（大きい数字と短い名前。押すとその場所へ移る・絞り込む）
+   .gh       見出し付きのまとまり（色の縦線と件数）
+   .alertbox 注意の枠（何が起きたか・どうすればよいか）
+   .card2    入力・結果のカード（白い面の枠。.accent で上に濃い線）
+   .actend   内容の最後に置く、主なボタンの行
+*/
+
+/* ---- 次にすること ---- */
+.tk .nx { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3) var(--space-5); align-items: center;
+  border: 2px solid var(--color-primary); background: var(--color-primary-soft); border-radius: var(--radius-1);
+  padding: var(--space-4) var(--space-5); margin: 0 0 var(--space-5); }
+.nx .nx-k { font-size: var(--text-xs); font-weight: 700; color: var(--color-primary); letter-spacing: .04em; margin: 0 0 2px; }
+.tk .nx .nx-t { font-size: var(--text-lg); font-weight: 700; color: var(--color-ink); margin: 0; line-height: 1.5; text-align: left; }
+.tk .nx .nx-s { font-size: var(--text-sm); color: var(--color-ink-2); margin: var(--space-1) 0 0; text-align: left; }
+.nx .nx-meter { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-2); }
+.nx .nx-meter .m { flex: 1; max-width: 360px; height: 8px; border-radius: 999px; background: var(--color-surface); border: 1px solid var(--color-line-2); overflow: hidden; }
+.nx .nx-meter .m i { display: block; height: 100%; background: var(--color-primary); }
+.nx .nx-meter b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nx .btn { white-space: nowrap; }
+.nx .unsaved { color: var(--color-must); font-weight: 700; }
+
+/* ---- 数のタイル ---- */
+.tk .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-4); }
+.tk .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; text-align: left; text-decoration: none; cursor: pointer;
+  background: var(--color-surface); border: 1px solid var(--color-line-2); border-top: 4px solid currentColor; border-radius: var(--radius-1);
+  padding: var(--space-2) var(--space-3); color: var(--color-ink-2); font: inherit; }
+.tile .tn { font-size: 28px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tile .tl { font-size: var(--text-sm); font-weight: 700; color: var(--color-ink); }
+.tile .ts { font-size: var(--text-xs); color: var(--color-ink-2); }
+.tk .tile:hover { background: var(--color-bg); }
+.tk .tile.on { background: var(--color-primary-soft); box-shadow: inset 0 0 0 2px var(--color-primary); }
+.tile.t-must { color: var(--color-must); } .tile.t-rec { color: var(--color-rec); } .tile.t-ref { color: var(--color-ref); }
+.tile.t-main { color: var(--color-primary); } .tile.t-hold { color: var(--color-ink-2); } .tile.t-ok { color: var(--color-ok); }
+
+/* ---- 見出し付きのまとまり ---- */
+.tk .gh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-3); font-size: var(--text-md); margin: var(--space-5) 0 var(--space-2);
+  padding-left: var(--space-2); border-left: 4px solid currentColor; scroll-margin-top: 80px; }
+.gh .small { font-weight: 400; color: var(--color-ink-2); }
+.gh.g-must { color: var(--color-must); } .gh.g-rec { color: var(--color-rec); } .gh.g-ref { color: var(--color-ref); }
+
+/* ---- 注意の枠 ---- */
+.tk .alertbox { border: 2px solid var(--color-must); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); }
+.tk .alertbox > b:first-child { color: var(--color-must); display: flex; gap: 6px; align-items: center; }
+.tk .alertbox p { margin: var(--space-1) 0 0; text-align: left; }
+
+/* ---- カード ---- */
+.tk .card2 { background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); }
+.tk .card2.accent { border-top: 4px solid var(--color-primary); }
+
+/* ---- 内容の最後の主なボタン ---- */
+.tk .actend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--color-line-2); padding: var(--space-4) 0 0; margin: var(--space-5) 0 0; }
+.tk .actend p { margin: 0; text-align: left; }
+
+@media (max-width: 640px) {
+  .tk .nx { grid-template-columns: 1fr; padding: var(--space-3) var(--space-4); }
+  .tk .nx .btn { width: 100%; justify-content: center; }
+  .tk .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk .actend .btn { width: 100%; justify-content: center; }
+}
+
+/* ---- ステップ2（第1弾の当てはめ）：見出しを出し、指摘をカードに ---- */
+.tk .cathead.gh { display: flex; } .tk .cathead.gh[hidden] { display: none; }
+.tk [data-step="decide"] .fcard { background: var(--color-surface); border: 1px solid var(--color-line); border-left: 4px solid var(--color-line-2); border-radius: var(--radius-1); margin: 0 0 var(--space-2); padding: 0 var(--space-4); }
+.tk [data-step="decide"] .fcard.fc-必須 { border-left-color: var(--color-must); }
+.tk [data-step="decide"] .fcard.fc-推奨 { border-left-color: var(--color-rec); }
+.tk [data-step="decide"] .fcard.fc-参考 { border-left-color: var(--color-ref); }
+.tk [data-step="decide"] .bulkbox { margin-top: 0; }
+/* 「次にすること」の枠があるステップを見ているときは、上の1行の案内を出さない（同じことを2回言わない） */
+.tk main:has(.panel:not([hidden]) .nx) #j-next { display: none; }

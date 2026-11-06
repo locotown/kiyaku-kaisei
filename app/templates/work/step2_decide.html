@@ -12,23 +12,40 @@
   {% if done == "点検中" %}<div class="justdone">{{ icon("check") }}<span>点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、改定案に入れるかどうか判断してください。</span></div>{% endif %}
   {% if bulk %}<div class="justdone">{{ icon("check") }}<span>まとめて判断しました（判断が変わった指摘 {{ bulk }}件）。</span></div>{% endif %}
   <div id="findings-fold">
-  <div class="stats">
-    <div><div class="k">改定案に入っている必須</div><div class="v">{{ summary.must }}<small>件</small></div></div>
-    <div><div class="k">このステップで決めること</div><div class="v">{{ n_choose }}<small>件（推奨{{ n_rec }}・参考{{ n_ref }}）</small></div></div>
-    <div><div class="k">判断済み</div><div class="v"><span data-decided>{{ decided }}</span><small>／ {{ n_choose }}</small></div>
-      <div class="meter"><i id="meter" style="width:{{ (100 * decided / n_choose)|round|int if n_choose else 100 }}%"></i></div></div>
+  {% set left = n_choose - decided %}
+  {% set has_draft = work.draft and not work.draft_stale %}
+  {# 次にすること：このステップで何をして、最後にどのボタンを押すか（共通部品 .nx） #}
+  <div class="nx" id="nx">
+    <div>
+      <p class="nx-k">次にすること</p>
+      <p class="nx-t" data-nx-title>{% if busy %}AI が作業しています。終わるまでお待ちください
+        {%- elif has_draft %}改定案ができています。「3. 改定案」で確かめましょう
+        {%- elif work.draft %}判断が変わりました。改定案を作り直してください
+        {%- elif not n_choose %}決めることはありません。改定案を作りましょう
+        {%- elif left > 0 %}あと <span data-left>{{ left }}</span>件、改定案に入れるかどうかを決めましょう
+        {%- else %}判断がそろいました。改定案を作りましょう{% endif %}</p>
+      {% if n_choose %}<div class="nx-meter"><span class="m"><i id="meter" style="width:{{ (100 * decided / n_choose)|round|int }}%"></i></span>
+        <b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b></div>{% endif %}
+      <p class="nx-s"><span id="savestate">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}選ぶとすぐ保存します{% endif %}</span>。「あとで決める」のままでも先へ進めます。
+        {% if not has_draft %}{% set pl = draft_plan_for(work) %}改定案づくりは 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど。{% endif %}</p>
+    </div>
+    {% if has_draft %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
+    {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>{% endif %}
   </div>
 
   {% set cats = {"必須": "改定案に必ず入れる箇所", "推奨": "法改正に関係し、見直しを勧められている箇所", "参考": "標準管理規約と違う箇所"} %}
   {% set counts = {} %}{% for c in cats %}{% set _ = counts.update({c: rows|selectattr("1.category", "equalto", c)|list|length}) %}{% endfor %}
-  <div class="tabs filters" id="filters" role="tablist" aria-label="絞り込み">
-    {% if n_choose %}<button type="button" class="fbtn" data-filter="decide" role="tab">決めること <i class="n">{{ n_choose }}</i></button>{% endif %}
-    {% for c in cats %}{% if counts[c] %}<button type="button" class="fbtn f-{{ c }}" data-filter="{{ c }}" role="tab">{{ c }} <i class="n">{{ counts[c] }}</i></button>{% endif %}{% endfor %}
-    {% if n_choose %}<button type="button" class="fbtn f-保留" data-filter="保留" role="tab" title="推奨・参考のうち、まだ「あとで決める」のもの">あとで決める <i class="n" data-tally="保留">{{ tally["保留"] }}</i></button>{% endif %}
-    <button type="button" class="fbtn" data-filter="all" role="tab">すべて <i class="n">{{ rows|length }}</i></button>
+  {# 数のタイル：押すと、その指摘だけに絞り込む（共通部品 .tiles） #}
+  <div class="tiles" id="filters" role="tablist" aria-label="絞り込み">
+    {% if n_choose %}<button type="button" class="tile fbtn t-main" data-filter="decide" role="tab"><span class="tn">{{ n_choose }}</span><span class="tl">決めること</span><span class="ts">推奨{{ n_rec }}・参考{{ n_ref }}</span></button>
+    <button type="button" class="tile fbtn t-hold" data-filter="保留" role="tab"><span class="tn" data-tally="保留">{{ tally["保留"] }}</span><span class="tl">あとで決める</span><span class="ts">まだ決めていない</span></button>{% endif %}
+    {% if counts["必須"] %}<button type="button" class="tile fbtn t-must" data-filter="必須" role="tab"><span class="tn">{{ counts["必須"] }}</span><span class="tl">必須</span><span class="ts">改定案に入っています</span></button>{% endif %}
+    {% if counts["推奨"] %}<button type="button" class="tile fbtn t-rec" data-filter="推奨" role="tab"><span class="tn">{{ counts["推奨"] }}</span><span class="tl">推奨</span><span class="ts">見直しを勧められている</span></button>{% endif %}
+    {% if counts["参考"] %}<button type="button" class="tile fbtn t-ref" data-filter="参考" role="tab"><span class="tn">{{ counts["参考"] }}</span><span class="tl">参考</span><span class="ts">標準と違う</span></button>{% endif %}
+    <button type="button" class="tile fbtn t-hold" data-filter="all" role="tab"><span class="tn">{{ rows|length }}</span><span class="tl">すべて</span><span class="ts">指摘の全体</span></button>
   </div>
   {% if n_choose %}
-  <details class="bulk bulkbox" id="bulk"><summary>委員会でまとめて決めたときは、<span class="link">推奨・参考を、まとめて判断する</span>こともできます。</summary>
+  <details class="bulk bulkbox card2" id="bulk"><summary>委員会でまとめて決めたときは、<span class="link">推奨・参考を、まとめて判断する</span>こともできます。</summary>
     <div class="bk-row">
       <select id="bk-scope" aria-label="範囲">{% for sc in ("推奨", "参考", "推奨・参考") %}{% set n = rows|selectattr("1.category", "in", sc.split("・"))|list|length %}{% if n %}<option value="{{ sc }}" data-n="{{ n }}">{{ sc }}の指摘すべて（{{ n }}件）</option>{% endif %}{% endfor %}</select>
       を
@@ -78,7 +95,7 @@
   {% for i, f in rows %}
   {% set d = decisions[i|string] %}{% set v = views[i] %}
   {% if f.category != ns2.cat %}{% set ns2.cat = f.category %}
-  <h3 class="cathead ch-{{ f.category }}" data-cat="{{ f.category }}">{{ f.category }} {{ counts.get(f.category, 0) }}件：{{ cats.get(f.category, "") }}</h3>
+  <h3 class="gh cathead g-{{ cat_cls.get(f.category, 'ref') }}" data-cat="{{ f.category }}">{{ f.category }}<span class="small">{{ counts.get(f.category, 0) }}件・{{ cats.get(f.category, "") }}</span></h3>
   {% endif %}
   <details class="item finding fcard fc-{{ f.category }}" data-cat="{{ f.category }}" data-dec="{{ d.decision }}" id="f-{{ i }}">
     <summary class="h">
@@ -138,11 +155,11 @@
   <noscript><p><button type="submit" class="boxed">判断を保存する</button></p></noscript>
   </form>
   </div>
-  <div class="bar"><div class="in"><div class="t"><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span id="savestate" class="muted">{% if summary.saved_at %}最後に保存：{{ summary.saved_at }}{% else %}「あとで決める」のままでも先へ進めます{% endif %}</span>
-    {% if not (work.draft and not work.draft_stale) %}{% set pl = draft_plan_for(work) %}<span class="muted">　改定案は 約{{ pl.estimate }}・AI の費用 {{ pl.cost }}ほど</span>{% endif %}</div>
-    {% if work.draft and not work.draft_stale %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
+  <div class="actend">
+    <p><b>判断済み <span data-decided>{{ decided }}</span> ／ {{ n_choose }}</b>　<span class="small muted">「あとで決める」のままでも先へ進めます</span></p>
+    {% if has_draft %}<a class="btn" href="#next">改定案を確かめる{{ icon("arrow-right") }}</a>
     {% else %}<button type="submit" form="draftform" class="btn" data-ai="{{ ai_note('redraft' if work.draft else 'draft', work) }}" {% if busy %}disabled{% endif %}>{{ "AI が作業しています…" if busy else ("改定案を作り直す" if work.draft else "改定案を作る") }}{{ icon("arrow-right") }}</button>{% endif %}
-  </div></div>
+  </div>
   <script>
   (function () {
     var form = document.getElementById('decform'), st = document.getElementById('savestate');
@@ -161,6 +178,9 @@
       document.querySelectorAll('[data-sum]').forEach(function (e) { e.textContent = sum[e.dataset.sum]; });
       var dn = sum.tally['採用'] + sum.tally['不採用'];
       document.querySelectorAll('[data-decided]').forEach(function (e) { e.textContent = dn; });
+      document.querySelectorAll('[data-left]').forEach(function (e) { e.textContent = Math.max(0, N - dn); });
+      var tt = document.querySelector('[data-nx-title]');
+      if (tt && tt.querySelector('[data-left]') && dn >= N) tt.textContent = '判断がそろいました。改定案を作りましょう';
       if ($('meter')) $('meter').style.width = (N ? Math.round(100 * dn / N) : 100) + '%';
       lastSaved = '最後に保存：' + sum.saved_at;
     }
