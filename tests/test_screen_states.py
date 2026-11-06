@@ -159,6 +159,9 @@ def test_variant_articles_detects_both_options_left():
               Block("article", ["（届出）", "第31条　次のとおり届け出る。", "　（ア）電磁的方法が利用可能ではない場合", "　書面で", "　（イ）電磁的方法が利用可能な場合", "　書面又は電磁的方法で"]),
               Block("article", ["（目的）", "第1条　目的とする。"])]
     assert variant_articles(blocks) == ["第12条", "第31条"]
+    # ふつうの列挙の（ア）（イ）は両案ではない（実在の規約・細則でよく使う）
+    enum = [Block("article", ["（届出）", "第20条　次の事項を届け出る。", "　（ア）氏名", "　（イ）住所"])]
+    assert variant_articles(enum) == []
 
 
 def test_internal_topic_ids_are_named():

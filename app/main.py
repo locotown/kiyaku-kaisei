@@ -554,7 +554,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     return docs
 
 
-_VARIANT = re.compile(r"^[\s　]*[（(〔]([アイウ])[）)]?(?:案〕|〕)?")
+# 標準管理規約の両案は「〔ア案〕」の見出しか、「（ア）…の場合」の行で始まる。ふつうの列挙の（ア）（イ）は拾わない
+_VARIANT = re.compile(r"^[\s　]*(?:〔([アイウ])案〕|[（(]([アイウ])[）)].*場合[\s　]*$)")
 _ART_NO = re.compile(r"^(第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?)")
 
 
@@ -567,7 +568,7 @@ def variant_articles(blocks) -> list[str]:
             continue
         no = next((m.group(1) for ln in b.lines for m in [_ART_NO.match(ln.strip())] if m), "")
         if no:
-            found.setdefault(no, set()).update(m.group(1) for ln in b.lines for m in [_VARIANT.match(ln)] if m)
+            found.setdefault(no, set()).update(m.group(1) or m.group(2) for ln in b.lines for m in [_VARIANT.match(ln)] if m)
     return [no for no, marks in found.items() if {"ア", "イ"} <= marks]
 
 
@@ -582,7 +583,8 @@ def current_variants(work_id: str, work: dict) -> list[str]:
     except Exception:  # noqa: BLE001  読めないときは知らせないだけ
         return []
     v = variant_articles([Block("article", _article_lines(a)) for a in arts])
-    store.update(work_id, variants=v)
+    if work.get("status") not in BUSY:      # AI の処理中は書かない（裏の処理の書き込みと競合させない）
+        store.mutate(work_id, lambda d: d.setdefault("variants", v))
     return v
 
 
