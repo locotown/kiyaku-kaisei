@@ -107,12 +107,17 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
             blocks.append(Block("chapter", [ch]))
         chapter = ch
         blocks.append(Block("article", lines, changed))
-    if kiyaku.appendix:
-        blocks.append(Block("appendix", [line for line in kiyaku.appendix if line.strip()]))
+    # 今回の附則は、今ある附則のすぐあと・別表の前に入れる（規約集は「附則 → 別表」の順。別表のあとに付いていた。想定ユーザーでの確認から）
+    rest = [line for line in kiyaku.appendix if line.strip()]
+    cut = next((i for i, line in enumerate(rest) if re.match(r"^[\s　]*別表", line)), len(rest))
+    if rest[:cut]:
+        blocks.append(Block("appendix", rest[:cut]))
     if effective:
         what = "細則" if "細則" in title else "規約"
         head = f"附　則（{wareki(effective)}{('　' + meeting) if meeting else ''}改正）"
         blocks.append(Block("appendix", [head, "（施行期日）", f"この{what}の改正は、{wareki(effective)}から施行する。"], "附則"))
+    if rest[cut:]:
+        blocks.append(Block("appendix", rest[cut:]))
     return blocks
 
 

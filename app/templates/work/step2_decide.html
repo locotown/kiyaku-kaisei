@@ -66,7 +66,7 @@
 <section class="panel" data-step="decide" id="findings">
   <div class="stepttl"><p class="eyebrow">ステップ 2 ／ 6</p><h1 class="page-title">指摘を判断する</h1>
     <p class="lead">{% if summary.must %}法律で必要な{{ summary.must }}件は、{{ "改定案に入っています" if work.draft else "決めなくても改定案に入ります" }}。{% endif %}{% if n_choose %}このステップでは、残りの{{ n_choose }}件を、改定案に入れるかどうか決めてください。{% else %}このステップで決めることはありません。{% endif %}</p></div>
-  {% if done == "点検中" %}<div class="justdone">{{ icon("check") }}<span>点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は改定案に自動で入れます。推奨・参考の指摘を、改定案に入れるかどうか判断してください。</span></div>{% endif %}
+  {% if done == "点検中" %}<div class="justdone">{{ icon("check") }}<span>点検が終わりました。指摘 {{ work.findings|length }}件のうち、必須 {{ summary.must }}件は、決めなくても改定案に入ります。</span></div>{% endif %}
   {% if bulk %}<div class="justdone">{{ icon("check") }}<span>まとめて判断しました（判断が変わった指摘 {{ bulk }}件）。</span></div>{% endif %}
   <div id="findings-fold">
   {% set left = n_choose - decided %}
@@ -138,7 +138,7 @@
     <div class="legend">
       <div><span class="cat must">必須</span>改正された区分所有法に合わず、そのままでは効力を失うおそれがある箇所です。改定案に必ず入れます。</div>
       <div><span class="cat rec">推奨</span>今回の法改正に関係し、国の標準管理規約（2025年10月改正）が見直しを勧めている箇所です。</div>
-      <div><span class="cat ref">参考</span>法改正とは直接関係しませんが、標準管理規約と違う箇所です（古い用語、条番号のずれなど）。</div>
+      <div><span class="cat ref">参考</span>改正の論点の一覧にはないものの、今の標準管理規約と意味のある違いがある箇所です（改正に伴う手続きの整理、古い用語、条番号のずれなど）。</div>
       <div><span class="tag">法律上必要かは確認中</span>法律が見直しを求めているかを、国の資料でまだ確かめきれていない箇所です。いまは「推奨」として扱っています。</div>
     </div>
     {% set nres = {"特別": 0, "普通": 0} %}{% for i, f in rows %}{% set _ = nres.update({views[i].resolution.kind: nres[views[i].resolution.kind] + 1}) %}{% endfor %}
@@ -186,7 +186,7 @@
   {% if refs %}
   <section class="dsec" data-sec="ref">
     <h3 class="gh g-ref" id="sec-ref">参考：標準管理規約と違う箇所<span class="small">{{ refs|length }}件・決めた <span data-secn>0</span></span></h3>
-    <p class="small dlead">法改正とは直接関係しません。必要なものだけ選びます。</p>
+    <p class="small dlead">改正の論点の一覧にはない、今の標準管理規約との違いです。必要なものだけ選びます。</p>
     {% for i, f in refs %}{{ fcard(i, f, decisions.get(i|string, {}), views[i], "ref") }}{% endfor %}
     <p class="muted dempty" hidden>まだ決めていない「参考」はありません。</p>
   </section>

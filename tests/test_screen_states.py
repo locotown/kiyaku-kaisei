@@ -185,3 +185,56 @@ def test_explain_prompt_keeps_subject_and_direction():
     from core.explain import SYSTEM, ExplainItem
     assert "主語と向き" in SYSTEM and "自ら修理" in SYSTEM
     assert "厳しくなるのか緩くなるのか" in ExplainItem.model_fields["impact"].description
+
+
+# ---- 残る課題を検証して直したもの（11/6 夜） ----
+
+def test_inline_variant_is_detected():
+    """別案が本文の同じ行につながったもの（「…とする場合2　…」）も両案として見つける。"""
+    from app.main import variant_articles
+    from core.consolidate import Block
+
+    b = [Block("article", ["（役員）", "第37条　役員を置く。", "3　理事長は理事会で選ぶ。外部専門家を役員として選任できることとする場合2　理事及び監事は総会で選ぶ。"])]
+    assert variant_articles(b) == ["第37条"]
+
+
+def test_new_supplementary_provision_goes_before_appendix_tables():
+    """今回の附則は、今ある附則のすぐあと・別表の前に入る（規約集は「附則 → 別表」の順）。"""
+    from datetime import date
+
+    from core.consolidate import consolidate
+    from core.split import split_kiyaku
+
+    text = "（目的）\n第1条　目的とする。\n（定義）\n第2条　定義する。\n（範囲）\n第3条　範囲とする。\n（効力）\n第4条　効力を持つ。\n（組合）\n第5条　組合を置く。\n附　則\nこの規約は、令和元年4月1日から効力を発する。\n別表第１　対象物件の表示\n物件名　○○マンション\n"
+    k = split_kiyaku(text.splitlines())
+    blocks = consolidate(k, [], "規約", date(2027, 1, 24), "総会")
+    heads = [b.lines[0] for b in blocks if b.kind == "appendix"]
+    new = next(i for i, h in enumerate(heads) if "令和9年1月24日" in h)
+    table = next(i for i, h in enumerate(heads) if h.startswith("別表"))
+    assert new < table
+
+
+def test_work_name_can_be_changed(board_work):
+    M, store, c, wid, _, _ = board_work
+    c.post(f"/works/{wid}/org", data={"org": "", "name": "第1回の見直し"})
+    assert store.load(wid)["name"] == "第1回の見直し"
+    c.post(f"/works/{wid}/org", data={"org": "x", "name": ""})                 # 空なら名前は変えない
+    assert store.load(wid)["name"] == "第1回の見直し"
+
+
+def test_board_item_marks_partially_rewritten_articles(board_work):
+    M, store, c, wid, _, _ = board_work
+    store.update(wid, draft_mode="partial", draft_partial={"status": "済み", "at": "x", "changed": ["第47条"], "targets": ["第47条"], "check": {}})
+    assert "この議題の条（第47条）は、理事会の判断を反映して作り直しました" in section(c.get(f"/works/{wid}").text, "board")
+
+
+def test_draft_side_notes_are_listed():
+    from app.main import draft_side_notes
+
+    w = {"draft": {"notes": "【決議の進め方】\nx\n【あわせて検討するとよい点】（対象外）\n・第48条第十三号：条番号が変わっています。\n・第44条：書き方。\n【使った資料】\ny"}}
+    assert draft_side_notes(w) == ["第48条第十三号：条番号が変わっています。", "第44条：書き方。"]
+
+
+def test_reference_category_is_not_described_as_unrelated_to_the_revision():
+    src = (TPL / "work" / "step2_decide.html").read_text(encoding="utf-8")
+    assert "法改正とは直接関係しません" not in src

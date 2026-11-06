@@ -17,18 +17,22 @@
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% endif %}
   {% set cv = current_variants(id, work) if work.findings else [] %}
-  {% if cv %}<p class="note2"><b class="w">今の規約に、（ア）（イ）の両案が残っている条があります：{{ cv|join("、") }}</b>。標準管理規約の両案を写したままと思われます。このツールは、今回の改正に関係しない両案は選びません。組合で採用している案を確かめ、理事会で一方に決めておいてください（最新の規約を作るときにも、もう一度知らせます）。</p>{% endif %}
+  {% if cv %}<p class="note2"><b class="w">今の規約に、どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ cv|join("、") }}</b>。標準管理規約の両案を写したままと思われます。このツールは、今回の改正に関係しない両案は選びません。組合で採用している案を確かめ、理事会で一方に決めておいてください（最新の規約を作るときにも、もう一度知らせます）。</p>{% endif %}
   <div class="tiles">
     <div class="tile t-hold"><span class="tn">{{ work.info["型"] }}</span><span class="tl">規約の型</span></div>
     <div class="tile t-main"><span class="tn">{{ work.articles }}</span><span class="tl">規約本体の条</span></div>
     {# 点検中に「0 見つかった指摘」と出すと「何も見つからなかった」と読める（想定ユーザーでの確認から） #}
     {% if work.findings or not busy %}<div class="tile t-all"><span class="tn">{{ work.findings|length }}</span><span class="tl">見つかった指摘</span>{% if work.findings %}<span class="ts">必須 {{ work.findings|selectattr("category", "equalto", "必須")|list|length }}件</span>{% endif %}</div>{% endif %}
   </div>
-  <details class="orgedit" {% if done == "org" %}open{% endif %}><summary>マンション名・管理組合名：<b>{{ work.org or "（未入力）" }}</b>{% if done == "org" %} <span class="ok">{{ icon("check") }}保存しました</span>{% endif %}</summary>
+  <details class="orgedit" {% if done == "org" %}open{% endif %}><summary>作業の名前・マンション名：<b>{{ work.org or "（マンション名は未入力）" }}</b>{% if done == "org" %} <span class="ok">{{ icon("check") }}保存しました</span>{% endif %}</summary>
     <form action="/works/{{ id }}/org" method="post">
-      <input type="text" name="org" value="{{ work.org or '' }}" placeholder="例：〇〇マンション管理組合" aria-label="マンション名・管理組合名">
+      <label for="wname">作業の名前</label>
+      <input type="text" id="wname" name="name" value="{{ work.name }}" maxlength="80" aria-describedby="wname-h">
+      <div class="help" id="wname-h">「これまでの作業」で見分けるための名前です。資料には出ません（サンプルから始めた作業も、ここで名前を付け直せます）。</div>
+      <label for="worg">マンション名・管理組合名</label>
+      <input type="text" id="worg" name="org" value="{{ work.org or '' }}" placeholder="例：〇〇マンション管理組合" aria-describedby="worg-h">
+      <div class="help" id="worg-h">住民向けの説明・理事会の検討資料・新旧対照表の題名に入ります。保存すると、作ってある資料も書き直します。</div>
       <button type="submit" class="boxed">保存する</button>
-      <div class="help">住民向けの説明・理事会の検討資料・新旧対照表の題名に入ります（作業の名前「{{ work.name }}」は資料に出ません）。保存すると、作ってある資料も書き直します。</div>
     </form></details>
   {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>{{ source_note.label }}から読み込みました。</b>{{ source_note.text }}</div>{% endif %}
   {% if work.documents and work.documents|length > 1 %}

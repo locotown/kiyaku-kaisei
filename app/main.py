@@ -556,6 +556,9 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
 
 # 標準管理規約の両案は「〔ア案〕」の見出しか、「（ア）…の場合」の行で始まる。ふつうの列挙の（ア）（イ）は拾わない
 _VARIANT = re.compile(r"^[\s　]*(?:〔([アイウ])案〕|[（(]([アイウ])[）)].*場合[\s　]*$)")
+VARIANT_RULE = 3   # 両案の見つけ方を変えたら上げる（作業に保存した結果を使い直さない）
+# 別案が本文の同じ行につながったもの（「…選任できることとする場合2　理事及び監事は…」。PDF などから写したとき）
+_INLINE_VARIANT = re.compile(r"とする場合[0-9０-９]+[　 ]")
 _ART_NO = re.compile(r"^(第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?)")
 
 
@@ -569,6 +572,8 @@ def variant_articles(blocks) -> list[str]:
         no = next((m.group(1) for ln in b.lines for m in [_ART_NO.match(ln.strip())] if m), "")
         if no:
             found.setdefault(no, set()).update(m.group(1) or m.group(2) for ln in b.lines for m in [_VARIANT.match(ln)] if m)
+            if any(_INLINE_VARIANT.search(ln) for ln in b.lines):
+                found[no].update({"ア", "イ"})
     return [no for no, marks in found.items() if {"ア", "イ"} <= marks]
 
 
@@ -608,7 +613,7 @@ def has_latest(work_id: str) -> bool:
 
 def current_variants(work_id: str, work: dict) -> list[str]:
     """今の規約（読み込んだ原本）に、両案が残ったままの条。点検の結果の画面で早めに知らせる。"""
-    if "variants" in work:
+    if "variants" in work and work.get("variants_rule") == VARIANT_RULE:
         return work["variants"]
     from core.consolidate import Block, _article_lines
 
@@ -618,7 +623,7 @@ def current_variants(work_id: str, work: dict) -> list[str]:
         return []
     v = variant_articles([Block("article", _article_lines(a)) for a in arts])
     if work.get("status") not in BUSY:      # AI の処理中は書かない（裏の処理の書き込みと競合させない）
-        store.mutate(work_id, lambda d: d.setdefault("variants", v))
+        store.mutate(work_id, lambda d: d.update(variants=v, variants_rule=VARIANT_RULE))
     return v
 
 
@@ -913,7 +918,11 @@ async def save_decisions(request: Request, work_id: str):
 async def save_org(request: Request, work_id: str):
     form = await request.form()
     store.load(work_id)
-    store.update(work_id, org=str(form.get("org", "")).strip()[:80])
+    fields = {"org": str(form.get("org", "")).strip()[:80]}
+    name = str(form.get("name", "")).strip()[:80]
+    if name:                                     # 作業の名前（空なら変えない。サンプルから始めた作業も名前を付け直せるように）
+        fields["name"] = name
+    store.update(work_id, **fields)
     _rerender(work_id)
     return RedirectResponse(f"/works/{work_id}?done=org", status_code=303)
 
@@ -1058,7 +1067,7 @@ def final_html(work_id: str, n: int):
 
     d = _final(work_id, n)
     v = d.get("variants") or variant_articles(d["blocks"])
-    warn = (f"【注意】（ア）（イ）の両案が残っている条があります：{'、'.join(v)}。組合で採用している案だけを残し、"
+    warn = (f"【注意】どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{'、'.join(v)}。組合で採用している案だけを残し、"
             "もう一方を消してから規約原本にしてください（今回の改定では選んでいない案です）。") if v else ""
     return HTMLResponse(final_to_html(d["blocks"], warn + "確認用の表示です。色の付いた条が今回の改正です（印刷すると色と印は消えます）。"
                                                    "書式は元の規約集に合わせて整えてください。", word_href=f"../{n}.docx",
@@ -2023,6 +2032,23 @@ def board_preview(work: dict) -> dict:
 
 templates.env.globals["board_preview"] = board_preview
 templates.env.globals["current_variants"] = current_variants
+
+
+def draft_side_notes(work: dict) -> list[str]:
+    """改定案の申し送りの「あわせて検討するとよい点」（指摘の範囲外で AI が気づいた点。例：ほかの法律の古い条番号）を1点ずつ。
+    新旧対照表の最後にしか出ず、見落とされていた（想定ユーザーでの確認から）。"""
+    from core.taisho import notes_sections
+
+    notes = ((work.get("draft") or {}).get("notes") or "")
+    for head, body in notes_sections(notes):
+        if "あわせて検討" in head:
+            lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+            items = [ln.lstrip("・").strip() for ln in lines if ln.startswith("・")]
+            return items or lines                # 「・」の箇条書きがあればそれだけ（見出しのあとの補足は数えない）
+    return []
+
+
+templates.env.globals["draft_side_notes"] = draft_side_notes
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
     from core.progress import draft_plan

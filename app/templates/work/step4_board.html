@@ -38,7 +38,7 @@
     {% endif %}
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
-  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選んでください（選ぶとすぐ保存します）。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
   {% if not board and work.draft %}{% set bp = board_preview(work) %}
   {# 作る前でも、理事会で何をするかと、この改定案がどう分かれる見込みかを見せる #}
   <section class="card2 preview" aria-labelledby="bp-h">
@@ -114,6 +114,10 @@
       <div class="finding bitem">
         <div class="bh"><strong>{{ loop.index }}. {{ it.title }}</strong><span class="small">{{ it.articles|join("、") }}</span></div>
         <p>{{ it.summary }}</p>
+        {% set prx = work.draft_partial if work.draft_mode == "partial" else none %}
+        {% set redone = (prx.changed or prx.targets or [])|select("in", it.articles)|list if prx and prx.status == "済み" else [] %}
+        {# 対象の条だけ作り直したあとも、議題の説明文は作り直す前のまま（AI で作り直すと費用がかかる）。食い違いに気づけるよう印を出す（想定ユーザーでの確認から） #}
+        {% if redone %}<p class="note2 small"><b class="w">この議題の条（{{ redone|join("、") }}）は、理事会の判断を反映して作り直しました。</b>上の説明は作り直す前の文です。今の条の文は<a href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表</a>で確かめてください。</p>{% endif %}
         <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
         {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
         <div class="bdec"><select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
