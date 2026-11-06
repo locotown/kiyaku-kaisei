@@ -1793,19 +1793,21 @@ async def save_articles(request: Request, work_id: str):
         key = f"{am.document}|{am.article}"
         reason = form.get(f"reason_{key}")
         if reason is not None:  # 変更の理由も直せる（委員会で直した文に合わせて、人が書き換える）
-            reason = str(reason).replace("\r\n", "\n").strip()
-            if reason != am.reason.strip():
+            reason = str(reason).replace("\r\n", "\n").replace("\r", "\n").strip()
+            if reason != am.reason.replace("\r\n", "\n").strip():
                 reasons.append({"document": am.document, "article": am.article, "reason": reason})
         if am.kind == "削除":
             continue
         if form.get(f"revert_{key}") and key in human:
             edits.append({"document": am.document, "article": am.article, "text": None})
             continue
-        text = str(form.get(f"text_{key}", am.text)).replace("\r\n", "\n").strip()
-        note = str(form.get(f"note_{key}", "")).strip()
+        # 改行の形（ブラウザは \r\n で送る）をそろえてから比べる。そろえないと、直していない条まで「直した」扱いになる
+        nl = lambda x: str(x or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        text = nl(form.get(f"text_{key}", am.text))
+        note = nl(form.get(f"note_{key}", ""))
         if not text:
             continue
-        if text != am.text.strip() or (key in human and note != human[key].get("note", "")):
+        if text != nl(am.text) or (key in human and note != nl(human[key].get("note", ""))):
             edits.append({"document": am.document, "article": am.article, "text": text, "note": note})
     if reasons:
         _edit_reasons(work_id, reasons)

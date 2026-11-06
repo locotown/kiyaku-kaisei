@@ -158,3 +158,15 @@ def test_explain_hides_empty_opinion_section():
 
     ex = Explanation(title="t", intro="i", items=[], choices=[], resolution="r", closing="c")
     assert "皆さんのご意見を伺いたい点" not in to_html(ex)
+
+
+def test_saving_one_article_does_not_touch_others_with_multiline_notes(board_work):
+    """補足が複数行の条があっても、ブラウザの改行（\\r\\n）のせいで、直していない条を「直した」扱いにしない。"""
+    M, store, c, wid, _, _ = board_work
+    M._edit_articles(wid, [{"document": "規約", "article": "第20条", "text": "第20条　委員会の文", "note": "一行目\n二行目"}], "log")
+    page = c.get(f"/works/{wid}/articles").text
+    note_val = "一行目\r\n二行目"   # ブラウザは textarea の改行を \r\n で送る
+    r = c.post(f"/works/{wid}/articles", data={"ident": _ident(c, wid), "text_規約|第47条": "第47条　直した文",
+                                               "text_規約|第20条": "第20条　委員会の文", "note_規約|第20条": note_val},
+               follow_redirects=False)
+    assert r.headers["location"].endswith("saved=1") and "第20条" in page
