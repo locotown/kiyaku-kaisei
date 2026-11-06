@@ -847,7 +847,8 @@ async def save_org(request: Request, work_id: str):
     return RedirectResponse(f"/works/{work_id}?done=org", status_code=303)
 
 
-BULK_SCOPES = {"推奨": ("推奨",), "参考": ("参考",), "推奨・参考": ("推奨", "参考")}
+BULK_SCOPES = {"推奨": ("推奨",), "参考": ("参考",), "推奨・参考": ("推奨", "参考"),
+               "足す": ("推奨", "参考")}   # 足す：必須以外で、今の規約に定めがない指摘（ステップ2の「足す」の表）
 
 
 @app.post("/works/{work_id}/decisions/bulk")
@@ -870,6 +871,8 @@ async def save_bulk_decisions(request: Request, work_id: str):
     only_open = form.get("only_open") == "1"  # まだ決めていない（あとで決める）ものだけ。1件ずつ決めた判断を上書きしない
     for i, f in enumerate(work.get("findings", [])):
         if f["category"] not in BULK_SCOPES[scope]:
+            continue
+        if scope == "足す" and (f.get("current_excerpt") or "").strip():
             continue
         prev = decisions.get(str(i), {})
         if prev.get("decision") == decision:

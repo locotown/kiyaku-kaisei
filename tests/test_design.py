@@ -58,3 +58,32 @@ def test_articles_title_has_no_script(board_work):
     page = c.get(f"/works/{wid}/articles").text
     title = page[page.index("<title>"):page.index("</title>")]
     assert "<script" not in title and "art-scroll-" in page
+
+
+def test_step2_groups_add_change_and_must(board_work):
+    """ステップ2（C案）：今の規約に定めがない指摘は「足す」の表、定めがある推奨は「変える」のカード、必須は下に閉じて置く。"""
+    M, store, c, wid, _, _ = board_work
+    w = store.load(wid)
+    base = w["findings"][0]
+    w["findings"] = [dict(base, category="必須"), dict(base, category="推奨", current_excerpt="", topic_id="5"),
+                     dict(base, category="推奨", current_excerpt="今の文", topic_id="1-3"), dict(base, category="参考", current_excerpt="今の文", topic_id="10")]
+    w["decisions"] = {"0": {"decision": "採用", "reason": ""}}
+    store.save(wid, w)
+    page = c.get(f"/works/{wid}").text
+    assert 'id="sec-add"' in page and 'id="sec-chg"' in page and 'id="sec-ref"' in page and 'id="sec-must"' in page
+    assert 'class="fitem arow" id="f-1"' in page and 'class="cmp1"' in page and 'data-only="1"' in page
+    s2 = page.split('<section class="panel" data-step="decide"')[1].split('<section class="panel"')[0]
+    assert 'class="tiles"' not in s2 and 'data-filter' not in s2
+
+
+def test_bulk_add_scope_only_touches_findings_without_current_rule(board_work):
+    M, store, c, wid, _, _ = board_work
+    w = store.load(wid)
+    base = w["findings"][0]
+    w["findings"] = [dict(base, category="推奨", current_excerpt=""), dict(base, category="推奨", current_excerpt="今の文"),
+                     dict(base, category="必須", current_excerpt="")]
+    w["decisions"] = {}
+    store.save(wid, w)
+    j = c.post(f"/works/{wid}/decisions/bulk", data={"scope": "足す", "decision": "採用", "only_open": "1"}).json()
+    d = store.load(wid)["decisions"]
+    assert j["changed"] == 1 and d["0"]["decision"] == "採用" and "1" not in d and "2" not in d
