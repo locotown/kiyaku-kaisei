@@ -53,3 +53,13 @@ def test_board_autosave_keeps_other_tabs_items(board_work):
                                                   "b_touched": json.dumps(["b_note_0"])})
     dec = store.load(wid)["board_decisions"]
     assert dec["1"]["decision"] == d1 and dec["0"]["note"] == "古いタブのメモ"
+
+
+def test_note_of_in_article_variant_does_not_move_to_next_article():
+    """条の中の両案（項だけが（ア）（イ）に分かれる）の注記を、次の条の注記にしない。
+    （改正前の標準管理規約で、第19条の2の中の注記を第20条のものにして、AI が「第20条の前の注記を削る」と書いた）"""
+    from core.ingest import load_kiyaku
+    k = load_kiyaku("evals/data/r7_tantou_before.txt")
+    a20 = next(a for a in k.articles if a.number == "20")
+    assert a20.note == ""
+    assert next(a for a in k.articles if a.number == "17" and a.variant == "ア").note   # 条ごとの両案の注記は残る

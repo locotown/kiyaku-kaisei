@@ -19,7 +19,8 @@
       {# 総会の前の段階：先に説明を作る（作り直す）よう案内する。総会が済んでいれば、下で記録もできる（画面の総点検で分かった） #}
       <div class="t"><b>総会の前に、住民向けの説明を{{ "作り直しましょう" if work.explain else "作りましょう" }}</b>このステップは総会のあとに使います。総会が済んでいれば、下で議案ごとの結果を選んで <button type="submit" form="meetingform">総会の結果を保存する</button></div>
       <a class="btn" href="#explain">ステップ5へ{{ icon("arrow-right") }}</a>
-    {%- else %}<div class="t"><b>総会の結果を記録しましょう</b><span class="muted">議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
+    {%- else %}{# 説明を作った直後にここへ移り、作った説明を見失った（想定ユーザーでの確認から）。説明を開く道をここにも置く #}
+      <div class="t"><b>住民向けの説明ができました。配って総会を開いたら、結果をここに記録します</b><span class="muted"><a href="/works/{{ id }}/explain">住民向けの説明を開く（見る・印刷する）</a>。総会が済んだら、議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存する{{ icon("arrow-right") }}</button>{% endif %}{% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "meeting_empty" %}<p class="warn"><b class="w">議案ごとの結果（可決など）が選ばれていないので、保存しませんでした。</b>下の「議案ごとの結果」で、議案ごとに結果を選んでから保存してください。前に保存した結果はそのまま残っています。</p>{% endif %}

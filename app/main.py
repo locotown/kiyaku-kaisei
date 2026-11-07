@@ -1356,6 +1356,7 @@ def minaoshi_page(request: Request, work_id: str):
         "added_now": added_now(t, _added(work)), "std_all": t["std_all"],
         "cur_all": [{"number": r["number"], "label": r["label"], "caption": r["caption"]} for r in t["rows"]],
         "mapped": request.query_params.get("mapped", ""),
+        "after_meeting": bool(adopted_by_meeting(work)) if work.get("meeting") else False,
         "kozo": {"rows": len(k["rows"]), "missing": len(k["missing"]), "bad": len(k["bad_cites"])}})
 
 
@@ -1429,11 +1430,12 @@ async def save_minaoshi_map(request: Request, work_id: str):
 
 
 def _today_wareki() -> str:
-    from datetime import date
+    from datetime import datetime
 
     from core.consolidate import wareki
+    from core.review import JST
 
-    return wareki(date.today())
+    return wareki(datetime.now(JST).date())   # 日本の日付で（サーバーの時計は UTC のことがある）
 
 
 @app.get("/works/{work_id}/taiou", response_class=HTMLResponse)

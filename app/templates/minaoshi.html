@@ -29,6 +29,7 @@
 <noscript><p class="note2 small">この画面の絞り込みと「対応する標準管理規約の条を選び直す」は、ブラウザのスクリプトを有効にすると使えます。判断は、行ごとの「保存」で保存できます。</p></noscript>
 <section class="sec" aria-labelledby="ml-rows" id="ml-decide">
   <h2 id="ml-rows">条の対応表と、理事会の判断（{{ rows|length }}行）</h2>
+  {% if after_meeting %}<p class="note2 small"><b class="w">ここで比べている「今の規約」は、読み込んだ規約（今回の改正の前の文）です。</b>総会で可決した条は「今回の改正でも直す条」の印で見分けてください。改正後の文で比べるには、ステップ6の最新の規約（Word）を読み込んで、新しい作業を作ってください。</p>{% endif %}
   <p class="small muted">「ほぼ同じ」の条は判断が要らないので出していません。選ぶとすぐ保存します。対応づけは見出しと文の似かたによる目安です。</p>
   {% if added_now %}<p class="note2 small"><b class="w">今回の改正（法改正への対応）で足す条：</b>{% for a in added_now %}{{ a.label }}（{{ a.caption }}）{% if not loop.last %}、{% endif %}{% endfor %}。今回の改定案で足すので、ここでは決めません。</p>{% endif %}
   <div class="ml-tiles" id="ml-sum">
