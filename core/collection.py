@@ -7,6 +7,8 @@
   - 細則 … 「○○使用細則」「○○細則」「○○規程」の題名の行から。条形式（第1条…）と項目形式（1. 管理員…）がある
   - 改正履歴 … 「改正履歴」「改訂履歴」を含む見出しから
   - メモ … 最初の題名より前の部分（表紙、反映範囲の説明など）
+  - その他の決まり … 「○○ルール」「申し合わせ」「内規」「○○要領」の見出しから。規約でも細則でもない、総会や理事会で決めた決まり。
+    改正対応の対象外（点検しない）。構成表の一覧に出す（残る課題③。11/7）
 本文から外すもの（各文書の annotations に別に保持する）:
   - ページ参照：「（規約集 p11）」「(p05-p06)」など
   - 注記：◆ ★ ※ で始まる行、「- 」で始まる箇条書きの行、「出典 = …」「旧条文 = …」のような作業の記録
@@ -33,7 +35,8 @@ HISTORY = re.compile(r"(改正|改訂)(履歴|の記録)")
 ITEM_HEADING = re.compile(r"^(\d{1,2})\.\s*(\S.{0,20})$")
 APPENDIX_HEAD = re.compile(r"^(附[\s　]*則|別表)")
 
-KINDS = ("規約", "細則", "改正履歴", "メモ")
+KINDS = ("規約", "細則", "改正履歴", "メモ", "その他の決まり")
+OTHER_RULE = re.compile(r"ルール|申し合わせ|申合せ|内規|要領$")
 
 
 @dataclass
@@ -97,6 +100,8 @@ def classify_title(line: str) -> str | None:
         return "メモ"  # 「○○管理規約・細則」のような規約集全体の表紙
     if HISTORY.search(line) and len(line) <= 40:
         return "改正履歴"
+    if len(line) <= 40 and OTHER_RULE.search(line) and not re.match(r"^[\s　]*(第|[（(]|[0-9０-９])", line):
+        return "その他の決まり"
     m = TITLE.match(line)
     if not m:
         return None
@@ -129,6 +134,9 @@ def segment(raw_lines: list[str]) -> Collection:
                 docs[-1].title = stripped
             else:
                 docs.append(Document(kind="メモ", title=stripped))
+            continue
+        if kind == "その他の決まり" and docs[-1].kind == "その他の決まり":
+            docs[-1].lines.append(stripped)   # 「① 日除け天幕設置に関するルール」のような個々のルールは、同じ文書の中の見出し
             continue
         if kind and not (kind == "規約" and docs[-1].kind == "規約" and not docs[-1].lines):
             docs.append(Document(kind=kind, title=stripped))

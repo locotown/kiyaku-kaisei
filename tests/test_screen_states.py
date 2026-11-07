@@ -214,6 +214,10 @@ def test_new_supplementary_provision_goes_before_appendix_tables():
     new = next(i for i, h in enumerate(heads) if "令和9年1月24日" in h)
     table = next(i for i, h in enumerate(heads) if h.startswith("別表"))
     assert new < table
+    # 別表は表の形を再現できないので、中身は入れず「原本のとおり」と書く（11/7 作者の判断（b））
+    tb = [b for b in blocks if b.kind == "appendix" and b.lines[0].startswith("別表")][0]
+    assert tb.changed == "原本" and "原本のとおり" in tb.lines[1] and "別表第1" in tb.lines[1]
+    assert not any("物件名" in x for b in blocks for x in b.lines)
 
 
 def test_work_name_can_be_changed(board_work):

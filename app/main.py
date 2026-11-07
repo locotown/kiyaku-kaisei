@@ -529,7 +529,7 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     """最新の規約・細則（総会で可決したもの）。〔選択〕が残っていれば作らない。"""
     from datetime import date
 
-    from core.consolidate import consolidate, wareki
+    from core.consolidate import consolidate, left_out, wareki
     from core.draft import CHOICE_MARK
     from core.explain import ref_name
 
@@ -563,7 +563,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
                      "history": history, "variants": variant_articles(blocks), "blanks": blanks_in(blocks),
                      "blank_slots": blank_slots(raw_blanks, fills, _org(work)),
-                     "blank_tables": [x for x in raw_blanks if is_table(x)]})
+                     "blank_tables": [x for x in raw_blanks if is_table(x)],
+                     "left_out": left_out(kiyaku) if kiyaku else {"notes": [], "tables": [], "table_lines": 0}})
     return docs
 
 
@@ -706,6 +707,7 @@ def create_work(
     electronic: str = Form("未定"),
     org: str = Form(""),
     sample: str = Form(""),
+    version: str = Form(""),
     file: UploadFile | None = File(None),
 ):
     if kind != "単棟型":
@@ -743,8 +745,12 @@ def create_work(
     info = {"型": kind, "電磁的方法の利用": electronic}
     if units:
         info["戸数"] = units
+    from core.readcheck import VERSION_ANSWERS
+
     store.save(work_id, {"name": name, "org": org.strip(), "info": info, "status": "点検中", "articles": len(kiyaku.articles),
-                         "documents": documents, "log": []})
+                         "documents": documents, "log": [],
+                         # 読み込んだ規約が今有効な版か（課題①）。サンプルは今有効な版として扱う
+                         "version": "はい" if sample else (version if version in VERSION_ANSWERS else "")})
     threading.Thread(target=_run_review, args=(work_id,), daemon=True).start()
     return RedirectResponse(f"/works/{work_id}", status_code=303)
 
@@ -1246,6 +1252,54 @@ def final_docx(work_id: str, n: int):
     name = quote(f"{d['title']}（最新）.docx")
     return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
+
+def read_check(work_id: str) -> dict:
+    """ステップ1の「読み込んだ版の確かめ」：改正の記録に出てくる条と、条の中のメモらしい文（課題①②。AI は使わない）。"""
+    from core.ingest import load_collection
+    from core.readcheck import view
+
+    try:
+        return view(load_collection(_source(work_id)))
+    except Exception:
+        return {"memos": [], "history": {"entries": [], "count": 0, "articles": []}, "has_history": False, "documents": []}
+
+
+templates.env.globals["read_check"] = read_check
+
+
+@app.post("/works/{work_id}/version")
+async def save_version(request: Request, work_id: str):
+    """読み込んだ規約が今有効な版か、の答えを保存する（課題①）。"""
+    from core.readcheck import VERSION_ANSWERS
+
+    form = await request.form()
+    v = str(form.get("version", ""))
+    store.load(work_id)
+    store.update(work_id, version=v if v in VERSION_ANSWERS else "")
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True})
+    return RedirectResponse(f"/works/{work_id}#readcheck", status_code=303)
+
+
+@app.get("/works/{work_id}/kozo", response_class=HTMLResponse)
+def kozo(work_id: str):
+    """規約集の構成表（計画F1。AI は使わない）：読み込んだ文書、規約がほかの決まりに任せている事項と対応する細則、細則が引く規約の条。"""
+    from core.kozo import build, to_html
+
+    work = store.load(work_id)
+    from core.ingest import load_collection
+
+    try:
+        fresh = load_collection(_source(work_id)).summary()   # 今の分け方で（読み込んだときの記録は古いことがある）
+    except Exception:
+        fresh = work.get("documents") or []
+    docs = [{"kind": d["kind"], "title": d["title"],
+             "count": (f"{d['articles']}{'項目' if d.get('style') == '項目' else 'か条'}" if d.get("articles") else "—")}
+            for d in fresh] or None
+    k = build(_corpus(work_id), docs)
+    title = f"{_org(work)} 規約集の構成表".strip()
+    return HTMLResponse(to_html(k, title, ident=_ident(work_id, work)))
+
 
 @app.get("/works/{work_id}/taisho", response_class=HTMLResponse)
 def taisho(work_id: str):

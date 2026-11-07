@@ -70,6 +70,35 @@ def _amendment_lines(am: Amendment, style: str) -> list[str]:
     return ([f"（{am.caption}）"] if am.caption else []) + body
 
 
+# 別表・別紙・様式は、表の形を再現できないので、最新の規約には入れず「原本のとおり」と書く（11/7 作者の判断（b））
+APPENDIX_TABLE = re.compile(r"^[\s　]*(別表|別紙|様式|書式)")
+TABLE_NAME = re.compile(r"^[\s　]*((?:別表|別紙|様式|書式)\s*(?:第\s*)?[0-9０-９一二三四五六七八九十]*)")
+# 前置き（第1条より前）に入る、委員会の作業用の説明（「議事録で内容は確認済」など）は入れない。
+# 題名・目次のような短い行と、「。」で終わる前文（「管理規約第17条の規定に基づいて…定める。」）は残す
+NOTE_LINE = re.compile(r"議事録|確認済|実見|出典|転記|推測|作業用|注記|改訂履歴|改正履歴一覧|当方|抽出|規約集\s*p|ノンブル|\.png"
+                       r"|\d{4}-\d{1,2}-\d{1,2}|[★◆🆕※]|^\s*[-・]\s")
+PREAMBLE_MAX = 40
+
+
+def preamble_kept(line: str) -> bool:
+    s = line.strip()
+    if not s or NOTE_LINE.search(s) or re.match(r"^\s*([0-9０-９]+|[一二三四五六七八九十]+)[\s　]", line):
+        return False
+    return len(s) <= PREAMBLE_MAX or s.endswith("。")
+
+
+def left_out(kiyaku: Kiyaku) -> dict:
+    """最新の規約に入れない部分：前置きの説明の行と、別表・様式など（ステップ6で知らせる）。"""
+    rest = [line for line in kiyaku.appendix if line.strip()]
+    cut = next((i for i, line in enumerate(rest) if APPENDIX_TABLE.match(line)), len(rest))
+    names = list(dict.fromkeys(m.group(1).replace(" ", "").replace("　", "") for line in rest[cut:]
+                                for m in [TABLE_NAME.match(line)] if m))
+    if len(names) > 1 and "別表" in names:   # 「別表」の見出しのあとに「別表第1」…と並ぶときは、番号の付いた名前だけ
+        names.remove("別表")
+    return {"notes": [x for x in kiyaku.preamble if x.strip() and not preamble_kept(x)], "tables": names,
+            "table_lines": len(rest) - cut}
+
+
 def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
                 effective: date | None = None, meeting: str = "", pick: dict[str, str] | None = None) -> list[Block]:
     """今の規約に改定を重ねて、最新の全文をブロックの並びにする。
@@ -108,7 +137,8 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
     for line in kiyaku.preamble:
         # 項や号の形の行（「2　…」「一　…」）は前置きではない。（ア）（イ）を並べて書いた規約で、
         # どの条にも結び付かなかった項が前置きに入り、最新の規約の冒頭に出ていた（想定ユーザーでの確認で分かった）
-        if line.strip() and not re.match(r"^\s*([0-9０-９]+|[一二三四五六七八九十]+)[\s　]", line):
+        # 委員会の作業用の説明の文も入れない（実在の規約集の作業用資料で、題名の直後に説明が出ていた。11/7）
+        if preamble_kept(line):
             blocks.append(Block("appendix", [line]))
     chapter = None
     for _, _, ch, lines, changed in rows:
@@ -119,7 +149,7 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
         blocks.append(Block("article", lines, changed))
     # 今回の附則は、今ある附則のすぐあと・別表の前に入れる（規約集は「附則 → 別表」の順。別表のあとに付いていた。想定ユーザーでの確認から）
     rest = [line for line in kiyaku.appendix if line.strip()]
-    cut = next((i for i, line in enumerate(rest) if re.match(r"^[\s　]*別表", line)), len(rest))
+    cut = next((i for i, line in enumerate(rest) if APPENDIX_TABLE.match(line)), len(rest))
     if rest[:cut]:
         blocks.append(Block("appendix", rest[:cut]))
     if effective:
@@ -127,7 +157,10 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
         head = f"附　則（{wareki(effective)}{('　' + meeting) if meeting else ''}改正）"
         blocks.append(Block("appendix", [head, "（施行期日）", f"この{what}の改正は、{wareki(effective)}から施行する。"], "附則"))
     if rest[cut:]:
-        blocks.append(Block("appendix", rest[cut:]))
+        names = left_out(kiyaku)["tables"] or ["別表"]
+        blocks.append(Block("appendix", [names[0] if len(names) == 1 else "別表など",
+                                         f"{'・'.join(names)}は、今回の改正はありません。原本のとおりです（原本のページをそのまま綴じます）。"],
+                            "原本"))
     return blocks
 
 
@@ -160,8 +193,8 @@ def to_docx(blocks: list[Block], ident: str = "") -> bytes:
             continue
         for i, line in enumerate(b.lines):
             p = doc.add_paragraph(line)
-            if i == 0 and (line.startswith("（") or line.startswith("附")):
-                p.runs[0].bold = line.startswith("附")
+            if i == 0 and (line.startswith("（") or line.startswith(("附", "別表", "別紙", "様式"))):
+                p.runs[0].bold = line.startswith(("附", "別表", "別紙", "様式"))
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
@@ -169,7 +202,7 @@ def to_docx(blocks: list[Block], ident: str = "") -> bytes:
 
 def to_html(blocks: list[Block], note: str = "", word_href: str = "", ident: str = "") -> str:
     """画面で確認する用。変更した条に色を付ける。"""
-    labels = {"改正": "改正", "新設": "新設", "削除": "削除", "附則": "今回追加"}
+    labels = {"改正": "改正", "新設": "新設", "削除": "削除", "附則": "今回追加", "原本": "原本のとおり"}
     parts = []
     for b in blocks:
         if b.kind == "title":

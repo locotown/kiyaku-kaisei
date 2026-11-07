@@ -23,7 +23,7 @@ const OUT = __dirname + path.sep;
   };
   const W = `${BASE}/works/${WORK}`;
   await shot(W + '#findings', '01_findings.png', 'p.eyebrow.wk', 900);
-  await shot(W + '#board', '02_board.png', 'section[data-step="board"] .stepttl', 900);
+  await shot(W + '#board', '02_board.png', '.bitem:has(.bseg.n4)', 900);   // 議題と判断のボタン（採用・修正して採用・見送り）が写る位置
   await shot(W + '/taisho', '03_taisho.png', null, 760);
   if (process.env.CONSULT_ID) await shot(`${BASE}/consult/${process.env.CONSULT_ID}`, '04_consult.png', null, 900);
   await b.close();

@@ -20,6 +20,17 @@
   <input type="file" id="file" name="file" accept="{{ supported|join(',') }}">
   <div class="muted">対応形式：Word（.docx。Google ドキュメントは「ダウンロード → Microsoft Word」で保存）、文字を選択できるPDF、テキスト。紙をスキャンしたPDFはまだ使えません。紙の規約しかない場合は、文字に起こして Word などで保存してから読み込み、点検の前に「現行」の文を原本と見比べてください（数字と条番号は特に）。</div>
 
+  <label for="version">この規約は、これまでの改正を全部反映した版ですか</label>
+  <select id="version" name="version">
+    <option value="">選んでください</option>
+    <option value="はい">はい（改正を全部反映した、今有効な内容）</option>
+    <option value="いいえ">いいえ（原本の本文と、改正の一覧や議事録が分かれている）</option>
+    <option value="分からない">分からない</option>
+  </select>
+  <div class="help">規約集によっては、本文は作ったときのままで、その後の改正は冒頭の「改正履歴の一覧」や総会の議事録にしか書かれていないことがあります。
+    そのまま読み込むと、改正前の古い文で点検してしまいます。改正を本文に重ねた版（改正された条を新しい文に差し替えたもの）を読み込んでください。
+    「いいえ」「分からない」でも読み込めます。読み込んだあと、確かめる手がかり（改正の記録に出てくる条など）を「1. 読込」の画面に出します。</div>
+
   <label for="kind">マンションの型</label>
   <select id="kind" name="kind">
     <option value="単棟型">単棟型（1棟だけのマンション）</option>
