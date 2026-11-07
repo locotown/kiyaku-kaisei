@@ -87,3 +87,22 @@ def test_bulk_add_scope_only_touches_findings_without_current_rule(board_work):
     j = c.post(f"/works/{wid}/decisions/bulk", data={"scope": "足す", "decision": "採用", "only_open": "1"}).json()
     d = store.load(wid)["decisions"]
     assert j["changed"] == 1 and d["0"]["decision"] == "採用" and "1" not in d and "2" not in d
+
+
+def test_board_decision_is_buttons_like_step2(board_work):
+    """ステップ4の判断は、ステップ2と同じボタン（ラジオ）の形。段ごとの案と「未判断」が並び、保存した判断に印が付く（計画B）。"""
+    import re
+
+    M, store, c, wid, _, _ = board_work
+    c.post(f"/works/{wid}/board/decisions", data=FORM)
+    page = c.get(f"/works/{wid}").text
+    assert '<select name="b_decision_' not in page
+    for key, val in FORM.items():
+        if not key.startswith("b_decision_"):
+            continue
+        group = re.search(rf'<div class="mini2 bseg n\d"[^>]*>(.*?)</div>', page[page.index(f'name="{key}"') - 400:], re.S).group(1)
+        assert f'value="{val}" checked' in group and ">未判断</label>" in group
+    # 判断していない議題は「未判断」に印が付く
+    c.post(f"/works/{wid}/board/decisions", data={})
+    page = c.get(f"/works/{wid}").text
+    assert re.search(r'name="b_decision_0" value="" checked>未判断', page)

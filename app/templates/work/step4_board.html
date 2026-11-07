@@ -120,16 +120,17 @@
         {% if redone %}<p class="note2 small"><b class="w">この議題の条（{{ redone|join("、") }}）は、理事会の判断を反映して作り直しました。</b>上の説明は作り直す前の文です。今の条の文は<a href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表</a>で確かめてください。</p>{% endif %}
         <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
         {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
-        <div class="bdec"><select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
-          <option value="">（未判断）</option>
-          {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select><span class="bsave small" role="status"></span></div>
+        {# 判断はステップ2と同じボタンの形（プルダウンだと選べる案が見えず、ステップ2と操作が違った。計画B） #}
+        <div class="bdec"><div class="mini2 bseg n{{ board_choices[it.tier]|length + 1 }}" role="radiogroup" aria-label="{{ loop.index }}. の判断">
+          {%- for c in board_choices[it.tier] %}<label class="b-{{ c }}"><input type="radio" name="b_decision_{{ i }}" value="{{ c }}" {% if d.decision == c %}checked{% endif %}>{{ c }}</label>{% endfor -%}
+          <label class="b-none"><input type="radio" name="b_decision_{{ i }}" value="" {% if d.decision not in board_choices[it.tier] %}checked{% endif %}>未判断</label>
+        </div><span class="bsave small" role="status"></span></div>
         {% set pts = board_points.get(i, []) %}
         {% if pts %}
           <div class="choose-ref">
             <b>選ぶ点（〔選択〕）：</b>{% for p in pts %}{% set k = qindex[point_key(p)] %}
               <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）<span class="cref" data-q="{{ k }}" data-saved="{{ answers[k] }}">{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}</span>{% if not loop.last %}／{% endif %}{% endfor %}
-            <div class="small">判断の欄（{{ board_choices[it.tier]|join("・") }}）は、この議題を改定案に入れるかどうかです。どちらの案にするかは、上の「組合が選ぶ点」で選びます（判断の欄と別に選びます。例：「採用」＋問の案）。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
+            <div class="small">判断のボタン（{{ board_choices[it.tier]|join("・") }}）は、この議題を改定案に入れるかどうかです。どちらの案にするかは、上の「組合が選ぶ点」で選びます（判断のボタンと別に選びます。例：「採用」＋問の案）。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
           </div>
         {% endif %}
         <input type="text" class="bnote" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録と住民向け説明の参考に使います）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
