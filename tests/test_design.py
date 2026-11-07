@@ -115,3 +115,13 @@ def test_taisho_rewritten_when_opened(board_work):
     p.write_text("<html>前の作りの表</html>", encoding="utf-8")
     page = c.get(f"/works/{wid}/taisho").text
     assert "前の作りの表" not in page and ".pairs { display: none; }" in page
+
+
+def test_document_back_link_returns_to_its_step(board_work):
+    """資料の「作業の画面に戻る」：作業の画面から開いたときは開いたときの画面へ（history.back）、
+    直接開いたときは資料を作ったステップへ。新旧対照表から戻るとステップ4になり混乱した（確認ボード 第20回の気づき）。"""
+    M, store, c, wid, _, _ = board_work
+    page = c.get(f"/works/{wid}/taisho").text
+    assert 'href="./#next" class="back"' in page and "history.back()" in page
+    work = c.get(f"/works/{wid}").text
+    assert "開く（印刷用）" not in work and "（見る・印刷する）" in work   # 印刷のときだけ使うように見えた（同じ回の気づき）

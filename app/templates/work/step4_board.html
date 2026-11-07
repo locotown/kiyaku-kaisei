@@ -38,7 +38,7 @@
     {% endif %}
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
-  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。資料は「検討資料を開く」から画面で見られ、印刷もできます。</span></div>{% endif %}
   {% if not board and work.draft %}{% set bp = board_preview(work) %}
   {# 作る前でも、理事会で何をするかと、この改定案がどう分かれる見込みかを見せる #}
   <section class="card2 preview" aria-labelledby="bp-h">
@@ -52,7 +52,7 @@
   {% endif %}
   {% if board %}
     <div class="acts">
-      <a class="tbtn2" href="/works/{{ id }}/board">{{ icon("printer") }}検討資料を開く（印刷用）</a>
+      <a class="tbtn2" href="/works/{{ id }}/board">{{ icon("file") }}検討資料を開く（見る・印刷する）</a>
       <a class="tbtn2" href="/works/{{ id }}/board.docx">{{ icon("download") }}Word で保存</a>
       <a class="tbtn2" href="/works/{{ id }}/taisho">{{ icon("file") }}新旧対照表</a>
     </div>

@@ -152,7 +152,10 @@ def toolbar(word_href: str = "", landscape: bool = False, back_href: str = "./")
     スマホでは、印刷の説明を畳み、帯を上に固定しない（画面の4分の1を占めて読みにくい、という声から）。
     """
     word = f'<a href="{word_href}">Word で保存（直して使う）</a>' if word_href else ""
-    back = f'<a href="{back_href}" class="back">← 作業の画面に戻る</a>' if back_href else ""
+    # 作業の画面から開いたときは、開いたときの画面（ステップ・位置）に戻る。ほかから開いたときは、資料を作ったステップへ
+    # （新旧対照表から戻るとステップ4になり混乱した。確認ボード 第20回の気づき）
+    back = (f'<a href="{back_href}" class="back" onclick="if (document.referrer.indexOf(location.origin + \'/works/\') === 0 '
+            f'&amp;&amp; history.length > 1) {{ history.back(); return false; }}">← 作業の画面に戻る</a>') if back_href else ""
     paper = "A4 横" if landscape else "A4 縦"
     return (f'<div class="toolbar">{back}<button type="button" onclick="window.print()">印刷する</button>{word}'
             '<p class="safari" hidden>Safari では、各ページの上下に資料名・版の番号・ページ番号が出ません。'
