@@ -61,3 +61,21 @@ def test_step6_tells_blanks_in_latest_rules(board_work, monkeypatch):
     page = c.get(f"/works/{wid}").text
     assert "「○」の空欄が残っている箇所があります（2か所）" in page
     assert "今回の改定で入った条（第35条（役員））は理事会・総会で決めた数字を" in page and "今お使いの規約（原本）の数字" in page
+
+
+def test_check_draft_warns_new_blanks_only():
+    """改定案の検査（AI が使う check_draft）：標準管理規約から写した新しい「○」は注意に出す。今の規約にもともとある「○」は出さない。"""
+    from pathlib import Path
+
+    from core.draft import check
+    from core.ingest import load_kiyaku
+    from tests.test_draft import amendment
+
+    k = load_kiyaku(Path(__file__).resolve().parents[1] / "evals/data/r7_tantou_before.txt")
+    f = []
+    base = amendment(k)
+    _, _, warn = check({"amendments": [base], "notes": "法的助言ではありません"}, k, f or [])
+    assert not any("「○」の空欄" in w for w in warn)
+    added = dict(base, text=base["text"] + "\n9　理事長は、○か月に1回以上、報告しなければならない。")
+    _, _, warn = check({"amendments": [added], "notes": "法的助言ではありません"}, k, f or [])
+    assert any("「○」の空欄が残っています" in w and "○か月に1回" in w for w in warn)
