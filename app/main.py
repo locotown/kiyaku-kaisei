@@ -1032,7 +1032,8 @@ async def save_blanks(request: Request, work_id: str):
         text = fill(template, values)
         if text == am["text"]:
             continue
-        filled = [f"{x['before'].lstrip('…')[-6:]}{val}{x['after'].rstrip('…')[:4]}" for x, val in zip(v["slots"], values) if val]
+        # 入れた数字を、前後の言葉と一緒に「…理事が【3】分の1以上…」の形で残す（前後を短く切った形が、文の途中で切れたように読めた）
+        filled = [f"…{x['before'].lstrip('…')[-10:]}【{val}】{x['after'].rstrip('…')[:6]}…" for x, val in zip(v["slots"], values) if val]
         edits.append({"document": am.get("document") or "規約", "article": am["article"], "text": text,
                       "note": "空欄（○）に数字を入れた：" + ("、".join(filled) if filled else "入れた数字を消した")})
         fills[key] = {"template": template, "values": values, "filled": text, "at": _now()}
@@ -2542,30 +2543,45 @@ def _review_material(work_id: str, work: dict, key: str) -> str:
                    note=e.get("note", ""), findings=findings,
                    basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis})
                    + _definitions(_corpus(work_id), e["original"] + e["text"])
-                   + _related(_corpus(work_id), document, article, e["original"] + e["text"]))
+                   + _related(_corpus(work_id), document, article, e["original"] + e["text"], draft=draft))
 
 
-def _related(corpus, document: str, article: str, text: str, extra: list[str] | None = None) -> list[dict]:
+def _related(corpus, document: str, article: str, text: str, extra: list[str] | None = None, draft=None) -> list[dict]:
     """確かめる役に渡す、関係する条の今の文：文中で参照している条・枝番のもとの条（第38条の2 → 第38条）・extra に挙げた条。
 
     渡していない条について「資料からは分からない」と人に確認を頼ませないため（想定ユーザーでの確認で分かった）。
+    細則が「規約第○条」を引くときは規約の条を、出典を「今の規約」として渡す。参照先が同じ総会の改定案で直る条なら、
+    改定案の文も並べる（改定前の項番号で「第9項に直せ」と誤って勧めた。想定ユーザー（委員）での確認から）。
     """
     from core.sources import normalize_article_ref
 
-    refs = re.findall(r"第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?", text) + list(extra or [])
+    pat = r"(規約)?(第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?)"
+    refs = [(bool(m.group(1)), m.group(2)) for m in re.finditer(pat, text)] + [(False, x) for x in (extra or [])]
     base = re.match(r"(第[0-9０-９一二三四五六七八九十百]+条)の", article)
     if base:
-        refs.append(base.group(1))
-    out, seen = [], {normalize_article_ref(article)}
-    for r in refs:
+        refs.append((False, base.group(1)))
+    amended = {}
+    for a in (draft.amendments if draft else []):
+        amended[(a.document or "規約", normalize_article_ref(a.article))] = a
+    out, seen = [], {(document, normalize_article_ref(article))}
+    for to_main, r in refs:
         num = normalize_article_ref(r)
-        if num in seen:
+        found, doc = [], document
+        if not to_main:
+            found = corpus.find(document, num) or []
+        if not found:
+            found, doc = corpus.find("規約", num) or [], "規約"
+        if (doc, num) in seen:
             continue
-        seen.add(num)
-        for a in corpus.find(document if document != "規約" else "規約", num) or corpus.find("規約", num):
-            out.append({"source": "今の規約" if document == "規約" else document, "ref": a.label,
-                        "caption": getattr(a, "caption", "") or "", "text": a.text()})
-    return out[:8]
+        seen.add((doc, num))
+        src = "今の規約" if doc == "規約" else doc
+        for a in found:
+            out.append({"source": src, "ref": a.label, "caption": getattr(a, "caption", "") or "", "text": a.text()})
+        am = amended.get((doc, num))
+        if am is not None and am.kind != "削除" and am.text:
+            out.append({"source": ("改定案の規約" if doc == "規約" else f"改定案の{doc}") + "（同じ総会で直す文）",
+                        "ref": am.article, "caption": am.caption or "", "text": am.text})
+    return out[:10]
 
 
 def _definitions(corpus, text: str) -> list[dict]:

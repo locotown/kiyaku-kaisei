@@ -63,3 +63,37 @@ def test_note_of_in_article_variant_does_not_move_to_next_article():
     a20 = next(a for a in k.articles if a.number == "20")
     assert a20.note == ""
     assert next(a for a in k.articles if a.number == "17" and a.variant == "ア").note   # 条ごとの両案の注記は残る
+
+
+def test_taisho_old_column_shows_current_caption():
+    """新旧対照表の現行の列は、今の規約の見出しを出す。見出しが変わる条は印を付け、見出しを本文の最後に重ねない。"""
+    from core.draft import Amendment, Draft
+    from core.model import Article, Kiyaku, Paragraph
+    from core.taisho import _html_table, rows
+    k = Kiyaku(articles=[Article(number="24", caption="必要箇所への立入り",
+                                 paragraphs=[Paragraph(1, "理事長は立ち入ることができる。"), Paragraph(2, "拒んではならない。")])])
+    a = Amendment(kind="改正", article="第24条", before_article="第24条", caption="必要箇所への立入り等",
+                  text="第24条　理事長は立ち入り、又は保存行為をすることができる。\n2　拒んではならない。", reason="r",
+                  finding_refs=[], law_basis=[], standard_basis=[])
+    rs = rows(Draft(amendments=[a], notes=""), k)
+    assert rs[0]["old_caption"] == "必要箇所への立入り"
+    html = _html_table([(1, rs[0])], "")
+    old_cell = html.split('class="c-old">')[1]
+    assert "<mark>等</mark>" in html and "必要箇所への立入り" in old_cell and "立入り等" not in old_cell.split("</td>")[0]
+    new_cell = html.split('class="c-new">')[1].split("</td>")[0]
+    assert not new_cell.rstrip().endswith("）")                                     # 本文の最後に見出しを重ねない
+
+
+def test_related_labels_main_rules_and_adds_amended_text():
+    """細則が引く規約の条は「今の規約」として渡し、同じ総会で直す条なら改定案の文も並べる。"""
+    from app.main import _related
+    from core.corpus import Corpus
+    from core.draft import Amendment, Draft
+    from core.model import Article, Kiyaku, Paragraph
+    main = Kiyaku(articles=[Article(number="45", caption="招集手続", paragraphs=[Paragraph(1, "旧の文。")])])
+    corpus = Corpus.of(main)
+    am = Amendment(kind="改正", article="第45条", before_article="第45条", caption="招集手続", text="第45条　新しい文。",
+                   reason="", finding_refs=[], law_basis=[], standard_basis=[])
+    out = _related(corpus, "規約", "第3条", "規約第45条第8項の定めるところによる", draft=Draft(amendments=[am], notes=""))
+    assert out[0]["source"] == "今の規約" and "旧の文" in out[0]["text"]
+    assert any("改定案" in o["source"] and "新しい文" in o["text"] for o in out)

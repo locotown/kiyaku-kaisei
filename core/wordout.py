@@ -199,8 +199,16 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
                       color=OK if "問題なし" in mark else MUST)
             for cell, parts, side in ((new_cell, r["new"], "new"), (old_cell, r["old"], "old")):
                 p = cell.paragraphs[0]
-                if a.caption and not (side == "old" and a.kind == "新設"):
-                    _font(p.add_run(f"（{a.caption}）\n"), 9.5)
+                cap = a.caption if side == "new" else r.get("old_caption", a.caption)   # 現行の列は今の規約の見出し
+                if cap and not (side == "old" and a.kind == "新設"):
+                    changed_cap = side == "old" and cap != a.caption or side == "new" and r.get("old_caption", a.caption) not in ("", a.caption)
+                    run = p.add_run(f"（{cap}）\n")
+                    _font(run, 9.5, color=MUST if changed_cap and side == "old" else None)
+                    if changed_cap:
+                        if side == "new":
+                            run.font.underline = True
+                        else:
+                            run.font.strike = True
                 for text, changed in parts:
                     run = p.add_run(text)
                     _font(run, 9.5, color=MUST if (changed and side == "old" and text.strip()) else None)

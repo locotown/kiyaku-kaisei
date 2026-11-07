@@ -74,8 +74,30 @@ def rows(draft: Draft, kiyaku) -> list[dict]:
             old_parts = [("（新設）", False)]
         if a.kind == "削除":
             new_parts = [("（削る）", False)]
-        out.append({"amendment": a, "old": old_parts, "new": new_parts, "old_text": old, "new_text": new})
+        # 現行の列の見出しは、今の規約の条の見出し（改定後の見出しを現行に出していた。想定ユーザーでの確認から）
+        cur = _current_article(corpus.get(a.document) or corpus.main, a.before_article) if a.kind != "新設" else None
+        out.append({"amendment": a, "old": old_parts, "new": new_parts, "old_text": old, "new_text": new,
+                    "old_caption": (cur.caption if cur else a.caption) if a.kind != "新設" else ""})
     return out
+
+
+def _current_article(kiyaku: Kiyaku, ref: str | None):
+    if not ref:
+        return None
+    number = normalize_article_ref(ref)
+    return next((a for a in kiyaku.articles if a.number == number), None)
+
+
+def caption_cells(r: dict) -> tuple[str, str]:
+    """改定案の列と現行の列に出す見出しの HTML。見出しが変わる条は、変わった語句に印を付ける。"""
+    a = r["amendment"]
+    new, old = a.caption or "", r.get("old_caption", a.caption) or ""
+    if a.kind == "新設":
+        return (f"（{html.escape(new)}）" if new else ""), ""
+    if new and old and new != old:
+        o, n = _marked(old, new)
+        return f"（{_html_parts(n, 'new')}）", f"（{_html_parts(o, 'old')}）"
+    return (f"（{html.escape(new)}）" if new else ""), (f"（{html.escape(old)}）" if old else "")
 
 
 # スマホ用：条を項ごとに分けて、改定案の項と現行の項を交互に並べる（計画C。長い条で見比べるのにスクロールが多かった）
@@ -209,7 +231,7 @@ def _pairs_html(r: dict) -> str:
 
 
 PAIRS_CSS = """
-.pairs { display: none; }
+.pairs { display: none; } .pp-cap { font-weight: 700; margin-bottom: 4px; }
 @media screen and (max-width: 720px) {
   table.taisho tr.has-pairs td.c-new .fullnew, table.taisho tr.has-pairs td.c-old { display: none !important; }
   table.taisho tr.has-pairs td.c-new::before { content: none; }
@@ -386,7 +408,8 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
     for n, r in items:
         a = r["amendment"]
         c = classify(a)
-        caption = f"（{html.escape(a.caption)}）<br>" if a.caption else ""
+        cap_new, cap_old = caption_cells(r)
+        caption = f"{cap_new}<br>" if cap_new else ""
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
         choices = "".join(
             f"<li>〔選択〕{html.escape(c.get('point', ''))}：{html.escape(' ／ '.join(c.get('options', [])))}"
@@ -395,12 +418,14 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
         skip = is_skipped(skipped, a)
         enote = edit_note(edits, a)
         pairs = _pairs_html(r)
+        pairs_with_cap = pairs.replace('<div class="pairs">', '<div class="pairs"><div class="pp-cap">' + cap_new + "</div>", 1) if pairs else ""
         body.append(
             f'<tr class="{"row-must" if c["is_required"] else "row-opt"}{" row-skip" if skip else ""}{" has-pairs" if pairs else ""}">'
             f'<td data-label="改定案" class="c-new"><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
             f'{_edit_html(edit_label(edits, a))}<span class="fullnew">{caption}{_html_parts(r["new"], "new")}</span>'
-            f'{(caption.replace("<br>", "") + pairs) if pairs else ""}</td>'
-            f"<td data-label=\"現行\" class=\"c-old\">{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
+            # スマホの項ごとの表示（.pairs）では、見出しを .pairs の中の先頭に置く（外に置くとパソコンで本文の最後に見出しが出た）
+            f'{pairs_with_cap}</td>'
+            f"<td data-label=\"現行\" class=\"c-old\">{(cap_old + '<br>') if cap_old else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td data-label=\"区分・変更の理由・根拠\">{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"{('<div class=editnote><b>委員会で直した点：</b>' + html.escape(enote) + '</div>') if enote else ''}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
@@ -460,4 +485,5 @@ def _md_row(r: dict, md) -> str:
         basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
         c = classify(a)
         label = (f"【{REQUIRED_LABEL}】" if c["is_required"] else "") + (f"【{OPTIONAL_LABEL}】" if c["optional"] else "")
-        return f"| （{a.caption}）<br>{md(r['new'], '**')} | {md(r['old'], '~~')} | {label}<br>**{a.kind}** {a.reason}<br>根拠：{basis} |"
+        oc = r.get("old_caption", a.caption)
+        return f"| （{a.caption}）<br>{md(r['new'], '**')} | {('（' + oc + '）<br>') if oc else ''}{md(r['old'], '~~')} | {label}<br>**{a.kind}** {a.reason}<br>根拠：{basis} |"
