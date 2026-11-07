@@ -187,6 +187,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .s-contents { font-size: var(--text-sm); }
 .s-point { flex: 1; }
 .sample button { align-self: flex-start; }
+.s-name { display: grid; gap: 4px; color: var(--color-ink-2); } .s-name input { min-height: 40px; font-size: 1rem; padding: 0 var(--space-2); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
 
 /* ---- 下の帯の中身 ---- */
 .bar .t .muted { font-size: var(--text-sm); }

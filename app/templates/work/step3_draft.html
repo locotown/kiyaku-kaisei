@@ -78,7 +78,7 @@
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       {% set bl = draft_blanks(work) %}
       {# 標準管理規約の「○」の空欄（役員の人数・任期など）が改定案に残ると、そのままでは規約として使えない（計画D1） #}
-      {% if bl %}<div class="check blanks"><span class="num small">！</span><div><b class="w">「○」の空欄が残っている条があります（{{ bl|length }}か条）。</b>標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が数字を入れて決めます。理事会で決めた数字は、<a href="#blanks">「4. 理事会で検討」の「空欄に入れる数字」</a>で入れられます（今の規約に数字があれば、初めから入れてあります）。条の名前を押すと、「条の文を直す」のその条に移ります。
+      {% if bl %}<div class="check blanks"><span class="num small">！</span><div><b class="w">「○」の空欄が残っている条があります（{{ bl|length }}か条）。</b>標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が数字を入れて決めます。理事会で決めた数字は、<a href="#blanks">「4. 理事会で検討」の「空欄に入れる数字・名前」</a>で入れられます（今の規約に数字があれば、初めから入れてあります）。条の名前を押すと、「条の文を直す」のその条に移ります。
         <ul class="small">{% for x in bl %}<li><a href="/works/{{ id }}/articles#row{{ x.n }}"><b>{{ x.where }}</b></a>：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></div></div>{% endif %}
       {% set side = draft_side_notes(work) %}
       {% if side %}<div class="check"><span class="num small">＋</span><div><details class="fold"><summary>AI が気づいた、今回の指摘の範囲外の点（{{ side|length }}点）：改定案には入れていません。必要なら理事会で話し合い、「条の文を直す」で直せます</summary>

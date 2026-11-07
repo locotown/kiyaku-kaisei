@@ -60,7 +60,7 @@
       {# 「未判断に戻す」は判断のボタンの外に置く（同じ組にあると、矢印キーで動かしたとき途中で未判断になりメモが消えた。検証での指摘） #}
       <button type="button" class="ml-clear small" {% if not d.d %}hidden{% endif %}>未判断に戻す</button>
       <div class="ml-memo-wrap" {% if not d.d %}hidden{% endif %}>
-        <input type="text" name="m" value="{{ d.m }}" class="ml-memo" placeholder="理由・経緯のメモ" aria-label="{{ r.label or r.std_label }} の理由・経緯のメモ">
+        <textarea name="m" rows="2" maxlength="300" class="ml-memo" placeholder="理由・経緯のメモ" aria-label="{{ r.label or r.std_label }} の理由・経緯のメモ">{{ d.m }}</textarea>
         <span class="small muted ml-will">{% if d.d and d.d not in keep %}{{ will_later }}{% elif d.d %}{{ will_keep }}{% endif %}</span></div>
       {# 対応づけの選び直し（計画E3-4）。行の form の中に別の form は置けないので、form 属性で下の form に送る #}
       <details class="ml-map small" data-kind="{{ 'cur' if r.type == '標準にない' else 'std' }}" data-sel="{{ r.std_number if r.fixed else '' }}">

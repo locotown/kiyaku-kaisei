@@ -713,6 +713,7 @@ def create_work(
 ):
     if kind != "単棟型":
         raise HTTPException(400, "現在は単棟型のみに対応しています。")
+    name = " ".join(name.split())[:80] or (SAMPLES.get(sample, {}).get("name", "") if sample else "") or "名前のない作業"
     if not sample:
         if not file or not file.filename:
             raise HTTPException(400, "規約のファイルを選んでください。")
@@ -2431,6 +2432,9 @@ def edit_counts(work: dict) -> dict:
 
 
 templates.env.globals["edit_counts"] = edit_counts
+from core.readability import GLOSSARY as _GLOSSARY  # noqa: E402
+
+templates.env.globals["glossary"] = _GLOSSARY
 
 
 def board_preview(work: dict) -> dict:

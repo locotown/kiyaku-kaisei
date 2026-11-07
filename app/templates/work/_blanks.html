@@ -2,7 +2,7 @@
 {% set bv = blank_view(id, work) %}
 {% if bv %}{% set nslot = bv|map(attribute="slots")|map("length")|sum %}{% set nleft = bv|map(attribute="left")|sum %}
 <section class="choose-ui blanks-ui" id="blanks">
-  <div class="cu-head">空欄に入れる数字（「○」{{ nslot }}か所{% if nleft < nslot %}・入れた {{ nslot - nleft }}か所{% endif %}）</div>
+  <div class="cu-head">空欄に入れる数字・名前（「○」{{ nslot }}か所{% if nleft < nslot %}・入れた {{ nslot - nleft }}か所{% endif %}）</div>
   <p class="small">標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が決めて数字を入れます。
     理事会で決めた数字を入れて保存すると、改定案の条に入ります（AI は使いません。「委員会で直した文」として残り、新旧対照表などにもすぐ入ります）。
     {% if bv|map(attribute="slots")|sum(start=[])|selectattr("suggest")|list %}今の規約の同じ箇所に数字があるものは、その数字を初めから入れてあります。そのままでよければ保存してください。{% endif %}
