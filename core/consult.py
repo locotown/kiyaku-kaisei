@@ -329,6 +329,12 @@ class Handler:
                 seen.add(n)
                 note = f"\n{a.note}" if a.note else ""
                 out.append(f"【{a.label}" + (f"（{a.variant}案）" if a.variant else "") + "】" + note + "\n" + a.text())
+            if found and name == "標準管理規約":
+                from core.kb import standard_extra   # 正規版：知識ベースのコメント・選ぶ点（β版では空）
+
+                extra = standard_extra(n)
+                if extra:
+                    out.append(extra)
         return "\n\n".join(out)
 
     def _get_standard_articles(self, articles: list[str]) -> str:

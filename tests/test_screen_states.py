@@ -240,3 +240,30 @@ def test_draft_side_notes_are_listed():
 def test_reference_category_is_not_described_as_unrelated_to_the_revision():
     src = (TPL / "work" / "step2_decide.html").read_text(encoding="utf-8")
     assert "法改正とは直接関係しません" not in src
+
+
+# ---- 知識ベース（正規版）の入口：β版ではなにも変えない ----
+
+def test_kb_entry_is_empty_without_knowledge_base():
+    from core import kb
+    assert not kb.available() and kb.standard_extra("第36条") == "" and kb.version() == ""
+
+
+def test_kb_entry_adds_comment_and_choices(tmp_path, monkeypatch):
+    import json
+
+    from core import kb
+    from core.consult import Handler
+
+    p = tmp_path / "kb.json"
+    p.write_text(json.dumps({"meta": {"name": "見本", "sources": [{"file": "x.pdf", "sha": "abc"}]}, "standard": {"36": {
+        "comment": {"heading": "第36条関係", "text": "役員の任期については、組合の実情に応じて１～２年で設定する。"},
+        "choices": [{"kind": "空欄", "topic": "数を決めて書き入れる", "quote": "役員の任期は○年とする"}],
+        "guides": [{"topic": "任期を決める", "options": ["1年", "2年"], "guide": "1〜2年が目安。", "quotes": ["１～２年で設定する"]}]}}},
+        ensure_ascii=False), encoding="utf-8")
+    monkeypatch.delenv("KIYAKU_KB_OFF")
+    monkeypatch.setenv("KIYAKU_KB", str(p))
+    kb._load.cache_clear()
+    out = Handler(profile={})._get_standard_articles(["第36条"])
+    assert "役員の任期は○年とする" in out and "《コメント（第36条関係）》" in out and "《判断の目安：任期を決める》" in out
+    assert kb.version() == "見本／x.pdf@abc"

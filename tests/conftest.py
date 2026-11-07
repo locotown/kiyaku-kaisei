@@ -15,5 +15,6 @@ def _isolated_work_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "WORK", tmp_path / "work")
     monkeypatch.setattr(store, "SEED", tmp_path / "no_seed")  # 想定ユーザーの作業はテストでは写さない
     monkeypatch.setattr(store, "CONSULT", tmp_path / "consult")  # AI 相談の記録・基本情報も
+    monkeypatch.setenv("KIYAKU_KB_OFF", "1")  # 手元に知識ベース（正規版・非公開）があっても、テストはβ版の動きで確かめる
     (tmp_path / "work").mkdir()
     yield
