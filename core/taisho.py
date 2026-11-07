@@ -74,8 +74,162 @@ def rows(draft: Draft, kiyaku) -> list[dict]:
             old_parts = [("（新設）", False)]
         if a.kind == "削除":
             new_parts = [("（削る）", False)]
-        out.append({"amendment": a, "old": old_parts, "new": new_parts})
+        out.append({"amendment": a, "old": old_parts, "new": new_parts, "old_text": old, "new_text": new})
     return out
+
+
+# スマホ用：条を項ごとに分けて、改定案の項と現行の項を交互に並べる（計画C。長い条で見比べるのにスクロールが多かった）
+PARA_HEAD = re.compile(r"^(?:第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)*|[0-9０-９]+)[　 ]")
+PARA_NO = re.compile(r"^([0-9０-９]+)[　 ]")
+VARIANT_HEAD = re.compile(r"^〔[^〕]{1,12}案〕$")
+
+
+def paragraphs(text: str) -> list[str]:
+    """条の文を項に分ける。「2　」のような数字で始まる行と「〔甲案〕」の行が新しい項。号（一、二…）などは前の項に含める。"""
+    out: list[str] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        if not out or PARA_NO.match(line) or VARIANT_HEAD.match(line.strip()):
+            out.append(line)
+        else:
+            out[-1] += "\n" + line
+    return out
+
+
+def _para_key(p: str) -> str:
+    """見比べるときは、項の番号を除いた文で比べる（項が増えて番号だけ繰り下がった項を、同じ項として並べる）。"""
+    return PARA_HEAD.sub("", p, count=1).strip()
+
+
+def _para_label(p: str | None, first: bool) -> str:
+    if p is None:
+        return ""
+    m = PARA_NO.match(p)
+    if m:
+        return f"第{int(m.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789')))}項"
+    head = p.strip().splitlines()[0]
+    if VARIANT_HEAD.match(head):
+        return head
+    return "第1項" if first else ""
+
+
+def para_pairs(old: str, new: str) -> list[dict]:
+    """項ごとの組（kind：same 変わらない／change 変わった／add 加えた／drop 削った）。"""
+    a, b = paragraphs(old), paragraphs(new)
+    sm = SequenceMatcher(None, [_para_key(x) for x in a], [_para_key(x) for x in b], autojunk=False)
+    out = []
+
+    def add(o, n, oi, ni):
+        kind = "same" if o == n else ("add" if o is None else ("drop" if n is None else "change"))
+        out.append({"kind": kind, "old": o, "new": n,
+                    "old_label": _para_label(o, oi == 0), "new_label": _para_label(n, ni == 0)})
+
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op == "equal":
+            for k in range(i2 - i1):
+                add(a[i1 + k], b[j1 + k], i1 + k, j1 + k)
+            continue
+        olds, news = list(range(i1, i2)), list(range(j1, j2))
+        for k in range(max(len(olds), len(news))):
+            oi = olds[k] if k < len(olds) else None
+            ni = news[k] if k < len(news) else None
+            add(a[oi] if oi is not None else None, b[ni] if ni is not None else None, oi, ni)
+    return out
+
+
+INLINE_MIN = 0.6   # 現行の語句の6割以上が残る項は、1つの文の中で示す
+
+
+def _inline_html(old: str, new: str) -> str:
+    """現行の語句を赤の取り消し線、改定案の語句を色の印で、1つの文の中に示す。書き換えが多い項は空（上下に並べる）。"""
+    a, b = _tokens(old), _tokens(new)
+    sm = SequenceMatcher(None, a, b, autojunk=False)
+    kept = sum(i2 - i1 for op, i1, i2, _j1, _j2 in sm.get_opcodes() if op == "equal")
+    if not a or kept / len(a) < INLINE_MIN:
+        return ""
+    out = []
+    for op, i1, i2, j1, j2 in sm.get_opcodes():
+        if op == "equal":
+            out.append(html.escape("".join(b[j1:j2])))
+            continue
+        o, n = "".join(a[i1:i2]), "".join(b[j1:j2])
+        if o.strip():
+            out.append(f"<del>{html.escape(o)}</del>")
+        if n.strip():
+            out.append(f"<mark>{html.escape(n)}</mark>")
+        elif n:
+            out.append(html.escape(n))
+    return "".join(out).replace("\n", "<br>")
+
+
+def _pairs_html(r: dict) -> str:
+    a = r["amendment"]
+    if a.kind in ("新設", "削除") or not r["old_text"] or not r["new_text"]:
+        return ""   # 新しく加える条・削る条は、片方しかないので項に分けない（今までどおり上下に並べる）
+    pairs = para_pairs(r["old_text"], r["new_text"])
+    if len(paragraphs(r["new_text"])) < 2 and len(paragraphs(r["old_text"])) < 2:
+        return ""   # 1つの項だけの条は、今までどおり
+    out, same = [], []
+
+    def flush():
+        if not same:
+            return
+        names = "・".join(x["new_label"] for x in same if x["new_label"])
+        body = "".join(f'<p>{html.escape(x["new"]).replace(chr(10), "<br>")}</p>' for x in same)
+        out.append(f'<details class="pp-same"><summary>変わっていない項{("（" + names + "）") if names else ""}を見る</summary>{body}</details>')
+        same.clear()
+
+    for p in pairs:
+        if p["kind"] == "same":
+            same.append(p)
+            continue
+        flush()
+        if p["kind"] == "change":
+            label = p["new_label"] + (f'（現行の{p["old_label"]}）' if p["old_label"] and p["old_label"] != p["new_label"] else "")
+            inline = _inline_html(p["old"], p["new"])
+            if inline:   # 少しだけ変わった項は、1つの文の中で示す（同じ文を2回読まずに済む）
+                out.append(f'<div class="pp"><div class="pp-h">{html.escape(label)}</div><div class="pp-i">{inline}</div></div>')
+                continue
+            o_parts, n_parts = _marked(p["old"], p["new"])
+            new_html, old_html = _html_parts(n_parts, "new"), _html_parts(o_parts, "old")
+        elif p["kind"] == "add":
+            label = (p["new_label"] or "項") + "（加える）"
+            out.append(f'<div class="pp"><div class="pp-h">{html.escape(label)}</div><div class="pp-n">{_html_parts([(p["new"], True)], "new")}</div></div>')
+            continue
+        else:
+            label = "現行の" + (p["old_label"] or "項") + "（削る）"
+            out.append(f'<div class="pp"><div class="pp-h">{html.escape(label)}</div><div class="pp-o">{_html_parts([(p["old"], True)], "old")}</div></div>')
+            continue
+        out.append(f'<div class="pp"><div class="pp-h">{html.escape(label)}<span class="pp-why">（書き換えが多いため、上下に並べます）</span></div>'
+                   f'<div class="pp-n"><span class="pp-k">改定案</span>{new_html}</div>'
+                   f'<div class="pp-o"><span class="pp-k">現行</span>{old_html}</div></div>')
+    flush()
+    return f'<div class="pairs"><div class="pp-lead">改定案と現行を、項ごとに見比べます。<mark>色の付いた語句</mark>が改定案で加える・変える語句、<del>赤の取り消し線</del>が現行の語句です</div>{"".join(out)}</div>'
+
+
+PAIRS_CSS = """
+.pairs { display: none; }
+@media screen and (max-width: 720px) {
+  table.taisho tr.has-pairs td.c-new .fullnew, table.taisho tr.has-pairs td.c-old { display: none !important; }
+  table.taisho tr.has-pairs td.c-new::before { content: none; }
+  .pairs { display: block; }
+  .pp-lead { font-size: .78rem; font-weight: 700; color: var(--color-ink-3); margin: 2px 0 6px; }
+  .pp { border-top: 1px solid var(--color-line); padding: 8px 0 6px; }
+  .pp-h { font-size: .85rem; font-weight: 700; margin-bottom: 4px; }
+  .pp-n, .pp-o { padding: 4px 8px; border-left: 3px solid var(--color-line-2); margin: 0 0 6px; }
+  .pp-n { border-left-color: var(--color-primary); }
+  .pp-o { color: var(--color-ink-2); background: var(--color-bg); }
+  .pp-k { display: block; font-size: .72rem; font-weight: 700; color: var(--color-ink-3); }
+  .pp-none { color: var(--color-ink-3); }
+  .pp-i { padding: 2px 0; }
+  .pp-why { font-weight: 400; color: var(--color-ink-3); font-size: .78rem; }
+  .pp-same { border-top: 1px solid var(--color-line); padding: 6px 0; }
+  .pp-same > summary { cursor: pointer; color: var(--color-primary); font-weight: 700; font-size: .88rem; min-height: 40px; display: flex; align-items: center; }
+  .pp-same p { color: var(--color-ink-2); margin: 4px 0; }
+}
+@media print { .pairs { display: none !important; } }
+"""
 
 
 def _html_parts(parts, side: str) -> str:
@@ -240,11 +394,13 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
         )
         skip = is_skipped(skipped, a)
         enote = edit_note(edits, a)
+        pairs = _pairs_html(r)
         body.append(
-            f'<tr class="{"row-must" if c["is_required"] else "row-opt"}{" row-skip" if skip else ""}">'
-            f'<td data-label="改定案"><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
-            f'{_edit_html(edit_label(edits, a))}{caption}{_html_parts(r["new"], "new")}</td>'
-            f"<td data-label=\"現行\">{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
+            f'<tr class="{"row-must" if c["is_required"] else "row-opt"}{" row-skip" if skip else ""}{" has-pairs" if pairs else ""}">'
+            f'<td data-label="改定案" class="c-new"><span class="rowno">行{n}</span>{"<span class=skipmark>" + SKIP_LABEL + "</span>" if skip else ""}'
+            f'{_edit_html(edit_label(edits, a))}<span class="fullnew">{caption}{_html_parts(r["new"], "new")}</span>'
+            f'{(caption.replace("<br>", "") + pairs) if pairs else ""}</td>'
+            f"<td data-label=\"現行\" class=\"c-old\">{caption if a.kind != '新設' else ''}{_html_parts(r['old'], 'old')}</td>"
             f"<td data-label=\"区分・変更の理由・根拠\">{_class_html(c)}<b>{html.escape(a.label if hasattr(a, 'label') else a.article)}・{html.escape(a.kind)}</b><br>{html.escape(a.reason)}"
             f"{('<div class=editnote><b>委員会で直した点：</b>' + html.escape(enote) + '</div>') if enote else ''}"
             f"<br><small>根拠：{html.escape(basis)}</small>"
@@ -263,8 +419,8 @@ def _html_page(draft: Draft, title: str, all_rows: list[dict], n_required: int, 
     return f"""<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}</style></head><body class="wide">
-{toolbar("taisho.docx", landscape=True, back_href="./")}
+<style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}{PAIRS_CSS}</style></head><body class="wide">
+{toolbar("taisho.docx", landscape=True, back_href="./#next")}
 <h1>{html.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
 <p class="legend">{LEGEND}</p>

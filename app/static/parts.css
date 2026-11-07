@@ -221,9 +221,18 @@
 .tk .mustfold > summary .gh { margin: 0 0 var(--space-3); }
 .tk .mustfold > summary .gh::after { content: "▸ 開く"; font-size: var(--text-sm); font-weight: 700; color: var(--color-primary); margin-left: auto; }
 .tk .mustfold[open] > summary .gh::after { content: "▾ 閉じる"; }
+/* ステップ4の判断のボタン（段ごとに案の数が2〜4と違う。押しやすいよう高さを取る） */
+.tk .bseg { grid-template-columns: none; grid-auto-flow: column; }
+.tk .bseg label { min-height: var(--hit-min); display: flex; align-items: center; justify-content: center; font-size: var(--text-md); padding: 6px 16px; }
+.tk .bseg label.b-none { color: var(--color-ink-3); }
+.tk .bseg label.b-none:has(input:checked) { background: var(--color-bg); color: var(--color-ink-2); box-shadow: none; font-weight: 400; }
 @media (max-width: 640px) {
   .tk .ar-line { grid-template-columns: 1fr; }
   .tk .mini2 { width: 100%; grid-template-columns: repeat(3, 1fr); } .tk .mini2 label { text-align: center; }
+  .tk .bseg { grid-template-columns: none; grid-auto-columns: 1fr; }
+  .tk .bseg label { padding: 6px 8px; white-space: normal; }
+  .tk .bseg.n4 { grid-auto-flow: row; grid-template-columns: repeat(2, 1fr); }  /* 案が4つ（採用・修正して採用・見送り・未判断）は2行に。1行だと「修正して採用」が途中で折り返す */
+  .tk .bseg.n4 label:nth-child(3) { border-left: 0; } .tk .bseg.n4 label:nth-child(n+3) { border-top: 1px solid var(--color-line-2); }
 }
 
 /* 資料を作る前の見込み（ステップ4・5） */
