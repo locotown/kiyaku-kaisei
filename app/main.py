@@ -1281,6 +1281,20 @@ async def save_version(request: Request, work_id: str):
     return RedirectResponse(f"/works/{work_id}#readcheck", status_code=303)
 
 
+@app.get("/works/{work_id}/taiou", response_class=HTMLResponse)
+def taiou(work_id: str):
+    """今の規約と標準管理規約の条の対応表（計画E1。AI は使わない）。全部改正を考える材料。"""
+    from core.sources import normalize_article_ref, standard
+    from core.taiou import match, to_html
+
+    work = store.load(work_id)
+    t = match(_corpus(work_id).main, standard())
+    touched = {normalize_article_ref(a["before_article"]) for a in (work.get("draft") or {}).get("amendments") or []
+               if a.get("before_article") and (a.get("document") or "規約") == "規約"}
+    title = f"{_org(work)} 管理規約と標準管理規約の条の対応表".strip()
+    return HTMLResponse(to_html(t, title, ident=_ident(work_id, work), touched=touched))
+
+
 @app.get("/works/{work_id}/kozo", response_class=HTMLResponse)
 def kozo(work_id: str):
     """規約集の構成表（計画F1。AI は使わない）：読み込んだ文書、規約がほかの決まりに任せている事項と対応する細則、細則が引く規約の条。"""

@@ -78,7 +78,12 @@
   <div class="draftacts kozo-acts"><div class="da-card kozo-link">
     <div class="da-head">{{ icon("file", "icon da-icon") }}<div><h3>規約集の構成表（細則の整理）</h3>
       <p class="small">規約が「別に定める」「細則で定める」とした事項ごとに、対応する細則があるかと、細則が引いている規約の条が合っているかを一覧にします。細則の見直しを理事会で話し合うときに使えます（AI は使いません）。</p></div></div>
-    <div class="da-btns"><a class="tbtn2 boxed" href="/works/{{ id }}/kozo">{{ icon("file") }}開く（見る・印刷する）</a></div></div></div>
+    <div class="da-btns"><a class="tbtn2 boxed" href="/works/{{ id }}/kozo">{{ icon("file") }}開く（見る・印刷する）</a></div></div>
+    {# 条の対応表：全部改正（方針の2段階目）を考える材料（計画E1。AI は使わない） #}
+    <div class="da-card taiou-link">
+    <div class="da-head">{{ icon("file", "icon da-icon") }}<div><h3>標準管理規約との条の対応表（全部改正の材料）</h3>
+      <p class="small">今の規約の条ごとに、改正後の標準管理規約のどの条に当たるかと、ほぼ同じ・違う・今の規約だけ（独自）・標準にあって今の規約にない、を一覧にします。今回の改正（一部改正）のあとに、標準管理規約をベースに規約を作り直すかを考えるときに使えます（AI は使いません）。</p></div></div>
+    <div class="da-btns"><a class="tbtn2 boxed" href="/works/{{ id }}/taiou">{{ icon("file") }}開く（見る・印刷する）</a></div></div></div>
   {% if work.findings %}
   <div class="actend nxs">{{ nextbar }}</div>
   {% endif %}
