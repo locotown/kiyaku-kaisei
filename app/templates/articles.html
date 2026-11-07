@@ -3,13 +3,17 @@
 {% block title %}条の文を直す｜{{ work.name }}｜ととのう規約{% endblock %}
 {% block content %}
 {# 改定案の条の文を、人が直接直す画面。直した文は「委員会で直した文」として残り、改定案を作り直しても上書きされない #}
-<p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}</span></p>
+<p class="eyebrow wk"><a href="/works/{{ id }}#next">{{ work.name }}</a>　<span class="muted">今の版：{{ ident }}（印刷した資料の右上と同じ番号です）</span></p>
 <div class="stepttl"><p class="eyebrow">改定案の手直し</p><h1 class="page-title">条の文を直す</h1>
-  <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、下の「直した文を保存する」を押してください。
+  <p class="lead">委員会や理事会のあとで見返して、改定案の条の文を直せます。直したい条の文を書き換え、直した理由や会議での経緯を「補足」に書いてから、「直した文を保存する」を押してください。
     <b>直した文は、あとで「改定案を作り直す」を押しても上書きされません。</b>保存には AI を使いません。</p></div>
+<div class="nx nxb"><p class="nx-k">次にすること</p>
+  {% if saved or reverted %}<div class="t"><b>保存しました。新旧対照表で、直した条を確かめましょう</b><span class="muted"><a href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表を開く</a>（直した条に印が付きます）。ほかにも直す条があれば、続けて書き換えて保存できます。保存ボタンは、この枠・各条の下・画面の最後にあります</span></div>
+  {% else %}<div class="t"><b>直したい条の文を書き換えて、保存しましょう</b><span class="muted">保存ボタンは、この枠・各条の下・画面の最後にあります（どれを押しても同じです）。資料も AI を使わずに直します</span></div>{% endif %}
+  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 
 {% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
-{% if saved %}<div class="justdone">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
+{% if saved %}<div class="justdone" id="saved-note">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
 {% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
 
 <div class="review-top sec" id="row-top">
@@ -49,7 +53,7 @@
   (() => { const el = document.querySelector(".reviewing .elapsed"); if (!el) return;
     let n = Number(el.dataset.elapsed) || 0; setInterval(() => { el.textContent = ++n; }, 1000); })();
   </script>
-  {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
+  {% elif counts.unchecked|length > 1 %}<button type="submit" form="reviewform" class="boxed" data-ai="直した条を、AI に確かめてもらいます。&#10;1条あたり 20〜60秒・数セント〜十数セント（数円〜二十円ほど）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？">確認前の{{ counts.unchecked|length }}条をまとめて AI に確かめてもらう</button>{% endif %}
   {% else %}<p class="muted">まだ直した条はありません。</p>{% endif %}
 </div>
 <form method="post" action="/works/{{ id }}/articles/review" id="reviewform"></form>
@@ -69,15 +73,23 @@ document.addEventListener("click", (e) => {
   <input type="hidden" name="ident" value="{{ ident }}">
   {% for a in items %}
   {% set key = a.document ~ "|" ~ a.article %}
-  <section class="artedit sec{{ ' edited' if a.edit }}" id="row{{ a.n }}">
+  <section class="artedit sec{{ ' edited' if a.edit }}{{ ' deleted' if a.kind == '削除' }}" id="row{{ a.n }}">
     <div class="pc-head"><span class="rowno">行{{ a.n }}</span><b>{{ a.article }}（{{ a.caption }}）</b>
       {% if a.document != "規約" %}<span class="small">{{ a.document }}</span>{% endif %}
       {% if a.edit %}<span class="humanmark{{ ' ok' if '問題なし' in a.label }}">{{ a.label }}</span><span class="small">{{ a.edit.at }}</span>{% endif %}</div>
     <details class="more"><summary>今の規定を見る</summary><div class="quote">{{ a.current if a.kind != "新設" else "（新しく設ける条）" }}</div></details>
+    {% if a.kind == "削除" %}
+    <p class="small delnote"><b>この条は削除します。</b>削除の文は直せません。削除をやめたいときは、ステップ4で関係する議題を「見送り」にすると、総会には出しません。</p>
+    {% else %}
     <label class="artlabel"><span class="small">改定案の文</span>
       <textarea name="text_{{ key }}" rows="{{ [4, (a.text|length // 40) + 2]|max }}" aria-label="{{ a.article }} の改定案の文">{{ a.text }}</textarea></label>
     <label class="pc-memo"><span class="small">補足（直した理由・会議での経緯など。文を直したときに残ります）</span>
-      <input type="text" name="note_{{ key }}" value="{{ a.edit.note if a.edit and a.edit.note else '' }}"></label>
+      <textarea name="note_{{ key }}" rows="2" aria-label="{{ a.article }} の補足">{{ a.edit.note if a.edit and a.edit.note else '' }}</textarea></label>
+    {% endif %}
+    <label class="artlabel"><span class="small">変更の理由（新旧対照表・検討資料に出ます。文を直したら、合わせて直してください。空にすると AI が書いた理由に戻ります）
+      {% if a.reason_edit %}<span class="humanmark">委員会で書き直した理由</span>{% endif %}</span>
+      <textarea name="reason_{{ key }}" rows="{{ [3, (a.reason|length // 40) + 1]|max }}" aria-label="{{ a.article }} の変更の理由">{{ a.reason }}</textarea></label>
+    {% if a.reason_edit %}<details class="more"><summary>AI が書いた理由を見る</summary><div class="quote">{{ a.reason_edit.original }}</div></details>{% endif %}
     {% if a.edit %}
       {% set r = a.edit.review or {} %}
       <div class="editreview">
@@ -92,16 +104,33 @@ document.addEventListener("click", (e) => {
         {% elif r.status == "中断" %}<p class="small">AI の確認が途中で止まりました（サーバーの再起動などで処理が消えました）。費用はほとんどかかっていません。もう一度押してください。</p>
         {% elif r.status == "失敗" %}<p class="small">AI が確かめられませんでした。もう一度押してください。</p>
         {% endif %}
-        {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
+        {% if r.status != "確認中" and not reviewing %}<button type="submit" form="reviewform" name="key" value="{{ key }}" class="boxed" data-ai="この条を、AI に確かめてもらいます。&#10;20〜60秒・数セント〜十数セント（数円〜二十円ほど）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？">{{ "もう一度 " if r.status == "済み" and r.for_text == a.text }}AI に確かめてもらう</button>{% endif %}
       </div>
       <details class="more"><summary>AI が作った文を見る</summary><div class="quote">{{ a.edit.original }}</div></details>
       <button type="submit" form="revertform" name="key" value="{{ key }}" class="boxed revertbtn" data-twostep
               data-confirm="もう一度押すと戻します（直した文と補足は消えます）">AI が作った文に戻す</button>
     {% endif %}
+    {% if a.kind != "削除" %}<p class="art-save"><button type="submit" form="artform" class="boxed" {% if busy %}disabled{% endif %}>直した文を保存する</button></p>{% endif %}
   </section>
   {% endfor %}
 </form>
-<div class="bar"><div class="in"><div class="t"><b>直した文を保存します</b>　新旧対照表・検討資料などの資料も、AI を使わずに直します</div>
+<div class="actend"><div class="t"><b>直した文を保存します</b><span class="muted">新旧対照表・検討資料などの資料も、AI を使わずに直します</span></div>
+  <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表を開く</a>
   <a class="tbtn2" href="/works/{{ id }}#next">作業の画面に戻る</a>
-  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div></div>
+  <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
+<script>
+(() => {  // 保存の前の位置を覚え、保存したあとはそこへ戻す（「保存しました」は画面の下に少しのあいだ出す）
+  const form = document.getElementById("artform"); if (!form) return;
+  form.addEventListener("submit", () => { try { sessionStorage.setItem("art-scroll-{{ id }}", String(window.scrollY)); } catch (e) {} });
+  document.querySelectorAll('button[form="artform"]').forEach((b) => b.addEventListener("click", () => {
+    try { sessionStorage.setItem("art-scroll-{{ id }}", String(window.scrollY)); } catch (e) {} }));
+  const note = document.getElementById("saved-note"); let y = null;
+  try { y = sessionStorage.getItem("art-scroll-{{ id }}"); sessionStorage.removeItem("art-scroll-{{ id }}"); } catch (e) {}
+  if (note && y !== null && !location.hash) {
+    window.scrollTo(0, parseInt(y, 10) || 0);
+    const t = note.cloneNode(true); t.id = ""; t.classList.add("toast"); document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+})();
+</script>
 {% endblock %}

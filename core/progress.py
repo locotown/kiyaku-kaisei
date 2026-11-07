@@ -9,8 +9,8 @@ import re
 
 # 処理ごとの段階と、かかる時間の目安（evals/results の実測：点検 約3〜4分、改定案 約10〜12分、資料・説明 約1.5分）
 STAGES = {
-    "点検中": {"steps": ["手順を確認", "規約を読む", "標準管理規約・法律と照らし合わせ", "指摘を記録"], "estimate": "3〜5分"},
-    "改定案作成中": {"steps": ["手順を確認", "条文を読む", "改定案を書く", "改定案を自分で点検", "採点役が確認"],
+    "点検中": {"steps": ["手順を確認", "規約を読む", "標準管理規約・法律と照らし合わせ", "指摘を記録"], "estimate": "3〜7分"},
+    "改定案作成中": {"steps": ["手順を確認", "条文を読む", "改定案を書く", "改定案を自分で点検", "確認役が確認"],
                   "estimate": "10〜15分"},
     "検討資料作成中": {"steps": ["改定案を読む", "検討資料を書く"], "estimate": "1〜2分"},
     "説明文作成中": {"steps": ["改定案を読む", "説明文を書く"], "estimate": "1〜2分"},
@@ -20,9 +20,13 @@ STAGES = {
 # 7件 約5分・$1.3、12〜13件 8〜12分・$2.5〜3.4、21件 30分で打ち切り・$5.4）。
 # 件数ごとに目安を示し、時間と費用の上限も件数に合わせて広げる。
 DRAFT_PLANS = [
+    # 目安は実測に合わせる（11/5 の想定ユーザーでの確認：採用12件 6分・$1.9、14件 7分・$2.0、19件 9分・$2.6。
+    # 実在の規約集では 20分を超えることもある）
     (8, {"estimate": "5〜10分", "cost": "$1〜2", "deadline_min": 30, "budget_usd": 5}),
-    (15, {"estimate": "10〜20分", "cost": "$2〜4", "deadline_min": 30, "budget_usd": 5}),
-    (10**6, {"estimate": "20〜45分", "cost": "$4〜8", "deadline_min": 50, "budget_usd": 9}),
+    (15, {"estimate": "5〜20分", "cost": "$1.5〜4", "deadline_min": 30, "budget_usd": 5}),
+    # 16〜25件は実測（19件 9分・$2.6、23件 9分・$2.6、24件 9分・$2.7）に合わせる
+    (25, {"estimate": "8〜20分", "cost": "$2〜4", "deadline_min": 40, "budget_usd": 7}),
+    (10**6, {"estimate": "10〜45分", "cost": "$3〜8", "deadline_min": 50, "budget_usd": 9}),
 ]
 
 
@@ -44,7 +48,7 @@ TOOLS = {
     "get_law_articles": (2, "区分所有法と照らし合わせ"),
     "record_findings": (3, "指摘を記録"),
     "check_draft": (3, "改定案を自分で点検"),
-    "share_references": (3, "参照先の条の現行の文を採点役に渡す"),
+    "share_references": (3, "参照先の条の現行の文を確認役に渡す"),
 }
 BUILTIN = {"read": "手順書を読む", "glob": "手順書を探す", "grep": "手順書を検索", "write": "改定案を書く", "edit": "改定案を直す"}
 
@@ -77,8 +81,18 @@ def _tool_name(entry: dict) -> str:
     return str(entry.get("text", "")).split("：", 1)[0]
 
 
-def summarize(status: str, log: list[dict], adopted: int | None = None) -> dict:
-    """この処理の作業の記録（log）から、段階と件数をまとめる。adopted は改定案に入れる指摘の件数（目安に使う）。"""
+PARTIAL = {"steps": ["対象の条を読む", "対象の条を書き直す", "直した条を確かめる"], "estimate": "2〜5分"}
+
+
+def summarize(status: str, log: list[dict], adopted: int | None = None, partial: bool = False) -> dict:
+    """この処理の作業の記録（log）から、段階と件数をまとめる。adopted は改定案に入れる指摘の件数（目安に使う）。
+
+    partial は、理事会の判断を対象の条だけに反映する作り直し（段階が少なく、数分で終わる）。
+    """
+    if status == "改定案作成中" and partial:
+        kinds = {e.get("kind") for e in log}
+        stage = 2 if kinds & {"grading", "graded"} else 1 if "builtin" in kinds else 0
+        return {**PARTIAL, "stage": stage, "counts": {"規約の条": 0, "標準管理規約": 0, "区分所有法": 0, "指摘": 0}}
     spec = dict(STAGES.get(status, {"steps": [], "estimate": ""}))
     if status == "改定案作成中" and adopted is not None:
         spec["estimate"] = draft_plan(adopted)["estimate"]

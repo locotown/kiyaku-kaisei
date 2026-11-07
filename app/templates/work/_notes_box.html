@@ -11,7 +11,7 @@
     <label class="nb-pick">{{ icon("camera") }}写真を選ぶ
       <input type="file" id="photos-{{ note_doc }}" name="photos" accept="image/*" multiple required class="sr" data-photos></label>
     <span class="small nb-count" data-count>まだ選んでいません</span>
-    <button type="submit" class="btn nb-go" data-go disabled>{{ icon("download") }}読み込む</button>
+    <button type="submit" class="btn nb-go" data-go data-ai="選んだ写真の書き込みを、AI が読み取ります。&#10;写真1枚あたり 20秒ほど・数セント（十円ほど）。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。よろしいですか？" disabled>{{ icon("download") }}読み込む</button>
   </form>
   <p class="small">撮るときは、ページ全体（右上の版の番号と、下のページ番号）が入るようにしてください。何枚でもまとめて選べます。</p>
   {% if batches %}

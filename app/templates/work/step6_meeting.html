@@ -4,6 +4,27 @@
 <section class="panel" data-step="meeting" id="meeting">
   <div class="stepttl"><p class="eyebrow">ステップ 6 ／ 6</p><h1 class="page-title">総会の結果と、最新の規約</h1>
     <p class="lead">総会のあとに使います。議案ごとの結果を記録すると、可決した改定を反映した<b>最新の規約・細則の全文</b>を作ります（AI は使わず、今の規約に改定を重ねて組み立てます）。</p></div>
+  {# 総会のあとで変わったときは、保存し直すボタンを上の枠に出す（ボタンを探して下までスクロールした、という声から） #}
+  {% set nextbar %}{% if finals and finals|selectattr("left")|list %}<div class="t"><b>改定案に〔選択〕が残っているため、最新の規約を作れない文書があります</b><span class="muted">理事会で案を選び、改定案を作り直してから作ってください</span></div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {%- elif finals and work.board_changed_after_meeting %}<div class="t"><b>総会の結果を保存し直してください</b><span class="muted">総会で可決した内容と合っているか確かめてから</span></div>
+      <button type="submit" form="meetingform" class="btn">総会の結果を保存し直す</button>
+    {%- elif finals and finals|selectattr("variants")|list %}{% set vs = finals|map(attribute="variants")|sum(start=[]) %}
+      {# 両案が残るあいだは「できました」と言わない（下の注意と食い違わないように） #}
+      <div class="t"><b>最新の規約を作りました。使う前に、両案が残る条（{{ vs|join("、") }}）を直してください</b><span class="muted">「4. 理事会で検討」の「今の規約の両案」で採用している案を選ぶと、その案だけが残ります（選べない形の条は Word で直します）</span></div>
+      <a class="btn" href="#variants">両案を選ぶ{{ icon("arrow-right") }}</a>
+    {%- elif finals %}<div class="t"><b>最新の規約ができました</b><span class="muted">下の「最新の規約・細則」から Word でダウンロードできます</span></div>
+      <a class="btn" href="#finals">最新の規約へ{{ icon("arrow-right") }}</a>
+    {%- elif not work.explain or work.explain_stale %}
+      {# 総会の前の段階：先に説明を作る（作り直す）よう案内する。総会が済んでいれば、下で記録もできる（画面の総点検で分かった） #}
+      <div class="t"><b>総会の前に、住民向けの説明を{{ "作り直しましょう" if work.explain else "作りましょう" }}</b>このステップは総会のあとに使います。総会が済んでいれば、下で議案ごとの結果を選んで <button type="submit" form="meetingform">総会の結果を保存する</button></div>
+      <a class="btn" href="#explain">ステップ5へ{{ icon("arrow-right") }}</a>
+    {%- else %}<div class="t"><b>総会の結果を記録しましょう</b><span class="muted">議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
+      <button type="submit" form="meetingform" class="btn">総会の結果を保存する{{ icon("arrow-right") }}</button>{% endif %}{% endset %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
+  {% if done == "meeting_empty" %}<p class="warn"><b class="w">議案ごとの結果（可決など）が選ばれていないので、保存しませんでした。</b>下の「議案ごとの結果」で、議案ごとに結果を選んでから保存してください。前に保存した結果はそのまま残っています。</p>{% endif %}
+  {% if work.board_changed_after_meeting %}<p class="warn"><b class="w">総会の結果を記録したあとで、改定案や理事会の判断が変わりました（{{ work.board_changed_after_meeting }}）。</b>
+    最新の規約は今の判断で作り直されています。総会で可決した内容と合っているか確かめ、合っていれば「総会の結果を保存し直す」で保存し直してください。</p>{% endif %}
   {% if done == "meeting" %}<div class="justdone">{{ icon("check") }}<span>総会の結果を保存しました。{% if finals %}下から最新の規約をダウンロードできます。{% endif %}</span></div>{% endif %}
   <form action="/works/{{ id }}/meeting" method="post" id="meetingform">
     <div class="grid">
@@ -35,13 +56,14 @@
     {% if finals %}<p><button type="submit" class="boxed">総会の結果を保存し直す</button></p>{% endif %}
   </form>
   {% if finals %}
-    <h3>最新の規約・細則</h3>
+    <h3 id="finals">最新の規約・細則</h3>
     <div class="finals">
     {% for f in finals %}
       <div class="doc final">{{ icon("file") }}<div style="flex:1;min-width:0">
         <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
+        {% if f.variants %}<p class="warn"><b class="w">どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ f.variants|join("、") }}</b>。今の規約にもともとある両案です。<a href="#variants">「4. 理事会で検討」の「今の規約の両案」</a>で組合で採用している案を選ぶと、最新の規約にはその案だけが残ります。選べない形の条は、Word で保存したあとに、採用している案だけを残してください。</p>{% endif %}
         {% if f.left %}<p class="warn"><b class="w">改定案に〔選択〕が残っています</b>（{{ f.left|join("、") }}）。理事会で案を選び、改定案を作り直してから作ってください。</p>
-        {% else %}<div class="acts"><a class="tbtn2" href="/works/{{ id }}/final/{{ f.n }}/view" target="_blank">画面で確認（変更した条に色）</a></div>{% endif %}</div>
+        {% else %}<div class="acts"><a class="tbtn2" href="/works/{{ id }}/final/{{ f.n }}/view">画面で確認（変更した条に色）</a></div>{% endif %}</div>
         {% if not f.left %}<a class="btn" href="/works/{{ id }}/final/{{ f.n }}.docx">{{ icon("download") }}Word でダウンロード</a>{% endif %}
       </div>
     {% endfor %}
@@ -50,7 +72,8 @@
       体裁は元の規約集に合わせて整え、総会の議事録の文言と照らし合わせてから、規約原本と一緒に保管してください。</div>
   {% else %}
     {% if meeting.results %}<p class="muted">可決した議案がないため、最新の規約は作りません。</p>{% endif %}
-    <div class="bar"><div class="in"><div class="t"><b>総会の結果を記録します</b>　可決した改定から、最新の規約を作ります</div>
-      <button type="submit" form="meetingform" class="btn">総会の結果を保存する</button></div></div>
+  {% endif %}
+  {% if not (finals and not work.board_changed_after_meeting) %}
+  <div class="actend nxs">{{ nextbar }}</div>
   {% endif %}
 </section>

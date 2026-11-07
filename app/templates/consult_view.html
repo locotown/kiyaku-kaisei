@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ c.title }}｜相談｜ととのう規約{% endblock %}
+{% block content %}
+{% from "_consult_profile.html" import profile_form with context %}
+{% set VLABEL = {"資料の外": "資料で確かめられない"} %}
+{% set VERDICT_HELP = {"正しい": "根拠で裏付けられました", "言い方に注意": "大筋は合っていますが、誤解を招くおそれがあります", "誤り": "根拠と食い違います",
+                       "資料の外": "ととのう規約の資料では確かめられません", "体裁": "表記や文章内の食い違い", "説明": "根拠のある説明"} %}
+{% set ORDER = ["誤り", "言い方に注意", "資料の外", "体裁", "正しい", "説明"] %}
+<p class="eyebrow wk"><a href="/consult#history">{{ icon("arrow-left") }}相談の一覧</a></p>
+<h1 class="page-title cs-h1">{{ c.title }}</h1>
+{% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
+
+{# あなたの相談（短く。全文は開いて見る） #}
+<section class="cs-req" aria-label="あなたの相談">
+  <div class="cs-req-head"><span class="cs-badge">{{ modes[c.mode] }}</span><span class="small muted">{{ c.created }}</span></div>
+  {% set body = c.text if c.mode == "check" else c.question %}
+  {% set lines = body.split("\n") | select | list %}
+  <p class="cs-req-body">{{ lines[:2] | join("\n") }}{% if lines|length > 2 %}…{% endif %}</p>
+  {% if c.mode == "check" and c.question %}<p class="small">特に見てほしいこと：{{ c.question }}</p>{% endif %}
+  {% if lines|length > 2 %}<details class="more"><summary>{{ "貼った文章" if c.mode == "check" else "質問" }}の全文を見る（{{ body|length }}字）</summary><div class="quote cs-text">{{ body }}</div></details>{% endif %}
+  <ul class="cs-req-meta small">
+    <li>照らす規約：<b>{{ c.work_name or "選ばない" }}</b>{% if not c.work_name %}（区分所有法と標準管理規約で答える）{% elif c.rules == "最新" %}：<b>最新の規約</b>（総会で可決した改定を含む）{% else %}：読み込んだ規約（改定前の原本。改定案・総会で可決した改定は入っていません）{% endif %}</li>
+    {% if c.masked %}<li><details class="cs-masked"><summary>人名を伏せて送りました（{{ c.mapping|length }}語）</summary>
+      {% if c.mapping %}<p>{% for tok, word in c.mapping.items() %}<span class="nowrap">{{ word }} → {{ tok }}</span>{{ "、" if not loop.last }}{% endfor %}</p>{% else %}<p>伏せた語はありません。</p>{% endif %}
+      <p>伏せ忘れた名前があれば、新しく相談するときに「ほかに伏せる語」に入れてください（この相談で送った文は、もう AI に届いています）。</p></details></li>{% endif %}
+    {% if c.cost_total %}<li>AI の費用：約${{ "%.2f"|format(c.cost_total) }}</li>{% endif %}
+  </ul>
+</section>
+
+{% for t in c.turns %}{% set a = t.answer %}
+<section class="cs-turn" id="turn-{{ loop.index }}">
+  {% if loop.index > 1 %}<div class="cs-q"><span class="small">{{ "もう一度答えてもらった" if t.rerun else "続けての質問" }}（{{ t.at }}）</span><b>{{ t.question or "（同じ文章をもう一度）" }}</b></div>{% endif %}
+
+  {% if t.status == "考え中" %}{% set ph = t.phase or 0 %}
+    <div class="runbox cs-progress" role="status" aria-live="polite" data-started="{{ t.started or now }}">
+      <div class="rb-head"><span class="rb-spin" aria-hidden="true"></span>
+        <div><b>AI が考えています</b><span class="rb-el" data-elapsed>経過 0:00</span>
+          <p class="small">1〜3分ほどかかります。終わると、この画面が自動で答えに切り替わります（閉じても、あとで「相談の一覧」から見られます）。</p></div></div>
+      <ol class="rb-phases">{% for p in phases %}<li class="{{ 'done' if loop.index0 < ph else ('now' if loop.index0 == ph else '') }}" data-phase="{{ loop.index0 }}">{{ p }}</li>{% endfor %}</ol>
+      <p class="small rb-now">今：<span data-step>{{ t.step or "準備をしています" }}</span></p>
+    </div>
+  {% elif t.status == "エラー" %}
+    <div class="cs-err"><b>{{ icon("alert") }}答えられませんでした。</b><p>{{ t.error }}</p>
+      {% if loop.last %}<form method="post" action="/consult/{{ c.id }}/rerun"><button type="submit" class="btn" data-ai="{{ ai_note }}">{{ icon("refresh") }}もう一度答えてもらう</button></form>{% endif %}</div>
+  {% elif a %}{% set n = consult_counts(a) %}
+  <div class="cs-ans">
+    <div class="cs-ans-head"><span class="cs-ai">AI の答え</span><span class="small muted">{{ t.done_at }}{% if t.cost %}・約${{ "%.2f"|format(t.cost) }}{% endif %}</span></div>
+    <div class="cs-summary"><p>{{ a.summary }}</p>
+      {% if t.profile_used %}<p class="small cs-used">{{ icon("check", "icon") }}計算に使った基本情報：{{ t.profile_used }}</p>{% endif %}
+      <button type="button" class="linkish" data-copy="{{ a.summary }}">この答えをコピー</button></div>
+
+    {% if a.need_info %}
+      <div class="cs-need" id="need-{{ loop.index }}">
+        <p><b>{{ icon("alert") }}マンションの基本情報が足りないので、具体的な数を出せませんでした：{{ a.need_info|join("・") }}</b><br>
+        入れると、定足数や可決に必要な賛成の数まで答えます（数はアプリが計算します）。{% if not missing %}<span class="small">基本情報は入っています（{{ profile_line(profile) }}）。下のボタンで、もう一度答えてもらえます。</span>{% endif %}</p>
+        {% if loop.last %}{% if missing %}{{ profile_form(next="/consult/" ~ c.id, rerun=True) }}{% else %}
+          <form method="post" action="/consult/{{ c.id }}/rerun"><button type="submit" class="btn" data-ai="{{ ai_note }}">もう一度答えてもらう</button></form>{% endif %}{% endif %}
+      </div>
+    {% endif %}
+
+    {% set ti = loop.index %}
+    {% if n and t.mode == "check" %}
+      <div class="cs-score" role="list" aria-label="結果の内訳">{% for v in ORDER if n[v] %}
+        <a role="listitem" class="cs-tile v-{{ v }}" href="#g-{{ v }}-{{ ti }}" data-jump="g-{{ v }}-{{ ti }}"><b>{{ n[v] }}</b><span>{{ VLABEL.get(v, v) }}</span></a>{% endfor %}</div>
+    {% endif %}
+
+    {% for v in ORDER %}{% set group = a["items"] | selectattr("verdict", "equalto", v) | list %}{% if group %}
+      <h3 class="cs-gh v-{{ v }}" id="g-{{ v }}-{{ ti }}">{{ VLABEL.get(v, v) }}<span class="small">{{ group|length }}件・{{ VERDICT_HELP[v] }}</span></h3>
+      <ol class="cs-items">{% for it in group %}
+        <li class="cs-item v-{{ it.verdict }}">
+          <p class="cs-ih"><span class="vd v-{{ it.verdict }}">{{ VLABEL.get(it.verdict, it.verdict) }}</span>{% if it.quote %}<q>{{ it.quote }}</q>{% if not it.quote_found %}<span class="small">（貼った文と完全には一致しません）</span>{% endif %}{% endif %}</p>
+          <p class="cs-comment">{{ it.comment }}</p>
+          {% if it.suggestion %}<div class="cs-sugg"><span class="small">{{ "直し案" if it.verdict in ("言い方に注意", "誤り", "体裁") else ("確かめ方" if it.verdict == "資料の外" else "補足") }}</span>
+            <p>{{ it.suggestion }}</p>{% if it.verdict != "資料の外" %}<button type="button" class="linkish" data-copy="{{ it.suggestion }}">直し案をコピー</button>{% endif %}</div>{% endif %}
+          {% if it.basis %}<p class="cs-basis small">根拠：{% for b in it.basis %}<span>{{ "令和7年改正法" if b.source == "改正法附則" else b.source }} {{ b.ref }}</span>{% endfor %}</p>{% endif %}
+        </li>{% endfor %}</ol>
+    {% endif %}{% endfor %}
+
+    {% if loop.last %}
+      <div class="cs-use"><button type="button" class="btn" data-reply>{{ icon("file") }}返信用にコピー</button>
+        <span class="small">まとめ・各項目・直し案・根拠を、理事会への返信に貼れる文にしてコピーします</span></div>
+    {% endif %}
+    <p class="small muted cs-note">答えは総会提案の下書きを見直すための参考で、法的助言ではありません。数字と根拠は、原資料（条文・規約）でも確かめてください。</p>
+  </div>
+  {% if a.followups and loop.last %}<div class="cs-fu"><span class="small">続けて聞くなら</span>{% for f in a.followups %}<button type="button" class="boxed" data-fu="{{ f }}">{{ f }}</button>{% endfor %}</div>{% endif %}
+  {% endif %}
+</section>
+{% endfor %}
+
+{% if not busy %}
+<section class="cs-box" aria-labelledby="fu-h">
+  <h2 id="fu-h">続けて質問する</h2>
+  <form method="post" action="/consult/{{ c.id }}/ask" id="fuform">
+    <textarea name="question" rows="3" required placeholder="例：この点、住民向けの案内にはどう書けばよいですか？"></textarea>
+    <div class="cs-go"><button type="submit" class="boxed" data-ai="{{ ai_note }}">続けて質問する</button>
+      <span class="small">これまでのやり取り{{ "と貼った文章" if c.mode == "check" }}を踏まえて答えます。1回 約$0.1〜0.5。</span></div>
+  </form>
+</section>
+{% endif %}
+
+<textarea id="replytext" class="sr" style="left:0;top:0" aria-hidden="true" tabindex="-1"></textarea>
+<script>
+(() => {
+  {% if busy %}  // 考え中：経過時間を毎秒、進み具合を3秒ごとに更新し、終わったら画面を切り替える
+  const box = document.querySelector(".cs-progress");
+  if (box) {
+    box.scrollIntoView({ block: "center" });
+    const started = parseFloat(box.dataset.started) * 1000, el = box.querySelector("[data-elapsed]");
+    const tick = () => { const s = Math.max(0, Math.round((Date.now() - started) / 1000)); el.textContent = `経過 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    tick(); setInterval(tick, 1000);
+    const step = box.querySelector("[data-step]");
+    const t = setInterval(async () => {
+      try { const j = await (await fetch("/consult/{{ c.id }}/status", { cache: "no-store" })).json();
+        if (j.status !== "考え中") { clearInterval(t); location.replace(location.pathname + "#turn-" + j.turns); location.reload(); return; }
+        if (j.step) step.textContent = j.step;
+        box.querySelectorAll("[data-phase]").forEach((li) => { const i = +li.dataset.phase; li.className = i < j.phase ? "done" : i === j.phase ? "now" : ""; });
+      } catch (e) {}
+    }, 3000);
+  }
+  {% endif %}
+  const copy = async (text, btn) => {
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) { const ta = document.getElementById("replytext"); ta.value = text; ta.select(); document.execCommand("copy"); }
+    if (btn) { const o = btn.innerHTML; btn.textContent = "コピーしました"; setTimeout(() => { btn.innerHTML = o; }, 1500); }
+  };
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-copy]"); if (b) copy(b.dataset.copy, b);
+    const j = e.target.closest("[data-jump]");
+    if (j) { e.preventDefault(); const g = document.getElementById(j.dataset.jump); if (g) g.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    const f = e.target.closest("[data-fu]");
+    if (f) { const ta = document.querySelector("#fuform textarea"); ta.value = f.dataset.fu; ta.focus(); ta.scrollIntoView({ block: "center" }); }
+  });
+  const reply = document.querySelector("[data-reply]");
+  if (reply) reply.addEventListener("click", () => {  // 最後の答えを、返信に貼れる文にまとめる
+    const turns = document.querySelectorAll(".cs-turn");
+    const last = turns[turns.length - 1]; if (!last) return;
+    const lines = [];
+    const sum = last.querySelector(".cs-summary p"); if (sum) lines.push(sum.textContent.trim(), "");
+    last.querySelectorAll(".cs-item").forEach((li, i) => {
+      const v = li.querySelector(".vd").textContent.trim(), q = li.querySelector("q");
+      lines.push(`${i + 1}. 【${v}】` + (q ? `「${q.textContent.trim()}」` : ""));
+      lines.push("   " + li.querySelector(".cs-comment").textContent.trim());
+      const s = li.querySelector(".cs-sugg p");
+      if (s) lines.push("   " + (v === "資料で確かめられない" ? "確かめ方：" : v === "正しい" || v === "説明" ? "補足：" : "直し案：") + s.textContent.trim());
+      const bs = [...li.querySelectorAll(".cs-basis span")].map((x) => x.textContent.trim());
+      if (bs.length) lines.push("   （根拠：" + bs.join("、") + "）");
+    });
+    lines.unshift({{ ("「" ~ c.title ~ "」について") | tojson }}, "");
+    lines.push("", {{ ("※ ととのう規約（AI）による" ~ ("確認" if c.mode == "check" else "回答") ~ "です。総会提案の下書きを見直すための参考で、法的助言ではありません。") | tojson }});
+    copy(lines.join("\n"), reply);
+  });
+})();
+</script>
+{% endblock %}

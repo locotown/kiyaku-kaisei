@@ -1,0 +1,44 @@
+{# 今の規約にもともとある「どちらかを選ぶ両案」（標準管理規約の（ア）（イ）など）を選ぶ欄（計画A。core/variants.py）。
+   選んだ案だけを最新の規約に残す。AI は使わない。work.html・step4_board.html の変数（id・work・questions・answers）を使う #}
+{% set vv = variant_view(id, work) %}
+{% macro art(n) %}{% if "の" in n %}第{{ n.replace("の", "条の", 1) }}{% else %}第{{ n }}条{% endif %}{% endmacro %}
+{% if vv.groups or vv.manual %}
+<section class="choose-ui variants" id="variants" aria-labelledby="variants-h">
+  <div class="cu-head" id="variants-h">今の規約の両案（{{ vv.groups|length }}問{% if vv.open %}・まだ選んでいない {{ vv.open }}問{% endif %}）</div>
+  <p class="small">今の規約には、標準管理規約にならって「どちらかを選ぶ」2通りの文が並んだ条があります。今回の改正とは別に、組合で採用している案を選ぶと、<b>最新の規約にはその案だけが残ります</b>（AI は使いません。条の文はそのままです）。選ばなければ、両方の文が残ります。
+    今と違う案に変える場合は、総会での規約の変更が必要です。</p>
+  {% if done == "variants" %}<div class="justdone">{{ icon("check") }}<span>選んだ案を保存しました。</span></div>{% endif %}
+  <form action="/works/{{ id }}/variants" method="post" id="variantform">
+  {% for g in vv.groups %}{% set cur = vv.choices.get(g.key, "") %}
+    <div class="cu-point" id="v-{{ g.key }}"><b>{{ g.topic }}</b>
+      <div class="small">対象の条（{{ "規約" if g.doc == "規約" else g.doc }}）：{% for n in g.articles %}{{ art(n) }}{% if not loop.last %}、{% endif %}{% endfor %}{% if g.amended %}<br>改定案で書き直す条（{% for n in g.amended %}{{ art(n) }}{% if not loop.last %}、{% endif %}{% endfor %}）は、改定案の文になります。{% endif %}</div>
+      {% for o in g.options %}<label class="cu-opt"><input type="radio" name="v_{{ g.key }}" value="{{ o.mark }}" {% if cur == o.mark %}checked{% endif %}><span>（{{ o.mark }}）{{ o.label }}</span></label>{% endfor %}
+      <label class="cu-opt"><input type="radio" name="v_{{ g.key }}" value="" {% if not cur %}checked{% endif %}><span class="muted">まだ選ばない（最新の規約に両方の文を残す）</span></label>
+      {# 電磁的方法を使うかは、改定案の〔選択〕（国内管理人の届出方法など）でも選ぶ。方針が食い違わないよう、理事会が選んだ案を並べて見せる
+         （想定ユーザーでの確認で、作り直したあとに食い違いが見つかった。言葉から食い違いを機械で判定すると誤りやすいので、人が見て判断する） #}
+      {% if "電磁的方法" in g.topic and vv.elec_picks %}
+        <p class="small note2"><b class="w">改定案の「組合が選ぶ点」で、理事会は次の案を選んでいます：</b>{% for v in vv.elec_picks %}「{{ v }}」{% if not loop.last %}、{% endif %}{% endfor %}。電磁的方法を使うかの方針を、この問とそろえてください。</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+  <p class="small vsave" role="status" aria-live="polite"></p>
+  <noscript><p><button type="submit" class="boxed">選んだ案を保存する</button></p></noscript>
+  </form>
+  {% if vv.manual %}<p class="note2 small"><b class="w">機械では分けられない両案：{{ vv.manual|join("、") }}</b>。別の案の文が、本文の同じ行につながっています（PDF などから写したときに起きます）。最新の規約を Word で保存したあと、採用している案だけを残してください。</p>{% endif %}
+</section>
+<script>
+// 選んだらすぐ保存する（ほかの判断と同じ）。保存したら、最新の規約にはその案だけが残る
+(() => {
+  const form = document.getElementById("variantform"); if (!form) return;
+  const note = form.querySelector(".vsave");
+  form.addEventListener("change", async () => {
+    note.textContent = "保存しています…";
+    try {
+      const r = await fetch(form.action, { method: "POST", body: new FormData(form), headers: { Accept: "application/json" } });
+      const j = await r.json();
+      note.textContent = j.ok ? `保存しました（${j.saved_at}）。最新の規約は、選んだ案で組み立て直します。` : "保存できませんでした。もう一度選んでください。";
+    } catch (e) { note.textContent = "保存できませんでした。通信を確かめて、もう一度選んでください。"; }
+  });
+})();
+</script>
+{% endif %}

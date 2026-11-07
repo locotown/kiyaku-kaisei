@@ -3,30 +3,94 @@
 <section class="panel" data-step="board" id="board">
   <div class="stepttl"><p class="eyebrow">ステップ 4 ／ 6</p><h1 class="page-title">理事会で検討する</h1>
     <p class="lead">住民に説明する前に、改定案を3段に分けて理事会（委員会）で検討し、方針を固めます。
+    {% set tiers = (board or {}).get("items", [])|map(attribute="tier")|unique|list if board else [] %}
+    {% if board %}この改定案の議題は {% for t in tiers %}{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(t)] }}{% endfor %} の段にあります。{% endif %}
     ①は<b>理解する</b>、②は<b>判断する</b>（採用・修正して採用・見送り）、③は<b>確認する</b>段です。</p></div>
-  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。議題ごとに判断を選び、「理事会の判断を保存する」を押してください。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% set nextbar %}
+    {% if not board and work.status == "検討資料エラー" %}
+      <div class="t"><b>検討資料づくりが途中で止まりました</b>もう一度作りましょう（上の赤い枠に、止まった理由があります）</div>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>検討資料をもう一度作る{{ icon("arrow-right") }}</button>
+    {% elif not board %}
+      <div class="t"><b>理事会の検討資料を作ります</b>改定案を、理解する・判断する・確認するの3段に分けます</div>
+      <button type="submit" form="boardmake" class="btn" data-ai="{{ ai_note('board', work) }}" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
+    {% elif board_state and board_state.ready and work.board_changed_after_meeting %}
+      {# 総会の結果を記録したあとで判断を変えた：済んだとは言わず、説明と最新の規約の作り直しへ（画面の総点検で分かった） #}
+      <div class="t"><b>総会のあとで判断を変えました</b><span class="unsaved" data-board-unsaved hidden></span>住民向け説明と最新の規約が、総会で可決した内容と変わっています。説明から作り直してください。</div>
+      <a class="btn" href="#explain">住民への説明を作り直す{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.ready and work.meeting and (work.meeting.results or {}).values()|select|list %}
+      <div class="t"><b>理事会での検討と総会の結果の記録が済んでいます</b><span class="unsaved" data-board-unsaved hidden></span>判断は保存してあります。下の議題で選び直すと、その場で保存されます。</div>
+      <a class="btn" href="#meeting">総会の結果を見る{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.ready and work.draft_mode == "partial" and work.draft_partial and work.draft_partial.status == "済み" and (work.draft_partial.check or {}).verdict not in (none, "", "問題なし") and not work.explain %}
+      {# 作り直した条に AI が気になる点を挙げたのに「済みました → 説明へ」と案内し、素通りさせていた（想定ユーザーでの確認から） #}
+      <div class="t"><b>作り直した条に、AI が気になる点を挙げました</b><span class="unsaved" data-board-unsaved hidden></span>確かめて、必要なら「条の文を直す」で直してから、<a href="#explain">住民への説明</a>へ進んでください。</div>
+      <a class="btn" href="#partial-result">気になる点を確かめる{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.ready %}
+      <div class="t"><b>理事会での検討が済みました</b><span class="unsaved" data-board-unsaved hidden></span>判断は保存してあります。変えるときは、下の議題で選び直すと、その場で保存されます。</div>
+      <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
+    {% elif board_state and board_state.needs_redraft and redraft_targets(work).amendments %}
+      {# 作り直しが必要なときは、次にすること（対象の条だけ作り直す）を主のボタンにする（「保存する」を押し続けて先へ進めない、という声から） #}
+      <div class="t"><b>次は、対象の条だけ作り直します</b><span class="unsaved" data-board-unsaved hidden></span>作り直す条：{{ redraft_targets(work).refs|join("、") }}</div>
+      <button type="submit" form="redraftform" name="mode" value="partial" class="btn" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>対象の条だけ作り直す{{ icon("arrow-right") }}</button>
+    {% else %}
+      <div class="t"><b>議題ごとに判断を選びます（選ぶとすぐ保存します）</b><span class="unsaved" data-board-unsaved hidden></span>{{ board_state.reason if board_state else "" }}</div>
+      {% if board_state and board_state.needs_choice and board_state.undecided|length == board_state.needs_choice|length %}<a class="btn" href="#questions">組合が選ぶ点へ{{ icon("arrow-right") }}</a>
+      {% else %}<a class="btn" href="#boarddec">議題の判断へ{{ icon("arrow-right") }}</a>{% endif %}
+    {% endif %}
+  {% endset %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
+  {% if done == "検討資料作成中" and board %}<div class="justdone">{{ icon("check") }}<span>検討資料ができました。印刷用の資料は「検討資料を開く」から開けます。</span></div>{% endif %}
+  {% if not board and work.draft %}{% set bp = board_preview(work) %}
+  {# 作る前でも、理事会で何をするかと、この改定案がどう分かれる見込みかを見せる #}
+  <section class="card2 preview" aria-labelledby="bp-h">
+    <h2 id="bp-h">理事会の検討資料でできること</h2>
+    <p class="small">改定案の条を議題にまとめ、次の3段に分けます。理事会（委員会）では、段ごとにすることが違います。</p>
+    <ol class="tierlist">{% for t in ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"] %}
+      <li><b>{{ "①②③"[loop.index0] }} {{ t }}：{{ board_tasks[t][0] }}</b><span>{{ board_tasks[t][1] }}</span></li>{% endfor %}</ol>
+    <p class="bp-n">この改定案は <b>{{ bp.total }}条</b>。法律の改正に合わせる変更 <b>{{ bp.required }}条</b>は①に、それ以外の <b>{{ bp.other }}条</b>は②か③に入ります（AI が議題にまとめます）。{% if bp.choices %}〔選択〕のある条 <b>{{ bp.choices }}条</b>は、②で案を選びます。{% endif %}</p>
+    <p class="small">作ると、印刷できる検討資料（Word でも保存できます）と、議題ごとに判断を記録する欄がこの画面にできます。判断は選ぶとすぐ保存し、必要なら対象の条だけを作り直します。</p>
+  </section>
+  {% endif %}
   {% if board %}
     <div class="acts">
-      <a class="tbtn2" href="/works/{{ id }}/board" target="_blank">{{ icon("printer") }}検討資料を開く（印刷用）</a>
+      <a class="tbtn2" href="/works/{{ id }}/board">{{ icon("printer") }}検討資料を開く（印刷用）</a>
       <a class="tbtn2" href="/works/{{ id }}/board.docx">{{ icon("download") }}Word で保存</a>
-      <a class="tbtn2" href="/works/{{ id }}/taisho" target="_blank">{{ icon("file") }}新旧対照表</a>
+      <a class="tbtn2" href="/works/{{ id }}/taisho">{{ icon("file") }}新旧対照表</a>
     </div>
+    {# ステップ2で書いた判断の理由を、理事会で見られるようにする（どこで見られるか分からない、という声から） #}
+    {% set reasons = [] %}{% for i, f in rows %}{% set d = decisions.get(i|string, {}) %}{% if d.reason and not d.reason.startswith("まとめて") %}{% set _ = reasons.append((i, f, d)) %}{% endif %}{% endfor %}
+    {% if reasons %}<details class="more decreasons"><summary>ステップ2で、理由を書いた判断（{{ reasons|length }}件。まとめて決めたものは除く）</summary>
+      <ul>{% for i, f, d in reasons %}<li><b>{{ views[i].title if views and i in views else f.issue[:30] }}</b>：{{ choice_help.get(d.decision, d.decision) }}　<span class="small">理由：{{ d.reason }}</span></li>{% endfor %}</ul>
+      <p class="small">議事録や引き継ぎに使えます。判断や理由は、ステップ2で直せます。</p></details>{% endif %}
+    {% if work.meeting and (work.meeting.results or {}).values()|select|list %}<p class="{{ 'warn' if work.board_changed_after_meeting else 'note2' }}"><b class="w">総会の結果を記録済みです。</b>ここで判断を変えると、最新の規約と住民向け説明が、総会で可決した内容と変わります。変えた場合は、ステップ5・6で作り直してください。</p>{% endif %}
+    <div id="board-state">
     {% if board_state %}
+      {% include "work/_partial_result.html" %}
       {% if board_state.needs_redraft %}
-        <form action="/works/{{ id }}/board/redraft" method="post" class="warn">
+        {% set tg = redraft_targets(work) %}
+        <form action="/works/{{ id }}/board/redraft" method="post" class="warn redraftbox" id="redraftform">
           <p><b class="w">改定案の作り直しが必要です。</b>{{ board_state.reason }}{% if board_state.redraft %}（対象の議題：{{ board_state.redraft|join("、") }}）{% endif %}</p>
-          <button type="submit" class="boxed" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}理事会の判断を反映して改定案を作り直す</button>
+          {% if tg.amendments %}
+          <div class="rd-opt rd-main">
+            <button type="submit" name="mode" value="partial" class="boxed" data-ai="{{ ai_note('partial', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}対象の条だけ作り直す</button>
+            <span class="small">作り直す条：<b>{{ tg.refs|join("、") }}</b>（目安 {{ partial_plan.estimate }}・AI の費用 {{ partial_plan.cost }}ほど）。ほかの条は今の文のまま残し、直した条を別の AI が確かめます。</span>
+          </div>
+          {% endif %}
+          <div class="rd-opt">
+            <button type="submit" name="mode" value="full" class="{{ 'tbtn2' if tg.amendments else 'boxed' }}" data-ai="{{ ai_note('redraft', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}全体を作り直す</button>
+            <span class="small">規約を読み直し、すべての条を最初から作り直します（目安 20〜45分・数ドル）。「修正して採用」が多いときや、全体を見直したいとき用です。</span>
+          </div>
         </form>
       {% elif board_state.ready %}
         <div class="justdone">{{ icon("check") }}<span>理事会での検討が済みました。{% if board_state.skipped %}見送り：{{ board_state.skipped|join("、") }}（住民向け説明には含めません）{% endif %}</span></div>
       {% endif %}
     {% endif %}
+    </div>
     <form action="/works/{{ id }}/board/decisions" method="post" id="boarddec">
     {% if questions %}
       <div class="choose-ui" id="questions">
         <div class="cu-head">組合が選ぶ点（{{ questions|length }}問）</div>
         <p class="small">改定案の〔選択〕の箇所です。同じ点が複数の議題に出てくる場合も、ここで1回選べば、関係するすべての議題に使います。
-          選んで保存すると、選んだ案で改定案を作り直します（〔選択〕の印を外します）。</p>
+          選ぶとすぐ保存します。選んだ案は、このあとの「改定案の作り直し」で改定案に入れます（〔選択〕の印を外します）。</p>
         {% for q in questions %}{% set k = loop.index0 %}
           <div class="cu-point" id="q-{{ k }}"><b>問{{ k + 1 }}　{{ q.ref }}（{{ q.caption }}）：{{ q.point }}</b>
             <div class="small">関係する議題：{% for u in q.uses %}{{ u[0] + 1 }}. {{ board["items"][u[0]].title }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
@@ -44,27 +108,31 @@
     {% for it in board["items"] %}
       {% set i = loop.index0 %}{% set d = board_decisions.get(i|string, {}) %}
       {% if it.tier != ns.tier %}{% set ns.tier = it.tier %}
-        <h2 class="tier">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h2>
+        <h2 class="tier gh g-tier">{{ "①②③"[["法律の改正に合わせる変更","暮らしや運営に関わる変更","古い規定や表現の整理"].index(it.tier)] }} {{ it.tier }}：{{ board_tasks[it.tier][0] }}</h2>
         <p class="muted">{{ board_tasks[it.tier][1] }}</p>
       {% endif %}
       <div class="finding bitem">
         <div class="bh"><strong>{{ loop.index }}. {{ it.title }}</strong><span class="small">{{ it.articles|join("、") }}</span></div>
         <p>{{ it.summary }}</p>
+        {% set prx = work.draft_partial if work.draft_mode == "partial" else none %}
+        {% set redone = (prx.changed or prx.targets or [])|select("in", it.articles)|list if prx and prx.status == "済み" else [] %}
+        {# 対象の条だけ作り直したあとも、議題の説明文は作り直す前のまま（AI で作り直すと費用がかかる）。食い違いに気づけるよう印を出す（想定ユーザーでの確認から） #}
+        {% if redone %}<p class="note2 small"><b class="w">この議題の条（{{ redone|join("、") }}）は、理事会の判断を反映して作り直しました。</b>上の説明は作り直す前の文です。今の条の文は<a href="/works/{{ id }}/taisho" target="_blank" rel="noopener">新旧対照表</a>で確かめてください。</p>{% endif %}
         <ul class="muted">{% for p in it.points %}<li>{{ p }}</li>{% endfor %}</ul>
         {% if it.options %}<p class="muted">選べる案：</p><ul>{% for o in it.options %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
-        <select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
+        <div class="bdec"><select name="b_decision_{{ i }}" aria-label="{{ loop.index }}. の判断">
           <option value="">（未判断）</option>
           {% for c in board_choices[it.tier] %}<option value="{{ c }}" {% if d.decision == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select>
+        </select><span class="bsave small" role="status"></span></div>
         {% set pts = board_points.get(i, []) %}
         {% if pts %}
           <div class="choose-ref">
             <b>選ぶ点（〔選択〕）：</b>{% for p in pts %}{% set k = qindex[point_key(p)] %}
-              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}{% if not loop.last %}／{% endif %}{% endfor %}
-            <div class="small">案は上の「組合が選ぶ点」で選びます。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
+              <a href="#q-{{ k }}">問{{ k + 1 }}</a> {{ p.ref }}（{{ p.caption }}）<span class="cref" data-q="{{ k }}" data-saved="{{ answers[k] }}">{% if answers[k] %}→ <b>{{ answers[k] }}</b>{% else %}<span class="unsaved">→ まだ選んでいません</span>{% endif %}</span>{% if not loop.last %}／{% endif %}{% endfor %}
+            <div class="small">判断の欄（{{ board_choices[it.tier]|join("・") }}）は、この議題を改定案に入れるかどうかです。どちらの案にするかは、上の「組合が選ぶ点」で選びます（判断の欄と別に選びます。例：「採用」＋問の案）。{% if it.tier != "法律の改正に合わせる変更" %}この議題を「見送り」にする場合は選ばなくてかまいません。{% endif %}</div>
           </div>
         {% endif %}
-        <input type="text" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録に残ります）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
+        <input type="text" class="bnote" name="b_note_{{ i }}" value="{{ d.note }}" aria-label="メモ" placeholder="{{ '質問・メモ' if it.tier == '法律の改正に合わせる変更' else ('修正の内容・理由（議事録と住民向け説明の参考に使います）' if it.tier == '暮らしや運営に関わる変更' else 'メモ（要修正なら内容）') }}">
         {% set h = d.history or [] %}
         {% if h %}<details class="hist"><summary>判断の履歴（{{ h|length }}件）</summary>
           <ul>{% for e in h|reverse %}<li>{{ hist_line(e) }}</li>{% endfor %}</ul></details>{% endif %}
@@ -73,22 +141,81 @@
     {% if board.notes %}<p class="muted">参考：今回の改定案に含まれていない点</p><ul class="muted">{% for n in board.notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
     <noscript><p><button type="submit" class="boxed">理事会の判断を保存する</button></p></noscript>
     </form>
+    {% include "work/_variants.html" %}
+    <script>
+    // 理事会の判断は、選んだらすぐ保存する（保存を押し忘れて、再読み込みや画面の移動で消えるのを防ぐ。想定ユーザーでの確認で分かった）
+    // 上の「組合が選ぶ点」で選んだ案は、議題の「選ぶ点」にもその場で出す
+    (() => {
+      const form = document.getElementById("boarddec"); if (!form) return;
+      const valueOf = (k) => { const x = form.querySelector(`input[name="b_q_${k}"]:checked, input[type=text][name="b_q_${k}"]`); return x ? x.value.trim() : ""; };
+      // 保存の知らせ（上の「次にすること」と下のボタンの行の2か所）。1つ目を代表に返し、setNote で両方を変える
+      const notes = () => document.querySelectorAll("[data-board-unsaved]");
+      const note = () => { const n = notes(); return n.length ? { set hidden(v) { n.forEach((x) => { x.hidden = v; }); },
+        set textContent(v) { n.forEach((x) => { x.textContent = v; }); }, set className(v) { n.forEach((x) => { x.className = v; }); } } : null; };
+      const show = () => {
+        let dirty = false;
+        form.querySelectorAll(".cref").forEach((el) => {
+          const v = valueOf(el.dataset.q), saved = el.dataset.saved;
+          el.replaceChildren();
+          if (!v) { const u = document.createElement("span"); u.className = "unsaved"; u.textContent = "→ まだ選んでいません"; el.append(u); }
+          else { const b = document.createElement("b"); b.textContent = v; el.append("→ ", b);
+            if (v !== saved) { dirty = true; const u = document.createElement("span"); u.className = "unsaved small"; u.textContent = "（保存しています…）"; el.append(" ", u); } }
+        });
+        if (note()) { note().hidden = !dirty; note().textContent = "保存しています…"; }
+      };
+      let timer = null, busy = false, again = false;
+      const save = async () => {
+        timer = null;
+        if (busy) { again = true; return; }
+        busy = true;
+        try {
+          const r = await fetch(form.action, { method: "POST", body: new FormData(form) });
+          if (!r.ok) throw new Error(r.status);
+          // 保存した結果（作り直しが必要か・次にすること）を、画面を読み直さずに入れ替える（書いている途中の欄はそのまま）
+          const doc = new DOMParser().parseFromString(await (await fetch(location.pathname, { cache: "no-store" })).text(), "text/html");
+          const st = doc.getElementById("board-state"); if (st) document.getElementById("board-state").replaceWith(st);
+          // 「次にすること」の枠と、下のボタンの行を入れ替える
+          const theirs = doc.querySelectorAll('[data-step=board] .nxs'), mine = document.querySelectorAll('[data-step=board] .nxs');
+          if (theirs.length === mine.length) mine.forEach((m, x) => m.replaceWith(theirs[x]));
+          const jn = doc.getElementById("j-next"), jm = document.getElementById("j-next");  // 上の「次にすること」も入れ替える
+          if (jn && jm) jm.replaceWith(jn);
+          // ステップ5・6（スクリプトのない画面）と、上の進み具合も入れ替える（見ている画面の切り替えの状態は残す）
+          ["section[data-step=explain]", "section[data-step=meeting]"].forEach((q) => {
+            const theirs = doc.querySelector(q), mine = document.querySelector(q);
+            if (theirs && mine) { theirs.hidden = mine.hidden; mine.replaceWith(theirs); } });
+          const fj = doc.getElementById("journey"), fm = document.getElementById("journey");
+          if (fj && fm) { fm.querySelectorAll("li.view").forEach((li) => { const t = fj.querySelector(`li[data-step="${li.dataset.step}"]`); if (t) t.classList.add("view"); });
+            fm.replaceWith(fj); }
+          form.querySelectorAll(".cref").forEach((el) => { el.dataset.saved = valueOf(el.dataset.q); });
+          show();
+          const n = note(); if (n) { n.hidden = false; n.className = "saved-ok"; n.textContent = "保存しました。"; }
+          itemNote("保存しました", "ok");
+        } catch (e) {
+          const n = note(); if (n) { n.hidden = false; n.className = "unsaved"; n.textContent = "保存できませんでした。「理事会の判断を保存する」を押してください。"; }
+          itemNote("保存できませんでした", "ng");
+        } finally { busy = false; if (again) { again = false; save(); } }
+      };
+      const later = (ms) => { clearTimeout(timer); timer = setTimeout(save, ms); };
+      let lastItem = null;   // 変えた議題（そのそばに保存の知らせを出す）
+      const itemNote = (text, cls) => { const n = lastItem && lastItem.querySelector(".bsave"); if (n) { n.textContent = text; n.className = "bsave small " + (cls || ""); } };
+      form.addEventListener("change", (e) => { lastItem = e.target.closest(".bitem"); itemNote("保存しています…"); show(); later(150); });
+      form.addEventListener("input", (e) => { show(); if (e.target.type === "text") later(800); });
+      form.addEventListener("focusout", (e) => { if (e.target.type === "text") later(0); });
+      // 画面を離れる・隠れる直前に、保存していない内容をすぐ送る（選んで直後に移ると消えた、という声から）
+      const flush = () => { if (!timer && !busy) return; clearTimeout(timer); timer = null;
+        try { navigator.sendBeacon ? navigator.sendBeacon(form.action, new FormData(form))
+              : fetch(form.action, { method: "POST", body: new FormData(form), keepalive: true }); } catch (e) {} };
+      window.addEventListener("pagehide", flush);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+      document.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a && timer) flush(); }, true);
+      window.addEventListener("pageshow", show); show();
+    })();
+    </script>
     {% if board_state and not board_state.ready and not board_state.needs_redraft %}<p class="muted">{{ board_state.reason }}</p>{% endif %}
   {% endif %}
   {% if board %}{% set note_doc = "board" %}{% include "work/_notes_box.html" %}{% endif %}
   <form action="/works/{{ id }}/board" method="post" id="boardmake">
-    {% if board %}<button type="submit" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
+    {% if board %}<button type="submit" data-ai="{{ ai_note('board_redo', work) }}" {% if busy %}disabled{% endif %}>{{ icon("refresh") }}検討資料を作り直す（判断はリセットされます）</button>{% endif %}
   </form>
-  <div class="bar"><div class="in">
-    {% if not board %}
-      <div class="t"><b>理事会の検討資料を作ります</b>　改定案を、理解する・判断する・確認するの3段に分けます</div>
-      <button type="submit" form="boardmake" class="btn" {% if busy %}disabled{% endif %}>理事会の検討資料を作る{{ icon("arrow-right") }}</button>
-    {% elif board_state and board_state.ready %}
-      <div class="t"><b>理事会での検討が済みました</b>　判断を変えたときは保存し直してください。<button type="submit" form="boarddec">判断を保存し直す</button></div>
-      <a class="btn" href="#explain">住民への説明へ{{ icon("arrow-right") }}</a>
-    {% else %}
-      <div class="t"><b>議題ごとに判断を選び、保存します</b>　{{ board_state.reason if board_state else "" }}</div>
-      <button type="submit" form="boarddec" class="btn">理事会の判断を保存する</button>
-    {% endif %}
-  </div></div>
+  {% if board %}<div class="actend nxs">{{ nextbar }}</div>{% endif %}
 </section>

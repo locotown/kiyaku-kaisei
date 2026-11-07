@@ -17,7 +17,27 @@ from core.config import ROOT
 from core.review import JST
 
 WORK = ROOT / "private/work"
+# 想定ユーザー（架空）が使った作業の記録。リポジトリに入れて配り、一覧を開いたときに private/work へ写す
+# （写しなので、開いて操作してもリポジトリのファイルは変わらない）。中身はアプリのサンプル（架空）だけ
+SEED = ROOT / "data/public/persona_works"
+# AI 相談（ととのう規約に相談する）の記録と、マンションの基本情報。貼った文には人名などが入りうるので、private/ にだけ置く
+CONSULT = ROOT / "private/consult"
 _lock = threading.Lock()
+
+
+def seed_persona_works() -> int:
+    """想定ユーザーの作業のうち、まだ private/work にないものを写す。写した件数を返す。"""
+    import shutil
+
+    if not SEED.exists():
+        return 0
+    n = 0
+    for d in SEED.iterdir():
+        if (d / "work.json").exists() and not (WORK / d.name).exists():
+            WORK.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(d, WORK / d.name)
+            n += 1
+    return n
 
 
 class WorkNotFound(LookupError):
@@ -85,7 +105,26 @@ def append_log(work_id: str, kind: str, text: str) -> None:
         tmp.replace(p)
 
 
+BUSY_OR_ERROR = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中", "エラー", "改定案エラー", "検討資料エラー", "説明文エラー")
+
+
+def display_status(data: dict) -> str:
+    """画面と一覧に出す状態。保存した値ではなく中身（総会の結果・説明・検討資料）から決める
+    （作り直しのあとで「改定案あり」に戻ったように見えた、という声から）。処理中・エラーはそのまま。"""
+    status = data.get("status", "")
+    if status in BUSY_OR_ERROR or not data.get("draft"):
+        return status
+    if any(((data.get("meeting") or {}).get("results") or {}).values()):
+        return "総会の結果あり"
+    if data.get("explain"):
+        return "説明文あり"
+    if data.get("board"):
+        return "検討資料あり"
+    return status
+
+
 def list_works() -> list[dict]:
+    seed_persona_works()
     if not WORK.exists():
         return []
     out = []
@@ -93,6 +132,74 @@ def list_works() -> list[dict]:
         f = d / "work.json"
         if f.exists():
             data = json.loads(f.read_text(encoding="utf-8"))
-            out.append({"id": d.name, "name": data.get("name", ""), "status": data.get("status", ""),
-                        "findings": len(data.get("findings", []))})
+            status = display_status(data)  # 作業の画面の表示とそろえる
+            out.append({"id": d.name, "name": data.get("name", ""), "status": status,
+                        "findings": len(data.get("findings", [])), "persona": data.get("persona")})
     return out
+
+
+# ---- AI 相談 ----------------------------------------------------------------------
+
+def consult_path(cid: str) -> Path:
+    if not cid.replace("-", "").isalnum():
+        raise WorkNotFound(cid)
+    return CONSULT / f"{cid}.json"
+
+
+def load_consult(cid: str) -> dict:
+    p = consult_path(cid)
+    if not p.exists():
+        raise WorkNotFound(cid)
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def save_consult(data: dict) -> None:
+    with _lock:
+        CONSULT.mkdir(parents=True, exist_ok=True)
+        p = consult_path(data["id"])
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(p)
+
+
+def update_consult(cid: str, fn) -> dict:
+    """読み直してから fn(data) で書き換えて保存する（別のスレッドの書き込みを消さないように）。"""
+    with _lock:
+        p = consult_path(cid)
+        data = json.loads(p.read_text(encoding="utf-8"))
+        fn(data)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(p)
+        return data
+
+
+def delete_consult(cid: str) -> None:
+    p = consult_path(cid)
+    if p.exists():
+        p.unlink()
+
+
+def list_consults() -> list[dict]:
+    if not CONSULT.exists():
+        return []
+    out = []
+    for f in sorted(CONSULT.glob("*.json"), reverse=True):
+        if f.name == "profile.json":
+            continue
+        try:
+            out.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
+def load_profile() -> dict:
+    p = CONSULT / "profile.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def save_profile(profile: dict) -> None:
+    with _lock:
+        CONSULT.mkdir(parents=True, exist_ok=True)
+        (CONSULT / "profile.json").write_text(json.dumps(profile, ensure_ascii=False, indent=1), encoding="utf-8")

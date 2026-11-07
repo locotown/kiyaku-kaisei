@@ -3,30 +3,71 @@
 <section class="panel" data-step="explain" id="explain">
   <div class="stepttl"><p class="eyebrow">ステップ 5 ／ 6</p><h1 class="page-title">住民への説明を作る</h1>
     <p class="lead">改定案を、住民の方が読める言葉に書き換えます。説明会や総会資料の下書きに使えます。</p></div>
-  {% if done == "説明文作成中" and work.explain %}<div class="justdone">{{ icon("check") }}<span>住民向けの説明ができました。「説明資料を開く」で確認してください。</span></div>{% endif %}
+  {% set nextbar %}
+    {% if board_state and board_state.needs_redraft %}
+      {# 指示を1つにそろえる（作り直しが必要なのに「説明ができました」と出て迷った、という声から） #}
+      <div class="t"><b>先に、改定案の作り直しが必要です</b>ステップ4の「対象の条だけ作り直す」を押してください</div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {% elif not (board_state and board_state.ready) %}
+      <div class="t"><b>先に、理事会での検討を終えましょう</b><span class="muted">{{ board_state.reason if board_state else "" }}</span></div>
+      <a class="btn" href="#board">ステップ4へ{{ icon("arrow-right") }}</a>
+    {% elif work.explain and work.explain_stale %}
+      <div class="t"><b>改定案や理事会の判断が変わりました</b>説明を作り直してください</div>
+      <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文を作り直す{{ icon("arrow-right") }}</button>
+    {% elif work.explain and work.meeting and (work.meeting.results or {}).values()|select|list %}
+      <div class="t"><b>説明ができました</b>総会の結果は記録済みです。最新の規約を確かめられます</div>
+      <a class="btn" href="#meeting">最新の規約へ{{ icon("arrow-right") }}</a>
+    {% elif work.explain %}
+      {# できたらすぐ「総会のあとへ」ではなく、まず中身を確かめる（想定ユーザーでの確認から） #}
+      <div class="t"><b>説明ができました。説明資料を開いて確かめましょう</b>直したい所は、理事会で話し合って配る前に直してください。総会が済んだら <a href="#meeting">6. 総会のあと</a> で結果を記録します</div>
+      <a class="btn" href="/works/{{ id }}/explain" target="_blank" rel="noopener">説明資料を開く{{ icon("arrow-right") }}</a>
+    {% elif work.status == "説明文エラー" %}
+      <div class="t"><b>説明文づくりが途中で止まりました</b>もう一度作りましょう（上の赤い枠に、止まった理由があります）</div>
+      <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy %}disabled{% endif %}>説明文をもう一度作る{{ icon("arrow-right") }}</button>
+    {% else %}
+      <div class="t"><b>住民向けの説明を作ります</b>改定案と理事会の判断から書きます</div>
+      <button type="submit" form="explainform" class="btn" data-ai="{{ ai_note('explain', work) }}" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>住民向けの説明を作る{{ icon("arrow-right") }}</button>
+    {% endif %}
+  {% endset %}
+  <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
+  {% if done == "説明文作成中" and work.explain %}<div class="justdone">{{ icon("check") }}<span>住民向けの説明ができました。</span></div>{% endif %}
+  {% if work.explain and work.explain_stale and board_state and board_state.ready %}<p class="warn"><b class="w">説明を作ったあとで、改定案や理事会の判断が変わりました。</b>今の説明は前の判断のままです。下の「説明文を作り直す」で作り直してください。</p>{% endif %}
+  {% if not work.explain %}
+  {# 作る前でも、どんな説明ができるかを見せる #}
+  <section class="card2 preview" aria-labelledby="ep-h">
+    <h2 id="ep-h">住民向けの説明でできること</h2>
+    <p class="small">改定案と理事会の判断から、住民の方が読める言葉で、次の順に書きます（理事会で見送った変更は入れません）。</p>
+    <ol class="tierlist">
+      <li><b>はじめに</b><span>なぜ今、規約を見直すのか（法律の改正）を短く</span></li>
+      <li><b>変更ごとの説明</b><span>何が変わるか・なぜ変えるか・暮らしへの影響。法律の改正に合わせる変更と、組合で選べる変更を分けます</span></li>
+      <li><b>皆さんのご意見を伺いたい点</b><span>理事会で決めた選択や、意見を聞きたい点（あれば）</span></li>
+      <li><b>決め方</b><span>総会の特別決議・普通決議で決めること</span></li>
+    </ol>
+    <p class="small">作ると、印刷できる説明資料（Word でも保存できます）ができます。専門用語に説明がないところや長すぎる文がないかも、目安で示します。</p>
+  </section>
+  {% endif %}
   {% if work.explain %}
-    {% set m = work.explain_metrics %}
-    <div class="stats">
-      <div><div class="k">説明の項目</div><div class="v">{{ work.explain["items"]|length }}<small>つ</small></div></div>
-      <div><div class="k">1文の平均の長さ</div><div class="v">{{ m["1文の平均の長さ"] }}<small>字</small></div></div>
-      <div><div class="k">60字を超える文</div><div class="v">{{ m["60字を超える文の割合(%)"] }}<small>%</small></div></div>
+    {% set m = work.explain_metrics or {} %}{% set ex = work.explain %}
+    {# 説明文そのものをその場で見せる（数字だけが大きく出て、説明が見えない、という声から） #}
+    <div class="explain-peek sec">
+      <h2>{{ ex.title }}</h2>
+      <p>{{ ex.intro }}</p>
+      <ol class="ex-items">{% for it in (ex.get("items") or []) %}
+        <li><b>{{ it.title }}</b>{% if it.articles %} <span class="small muted">（{{ it.articles|join("、") }}）</span>{% endif %}
+          <span class="small">{{ "法律の改正に合わせるための変更" if it.required else "組合で選べる変更" }}</span></li>{% endfor %}</ol>
+      <p class="small">全文は「説明資料を開く」で読めます。理事会で読み合わせてから配ってください。</p>
     </div>
-    <p class="muted">説明なしの専門用語：{{ m["説明なしの専門用語"]|join("、") or "なし" }}</p>
+    <details class="more"><summary>読みやすさの目安（作る側向け）</summary>
+      <p class="small">1文の平均の長さ <b>{{ m.get("1文の平均の長さ", "－") }}字</b>（目安：40字前後まで）・60字を超える文 <b>{{ m.get("60字を超える文の割合(%)", "－") }}%</b>（目安：1割ほどまで）・
+        説明なしの専門用語：<b>{{ m.get("説明なしの専門用語", [])|join("、") or "なし" }}</b>（本文で言い換えていれば問題ありません）</p></details>
     <div class="doc">{{ icon("file") }}<div style="flex:1;min-width:0"><div class="tt">住民向けの説明資料</div><div class="d">総会提案の下書きです。理事会で読み合わせてから配ってください。</div></div>
       <a class="tbtn2" href="/works/{{ id }}/explain.docx">{{ icon("download") }}Word で保存</a>
-      <a class="tbtn2 boxed" href="/works/{{ id }}/explain" target="_blank">説明資料を開く（印刷用）</a></div>
+      <a class="tbtn2 boxed" href="/works/{{ id }}/explain">説明資料を開く（印刷用）</a></div>
   {% endif %}
   <form action="/works/{{ id }}/explain" method="post" id="explainform">
-    {% if not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}
-    {% if work.explain %}<button type="submit" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>{{ icon("refresh") }}説明文を作り直す</button>{% endif %}
+    {% if board_state and board_state.needs_redraft %}<p class="warn"><b class="w">先に、改定案の作り直しが必要です。</b>{{ board_state.reason }} <a href="#board">ステップ4へ</a></p>
+    {% elif not (board_state and board_state.ready) %}<p class="warn"><b class="w">理事会での検討が済んでから作れます。</b>{{ board_state.reason if board_state else "" }}</p>{% endif %}
+    {% if work.explain %}<button type="submit" data-ai="{{ ai_note('explain', work) }}" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>{{ icon("refresh") }}説明文を作り直す</button>{% endif %}
   </form>
-  <div class="bar"><div class="in">
-    {% if work.explain %}
-      <div class="t"><b>説明ができました</b>　総会のあとは、結果を記録して最新の規約を作ります</div>
-      <a class="btn" href="#meeting">総会のあとへ{{ icon("arrow-right") }}</a>
-    {% else %}
-      <div class="t"><b>住民向けの説明を作ります</b>　改定案と理事会の判断から書きます</div>
-      <button type="submit" form="explainform" class="btn" {% if busy or not (board_state and board_state.ready) %}disabled{% endif %}>住民向けの説明を作る{{ icon("arrow-right") }}</button>
-    {% endif %}
-  </div></div>
+  {% if work.explain %}<div class="actend nxs">{{ nextbar }}</div>{% endif %}
 </section>

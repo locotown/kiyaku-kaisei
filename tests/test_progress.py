@@ -41,7 +41,7 @@ def test_status_progress():
         assert p["current"] == "規約の条文を確認：第47条" and p["lines"][0]["text"] == "AI の作業を始めました"
         assert p["stage"] == 1 and p["elapsed"] >= 0 and p["last_age"] >= 0
         page = c.get(f"/works/{wid}").text
-        assert "経過時間" in page and "目安 3〜5分" in page and "規約を読む" in page
+        assert "経過 " in page and "目安 3〜7分" in page and "rb-spin" in page and "規約を読む" in page
         store.update(wid, status="点検済み")
         assert c.get(f"/works/{wid}/status").json()["progress"] is None
     finally:

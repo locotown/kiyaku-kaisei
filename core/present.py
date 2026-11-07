@@ -140,14 +140,20 @@ def _title(finding: dict, corpus) -> str:
     return f"「{cap}」の見直し" if cap else NO_TOPIC
 
 
+def _names(text: str) -> str:
+    from core.topics import name_topics
+
+    return name_topics(text)
+
+
 def view(finding: dict, corpus=None) -> dict:
     return {
         "title": _title(finding, corpus),
         "target": target(corpus, finding),
         "chapter": chapter(corpus, finding),
         "resolution": resolution(finding),
-        "proposal": annotate(finding.get("proposal", ""), finding, corpus),
-        "issue": annotate(finding.get("issue", ""), finding, corpus),
+        "proposal": annotate(_names(finding.get("proposal", "")), finding, corpus),
+        "issue": annotate(_names(finding.get("issue", "")), finding, corpus),
         "basis": basis(finding),
         # 条文の読みから必須とした論点の注記（11/3 より前の点検で「推奨」として保存された指摘には出さない）
         "note": (__import__("core.topics", fromlist=["TOPIC_BY_ID"]).TOPIC_BY_ID.get(finding.get("topic_id", ""), {}).get("note", "")

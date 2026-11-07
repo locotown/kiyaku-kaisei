@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}相談する｜ととのう規約{% endblock %}
+{% block content %}
+{% from "_consult_profile.html" import profile_form with context %}
+
+<div class="stepttl cs-ttl"><p class="eyebrow">AI 相談</p><h1 class="page-title">ととのう規約に相談する</h1>
+  <p class="lead">改正区分所有法（2026年4月施行）と標準管理規約（2025年10月改正）について質問したり、住民向けのニュース原稿・議事録・説明文を貼って確かめてもらったりできます。
+  AI は、改定案づくりと同じ資料（区分所有法の条文・標準管理規約・改正の論点・お使いの規約）を読んで、<b>根拠の条番号を付けて</b>答えます。資料で確かめられないことは「資料で確かめられない」として分け、断定しません。</p></div>
+
+{% if saved == "deleted" %}<div class="justdone">{{ icon("check") }}<span>相談の記録を消しました。</span></div>{% endif %}
+{% if saved in ("empty_text", "empty_question") %}<p class="warn"><b class="w">{{ "確かめる文章を貼ってください。" if saved == "empty_text" else "質問を書いてください。" }}</b></p>{% endif %}
+
+<section class="cs-box cs-main" aria-labelledby="ask-h">
+  <h2 id="ask-h">{{ icon("chat") }}相談する</h2>
+  <p class="cs-pf-line small">マンションの基本情報：{% if missing %}<b class="w">まだ入れていません</b>（定足数・賛成の数を答えるときに使います）　<a href="#profile">入れる</a>{% else %}<b>{{ profile_line(profile) }}</b>　<a href="#profile">直す</a>{% endif %}</p>
+  <form method="post" action="/consult" id="cform">
+    <div class="seg cs-seg" role="radiogroup" aria-label="相談のしかた">
+      <label><input type="radio" name="mode" value="ask" checked><span><b>質問する</b><span class="cs-segsub">改正や規約について聞く</span></span></label>
+      <label><input type="radio" name="mode" value="check"><span><b>文章を確かめる</b><span class="cs-segsub">原稿・議事録を貼って確かめる</span></span></label>
+    </div>
+    <div data-for="ask">
+      <label>質問<textarea name="question" rows="4" placeholder="例：今の規約に「組合員総数の4分の3以上」と書いてあります。2026年4月以降の総会では、規約を変える前でもどちらで数えますか？"></textarea></label>
+    </div>
+    <div data-for="check" hidden>
+      <label>確かめる文章<span class="small">（ニュース原稿・議事録・説明文など。2万字まで）</span><textarea name="text" rows="12" placeholder="ここに文章を貼ってください"></textarea></label>
+      <label>特に見てほしいこと<span class="small">（任意）</span><input type="text" name="question_check" placeholder="例：決議の数字が正しいか"></label>
+    </div>
+    <div class="cs-opts">
+      <label>照らす規約<span class="small">（任意。選ぶと、お使いの規約の条とも照らします。「読み込んだ規約」は改定前の原本です。総会の結果を記録した作業は「最新の規約」（総会で可決した改定を含む）も選べます）</span>
+        <select name="work_id"><option value="">選ばない（区分所有法と標準管理規約で答える）</option>{% for w in works %}{% set tag = "・想定ユーザー（架空）" if w.persona else "" %}
+          {% if has_latest(w.id) %}<option value="{{ w.id }}|最新" {{ 'selected' if work_id == w.id ~ '|最新' or work_id == w.id }}>{{ w.name }}（{{ work_label(w.id) }}{{ tag }}）：最新の規約（総会で可決した改定を含む）</option>{% endif %}
+          <option value="{{ w.id }}" {{ 'selected' if work_id == w.id and not has_latest(w.id) }}>{{ w.name }}（{{ work_label(w.id) }}{{ tag }}）：読み込んだ規約（改定前）</option>{% endfor %}</select></label>
+      <label class="ck"><input type="checkbox" name="mask" value="1" checked><span>人名を伏せて送る<span class="small cs-ckhelp">「◯◯さん」「◯◯氏」「記録：◯◯」などの名前を記号にして AI に送り、答えでは元の名前に戻します。マンション名は、基本情報に入れると一緒に伏せます。伏せた語は、答えの画面で確かめられます。</span></span></label>
+      <label>ほかに伏せる語<span class="small">（任意。「、」で区切る。例：敬称を付けずに書いた名前、部屋番号）</span><input type="text" name="mask_more" placeholder="例：中川、305号室"></label>
+    </div>
+    <p class="warn" data-needinfo hidden><b class="w">数を答えるには、マンションの基本情報が要ります。</b>上の<a href="#profile">「マンションの基本情報」</a>に住戸の数などを入れてから送ると、定足数や賛成の数まで答えられます（入れずに送ると、数は「基本情報が必要」と返します）。</p>
+    <div class="cs-go"><button type="submit" class="btn" data-ai="{{ ai_note }}"><span data-go>質問する</span>{{ icon("arrow-right") }}</button>
+      <span class="small">AI に相談します。1〜3分ほど・1回 約$0.1〜0.5。答えは総会提案の下書きを見直すための参考で、法的助言ではありません。</span></div>
+  </form>
+</section>
+
+<section class="cs-box cs-sub" id="profile" aria-labelledby="pf-h">
+  <h2 id="pf-h">マンションの基本情報</h2>
+  {% if saved == "profile" %}<div class="justdone">{{ icon("check") }}<span>マンションの基本情報を保存しました。</span></div>{% endif %}
+  {% if missing %}
+    <p>定足数や、可決に必要な賛成の数を答えるときに使います。<b>数はこの情報からアプリが計算します</b>（AI に推測させません）。入れていなくても相談はできます。</p>
+    {{ profile_form(open=True) }}
+  {% else %}
+    <p class="pf-now">{{ icon("check", "icon ck") }}<b>{{ profile_line(profile) }}</b>{% if profile.name %}<span class="small">　{{ profile.name }}</span>{% endif %}</p>
+    <details class="more"><summary>基本情報を直す</summary>{{ profile_form() }}</details>
+  {% endif %}
+</section>
+
+<section class="cs-box" id="history" aria-labelledby="hist-h">
+  <h2 id="hist-h">これまでの相談</h2>
+  {% if consults %}
+  <ul class="cs-list">{% for c in consults %}{% set last = c.turns[-1] %}{% set n = consult_counts(last.answer) if last.answer else {} %}
+    <li><a href="/consult/{{ c.id }}"><b>{{ c.title }}</b></a>
+      <span class="small">{{ c.created }}・{{ modes[c.mode] }}{% if c.turns|length > 1 %}・やり取り {{ c.turns|length }}回{% endif %}・{{ last.status }}{% if c.cost_total %}・約${{ "%.2f"|format(c.cost_total) }}{% endif %}</span>
+      {% if n %}<span class="cs-chips">{% for v, k in n.items() %}<span class="vd v-{{ v }}">{{ "資料で確かめられない" if v == "資料の外" else v }} {{ k }}</span>{% endfor %}</span>{% endif %}</li>
+  {% endfor %}</ul>
+  {% else %}<p class="muted">まだ相談はありません。</p>{% endif %}
+</section>
+
+<script>
+(() => {  // 相談のしかたで、入れる欄を切り替える。数に関わる質問で基本情報がなければ、先に入れるよう促す
+  const form = document.getElementById("cform");
+  const go = document.querySelector("[data-go]");
+  const needInfo = form.querySelector("[data-needinfo]");
+  const missing = {{ (missing|length > 0)|tojson }};
+  const NUM = /戸|定足数|議決権|賛成|可決|過半数|[0-9０-９]+分の[0-9０-９]|4分の3|3分の2|出席/;
+  const sync = () => {
+    const mode = form.querySelector("input[name=mode]:checked").value;
+    form.querySelectorAll("[data-for]").forEach((el) => { el.hidden = el.dataset.for !== mode; });
+    form.question.required = mode === "ask"; form.text.required = mode === "check";
+    go.textContent = mode === "ask" ? "質問する" : "文章を確かめる";
+    const t = (mode === "ask" ? form.question.value : form.text.value);
+    needInfo.hidden = !(missing && NUM.test(t));
+  };
+  form.addEventListener("input", sync); form.addEventListener("change", sync);
+  // 「特に見てほしいこと」は question として送る
+  form.addEventListener("submit", () => {
+    if (form.querySelector("input[name=mode]:checked").value === "check") form.question.value = form.question_check.value;
+  });
+  sync();
+})();
+</script>
+{% endblock %}

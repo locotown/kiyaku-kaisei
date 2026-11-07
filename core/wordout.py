@@ -150,15 +150,20 @@ def save(doc) -> bytes:
 
 # ---- 新旧対照表 ----
 
-def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None) -> bytes:
+def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案）", ident: str = "", edits: dict | None = None,
+                skipped: set | None = None) -> bytes:
     from core.taisho import (
         DISCLAIMER,
         GUIDE,
         OPTIONAL_LABEL,
         REQUIRED_LABEL,
         RESOLUTION_GUIDE,
+        SKIP_LABEL,
         classify,
         edit_label,
+        edit_note,
+        is_skipped,
+        summary_line,
         group_heading,
         notes_sections,
         numbered,
@@ -172,7 +177,7 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
     note(doc, GUIDE)
     all_rows = rows(draft, kiyaku)
     n_required = sum(1 for r in all_rows if classify(r["amendment"])["is_required"])
-    para(doc, f"改定 {len(all_rows)}条のうち、「{REQUIRED_LABEL}」を含む条 {n_required}条、「{OPTIONAL_LABEL}」だけの条 {len(all_rows) - n_required}条")
+    para(doc, summary_line(all_rows, n_required, skipped).format(must=f"「{REQUIRED_LABEL}」", opt=f"「{OPTIONAL_LABEL}」"))
     grouped = numbered(all_rows)
     if len(grouped) > 1:
         note(doc, RESOLUTION_GUIDE)
@@ -186,6 +191,8 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
             c = classify(a)
             new_cell, old_cell, why_cell = add_row(t, widths)
             _font(new_cell.paragraphs[0].add_run(f"行{n}\n"), 9, bold=True, color=PRIMARY)  # 写真の書き込みから行を特定するため
+            if is_skipped(skipped, a):  # 理事会で見送りにした条（行の番号は変えない）
+                _font(new_cell.paragraphs[0].add_run(f"［{SKIP_LABEL}］\n"), 8.5, bold=True, color=MUST)
             mark = edit_label(edits, a)
             if mark:  # 委員会で直した条（どこが人の手で変わったかを、会議で一目で分かるように）
                 _font(new_cell.paragraphs[0].add_run(f"［{mark}］\n"), 8.5, bold=True,
@@ -213,6 +220,9 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
             label = a.label if hasattr(a, "label") else a.article
             _font(p.add_run(f"{label}・{a.kind}\n"), 9, bold=True)
             _font(p.add_run(a.reason), 9)
+            enote = edit_note(edits, a)
+            if enote:
+                _font(p.add_run(f"\n委員会で直した点：{enote}"), 9, bold=True)
             basis = "、".join([f"区分所有法{x}" for x in a.law_basis] + [f"標準管理規約{x}" for x in a.standard_basis])
             if basis:
                 _font(why_cell.add_paragraph().add_run(f"根拠：{basis}"), 8, color=INK_3)
@@ -312,8 +322,9 @@ def explain_docx(ex, name: str = "", draft=None, ident: str = "") -> bytes:
         for h, body in (("何が変わるのか", it.what), ("なぜ変えるのか", it.why), ("暮らしや手続きへの影響", it.impact)):
             heading(doc, h, 3)
             paras(body)
-    heading(doc, "皆さんのご意見を伺いたい点", 1)
-    bullets(doc, ex.choices)
+    if ex.choices:  # 中身がないときは見出しも出さない（未完成の資料に見えるため）
+        heading(doc, "皆さんのご意見を伺いたい点", 1)
+        bullets(doc, ex.choices)
     heading(doc, "総会での決め方", 1)
     paras(ex.resolution)
     paras(ex.closing)

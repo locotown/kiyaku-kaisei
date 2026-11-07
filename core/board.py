@@ -46,6 +46,7 @@ class BoardItem(BaseModel):
     points: list[str] = Field(description="①は理解のポイント（法律が求めること、変えないと何が起きるか）、②は判断のポイント（利点・注意点・暮らしへの影響・判断の目安）、③は確認のポイント（何を整えたか、内容が変わらないこと）。各1〜2文、2〜5個")
     options: list[str] = Field(description="②のみ：選べる案（採用する場合の内容、修正するならどんな修正があり得るか、見送った場合どうなるか）。〔選択〕の箇所があれば、その選択肢もここに書く。①③は空")
     questions: list[str] = Field(description="理事会で出そうな質問と、その答えの要点（「Q：…／A：…」の形）。0〜3個")
+    finding_refs: list[str] = Field(default_factory=list, description="この議題が扱う論点ID（改定案の finding_refs から。この議題の変更に当たるものだけ）")
 
 
 class BoardPaper(BaseModel):
@@ -67,17 +68,33 @@ SYSTEM = """あなたは、マンション管理組合の理事会（規約見�
   ・「暮らしや運営に関わる変更」…法律上は必須ではなく、組合が採用するか・どう書くかを決められる変更
   ・「古い規定や表現の整理」…参照する条の番号の誤りや古い用語を整えるだけで、内容が変わらないもの
 - すべての改定の ref が、いずれかの議題の articles に入るようにする。改定案に含まれていない条についての提案は議題にせず notes に書く
+- 議題の finding_refs には、その議題が扱う論点IDだけを書く。必須の論点（依頼文の「必須の論点ID」）と、それ以外の論点を同じ議題にまとめない（1つの条に両方が入っていても、議題は論点ごとに分け、同じ条を両方の議題の articles に入れてよい）
+- 委員会で文を直した条（committee_edit がある条）は、reason が直す前の文についての説明のことがある。committee_edit の内容を踏まえて書き、「標準管理規約と同じ文言」「それ以外の文言は変えていない」などと、直した文と食い違うことを書かない
 - ②の議題では、判断に必要な材料（利点・注意点・暮らしへの影響）を公平に書く。どちらかに誘導しない
 - 事実を誇張しない。「無効です」と断定せず「法律と食い違い、効力を失うおそれがあります」のように書く
 - 専門家への相談を一律に勧めない
 """
 
 
-def build_prompt(draft: Draft, info: dict) -> str:
+def committee_edits(draft: Draft, edits: dict | None) -> dict[str, str]:
+    """委員会で文を直した条（ref → 直した旨と補足）。AI に渡し、直した文と食い違う説明を書かせないため。"""
+    out = {}
+    for a in draft.amendments:
+        e = (edits or {}).get(f"{a.document or '規約'}|{a.article}") or {}
+        if e.get("text") == a.text:
+            out[ref_name(a)] = "委員会がこの条の文を手で直した。" + (f"補足：{e['note']}" if e.get("note") else "")
+    return out
+
+
+def build_prompt(draft: Draft, info: dict, edits: dict | None = None) -> str:
+    from core.topics import REQUIRED_TOPIC_IDS
+
     today = datetime.now(JST).date()
+    human = committee_edits(draft, edits)
     amendments = [
         {"ref": ref_name(a), "document": a.document,
-         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices", "law_basis", "standard_basis")}}
+         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices", "law_basis", "standard_basis")},
+         **({"committee_edit": human[ref_name(a)]} if ref_name(a) in human else {})}
         for a in draft.amendments
     ]
     return "\n".join([
@@ -88,6 +105,9 @@ def build_prompt(draft: Draft, info: dict) -> str:
         "",
         "## マンションの基本情報",
         *[f"- {k}：{v}" for k, v in info.items()],
+        "",
+        "## 必須の論点ID（改正法に合わせるため必ず必要な変更）",
+        "、".join(REQUIRED_TOPIC_IDS),
         "",
         "## 改定案（ref ごと。reason は担当者向けの理由）",
         json.dumps(amendments, ensure_ascii=False),
@@ -109,9 +129,17 @@ def fix_tiers(paper: BoardPaper, draft: Draft) -> None:
     for item in [it for it in paper.items if not it.articles]:
         paper.notes.append(f"{item.title}：{item.summary}")
         paper.items.remove(item)
+    from core.topics import REQUIRED_TOPIC_IDS
+
     req = required_refs(draft)
+    _split_swallowed(paper, draft)
     for item in paper.items:
-        if any(_ref_key(x) in req for x in item.articles):
+        # 議題が扱う論点が分かれば、その論点で決める（必須と推奨が同じ条に入っていても、推奨の議題を①にしない）
+        if item.finding_refs:
+            must = bool(set(item.finding_refs) & set(REQUIRED_TOPIC_IDS))
+        else:
+            must = any(_ref_key(x) in req for x in item.articles)
+        if must:
             item.tier = TIERS[0]
         elif item.tier == TIERS[0]:
             item.tier = TIERS[1]
@@ -121,13 +149,33 @@ def fix_tiers(paper: BoardPaper, draft: Draft) -> None:
     paper.items.sort(key=lambda it: order[it.tier])
 
 
+def _split_swallowed(paper: BoardPaper, draft: Draft) -> None:
+    """改定案に入った推奨・参考の論点が、どの議題の論点にも挙がっていないとき（AI が必須の議題に紛れ込ませたとき）、
+    その論点を②の議題として分けて出す。①に入ると理事会で見送れなくなる（想定ユーザーでの確認で、ステップ2で選べた指摘が①に入っていた）。"""
+    from core.topics import REQUIRED_TOPIC_IDS, TOPIC_BY_ID
+
+    listed = {r for it in paper.items for r in it.finding_refs}
+    if not any(it.finding_refs for it in paper.items):
+        return                                   # 論点を書かない古い形の出力は、条で決める（ここでは触らない）
+    for tid in dict.fromkeys(r for a in draft.amendments for r in a.finding_refs):
+        if tid in REQUIRED_TOPIC_IDS or tid in listed or tid not in TOPIC_BY_ID:
+            continue
+        arts = [ref_name(a) for a in draft.amendments if tid in a.finding_refs]
+        name = TOPIC_BY_ID[tid]["topic"]
+        paper.items.append(BoardItem(
+            tier=TIERS[1], title=name, articles=arts, finding_refs=[tid],
+            summary=f"「{name}」の変更です（{'、'.join(arts)}）。法律で必ず必要な変更ではないため、採用するか見送るかを理事会で決められます。",
+            points=["内容は新旧対照表で、この条の変更を確かめてください。", "見送ると、この部分だけを改定案から外します（同じ条の、法律で必要な変更は残ります）。"],
+            options=["採用する", "見送る（今の規定のままにする）"], questions=[]))
+
+
 def coverage(paper: BoardPaper, draft: Draft) -> list[str]:
     """どの議題にも入っていない改定の ref。"""
     covered = {_ref_key(x) for it in paper.items for x in it.articles}
     return [ref_name(a) for a in draft.amendments if _ref_key(ref_name(a)) not in covered]
 
 
-def generate(draft: Draft, info: dict, effort: str = "medium") -> tuple[BoardPaper, dict]:
+def generate(draft: Draft, info: dict, effort: str = "medium", edits: dict | None = None) -> tuple[BoardPaper, dict]:
     c = client()
     with c.beta.messages.stream(
         model=MODEL,
@@ -137,7 +185,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium") -> tuple[BoardPap
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         output_format=BoardPaper,
-        messages=[{"role": "user", "content": build_prompt(draft, info)}],
+        messages=[{"role": "user", "content": build_prompt(draft, info, edits)}],
     ) as stream:
         message = stream.get_final_message()
     if message.stop_reason == "refusal" or message.parsed_output is None:
@@ -151,6 +199,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium") -> tuple[BoardPap
             summary="資料の本文で取り上げていない改定です。新旧対照表で内容を確認してください。",
             points=["新旧対照表の該当箇所を読み、採用するかを判断してください。"], options=[], questions=[]))
         fix_tiers(paper, draft)
+    paper = __import__("core.topics", fromlist=["scrub_topics"]).scrub_topics(paper)  # 内部の呼び名（論点1-3）を出さない
     return paper, (message.usage.model_dump() if message.usage else {})
 
 
@@ -237,7 +286,8 @@ def picked_text(points: list[dict], picked: dict) -> str:
     return "／".join(parts)
 
 
-def status(paper: BoardPaper, decisions: dict[str, dict], points: dict[int, list[dict]] | None = None) -> dict:
+def status(paper: BoardPaper, decisions: dict[str, dict], points: dict[int, list[dict]] | None = None,
+           draft: Draft | None = None) -> dict:
     """判断が済んだか、改定案の作り直しが要るかを返す。
 
     〔選択〕のある議題は、見送り以外なら案をすべて選ぶまで判断済みにしない。案を選んだら作り直しが要る。
@@ -257,18 +307,30 @@ def status(paper: BoardPaper, decisions: dict[str, dict], points: dict[int, list
             redraft.append(it.title)
         elif d["decision"] == "見送り":
             skipped.append(it.title)
+            # 必須の変更と同じ条に入っている変更を見送ったときは、条を残したまま、見送った部分だけを作り直しで取り除く
+            if draft is not None and any(_ref_key(x) in required_refs(draft) for x in it.articles):
+                redraft.append(it.title)
     return {"undecided": undecided, "redraft": redraft, "skipped": skipped, "needs_choice": needs_choice,
             "done": not undecided}
 
 
-def skipped_refs(paper: BoardPaper, decisions: dict[str, dict]) -> set[str]:
+def skipped_refs(paper: BoardPaper, decisions: dict[str, dict], draft: Draft | None = None) -> set[str]:
+    """見送りにした議題の条。必須の変更も入っている条は、条ごと外すと必須の変更まで消えるので外さない（作り直しで、見送った部分だけを取り除く）。"""
+    keep = required_refs(draft) if draft else set()
     return {_ref_key(x) for i, it in enumerate(paper.items)
-            if decisions.get(str(i), {}).get("decision") == "見送り" for x in it.articles}
+            if decisions.get(str(i), {}).get("decision") == "見送り" for x in it.articles} - keep
+
+
+def skipped_with_required(paper: BoardPaper, decisions: dict[str, dict], draft: Draft) -> list[str]:
+    """見送りにした議題の条のうち、必須の変更も入っているため、作り直しで見送った部分だけを取り除く必要がある条。"""
+    keep = required_refs(draft)
+    return [x for i, it in enumerate(paper.items) if decisions.get(str(i), {}).get("decision") == "見送り"
+            for x in it.articles if _ref_key(x) in keep]
 
 
 def apply_to_draft(draft: Draft, paper: BoardPaper, decisions: dict[str, dict]) -> Draft:
     """見送りにした改定を除いた改定案を返す（住民向け説明に使う）。"""
-    skip = skipped_refs(paper, decisions)
+    skip = skipped_refs(paper, decisions, draft)
     return Draft(amendments=[a for a in draft.amendments if _ref_key(ref_name(a)) not in skip], notes=draft.notes)
 
 
@@ -279,7 +341,8 @@ def decisions_text(paper: BoardPaper, decisions: dict[str, dict]) -> str:
         d = decisions.get(str(i), {})
         if not d.get("decision"):
             continue
-        line = f"- 【{it.tier}】{it.title}（{'、'.join(it.articles)}）：{d['decision']}"
+        topics = f"／論点：{'、'.join(it.finding_refs)}" if it.finding_refs else ""
+        line = f"- 【{it.tier}】{it.title}（{'、'.join(it.articles)}{topics}）：{d['decision']}"
         if d.get("choice"):
             line += f"／選んだ案：{d['choice']}"
         if d.get("note"):
@@ -334,7 +397,7 @@ def to_html(paper: BoardPaper, decisions: dict[str, dict] | None = None, name: s
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(paper.title)}</title>
 <style>{PRINT_CSS}{page_css(paper.title, ident=ident)}</style></head><body>
-{toolbar("board.docx")}
+{toolbar("board.docx", back_href="./#board")}
 <h1>{html.escape(paper.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 <p>{html.escape(paper.intro)}</p>

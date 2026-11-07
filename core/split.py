@@ -91,6 +91,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
     pending_caption = ""
     pending_note = ""
     variant: str | None = None
+    variant_label = ""                 # 案の見出し（「（ア）電磁的方法が利用可能ではない場合」の「電磁的方法が…場合」）
     variant_numbers: set[str] = set()  # （ア）の案に含まれる条番号
     in_second_variant = False
     in_appendix = False
@@ -137,6 +138,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
             if variant is not None and new_variant != variant:
                 in_second_variant = True
             variant = new_variant
+            variant_label = m.group(2).strip()
             last = None
             continue
         if RE_DELETED.match(line):
@@ -162,6 +164,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
                 caption=caption,
                 chapter=chapter,
                 variant=variant,
+                variant_label=variant_label if variant else "",
                 note=pending_note if variant is None or number in variant_numbers else "",
             )
             first = Paragraph(num=1, text=m.group(4))

@@ -1,66 +1,148 @@
 # ととのう規約（kiyaku-kaisei）
 管理規約を、改正法に合わせる。
 
-改正区分所有法（2026年4月施行）に合わせて、管理組合が自分たちで管理規約を見直せるAIツール｜Built with Claude: Japan 2026
+2026年4月施行の改正区分所有法に、マンションの管理組合が専門家に頼らず、自分たちで管理規約を合わせるための AI ツールです。Built with Claude: Japan 2026 の提出作品（β版）です。
 
-出力は「総会提案の下書き」であり、法的助言ではありません。
+**出力は「総会提案の下書き」であり、法的助言ではありません。**
 
-## 動かし方（ブラウザだけで：GitHub Codespaces）
+![指摘を判断する画面（架空のサンプル）](docs/readme/01_findings.png)
 
-インストール不要で、GitHub 上の作業環境で画面を動かせます。
+## 3分でわかる、ととのう規約
 
-1. 初回だけ、API キーを Codespaces のシークレットに登録する
-   GitHub の Settings → Codespaces → Secrets → New secret
-   名前 `KIYAKU_ANTHROPIC_API_KEY`、値に API キー、Repository access でこのリポジトリを選ぶ
-2. リポジトリのページで Code → Codespaces → 「Create codespace on main」（すでに作ってある codespace は、開くだけで最新版を取り込みます）
-3. 準備（2〜3分）が終わると画面が自動で起動し、ブラウザの新しいタブで開く
-   開かないときは、下のパネルの「ポート」タブで 8000 の地球儀アイコンを押す
+**誰の、どんな困りごとか**
+- 改正法に合わない規約の定めは、施行後に効力を失うおそれがあります。全国の管理組合が、規約の見直しを迫られています
+- ところが、見直しを担うのは専門家ではない理事・委員です。条文を読み解き、改定案と総会の資料を作るのは大きな負担で、専門家に頼めない組合も多くあります
 
-- 画面は `scripts/codespace_serve.sh` で動きます。リポジトリの更新を30秒ごとに自動で取り込み、サーバーも自動で再起動するので、ブラウザを再読み込みするだけで最新版になります（点検などの処理中は取り込みを待ちます）
-- 画面が起動していないときは、ターミナルで `bash scripts/codespace_serve.sh`
-- 画面が 404 になるときは、ターミナルにサーバーの表示（Application startup complete.）があるか確かめる。止まっていれば上のコマンドで起動し、下の「ポート」タブの 8000 の地球のアイコンから開く。それでも開けなければ、codespace を停止して開き直す。ターミナルで `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000/` が 200 なのに外から 404 になるときは、Codespaces のポート転送の不具合なので、手元の PC で動かす（下）
-- 画面のアドレスは、既定では本人（GitHub にログインした自分）しか開けません
-- 使い終わったら codespace を停止する（放置すると無料枠の利用時間を使う）
-- 読み込んだ規約は codespace の中の `private/work/` に保存され、コミットされません
+**何ができるか**：規約を読み込んでから、総会のあとの最新の規約まで、6つのステップで進めます。どのステップも、上の「次にすること」の枠に従えば先へ進めます。
 
-## 費用と、自分の API キーで使う仕組み
+| ステップ | 人がすること | AI・プログラムがすること |
+| --- | --- | --- |
+| 1. 読み込み | 今の規約（Word・PDF・テキスト。細則を含む規約集も可）を読み込む | 改正法と国の標準管理規約に照らして、直す箇所を根拠の条文付きで洗い出す（必須・推奨・参考） |
+| 2. 指摘の判断 | 推奨・参考の指摘を、改定案に入れるか決める | 今の規約に定めがない「足す」と、定めがある「変える」に分けて見せる |
+| 3. 改定案 | 新旧対照表で確かめ、必要なら条の文を直す | 改定案と新旧対照表を作り、別の AI（確認役）が採点して合格まで直す。人が直した文も、法律に合うかを根拠付きで確かめる |
+| 4. 理事会で検討 | 議題ごとに判断し、組合が選ぶ点（〔選択〕・今の規約の両案）を選ぶ | 改定案を3段（理解する・判断する・確認する）に分けた検討資料を作る。判断に合わせて、対象の条だけを作り直す |
+| 5. 住民への説明 | 説明資料を読み、配る前に直す | 住民が読める言葉で、変更の理由と暮らしへの影響を書く |
+| 6. 総会のあと | 議案ごとの結果を記録する | 可決した改定を反映した最新の規約・細則を組み立てる（AI は使わない） |
 
-AI の部分は Anthropic の API で動き、費用は `.env` に入れた API キーの持ち主（Claude Console のアカウント）に、使った分だけかかります（Claude のサブスクリプションとは別）。
-管理組合ごとに自分の API キーを入れて使う形を前提にしています。一通り使って約 $2〜10 が目安で、処理ごとの費用は画面に出ます。
+- 資料は A4 で印刷でき、Word でも保存できます。会議で印刷物に赤ペンで書き込んだら、写真で戻すと AI が読み取って反映の提案にします
+- **相談する**：「規約変更の総会で何人の賛成が要る？」のような質問や、住民向けのニュース原稿・議事録の確認に、条文を読んだうえで根拠付きで答えます。定足数・賛成数はプログラムが計算し、人名は伏せて AI に送ります
+- 作者自身がマンションの規約見直し委員として、実物の規約で使いながら作りました（実物の規約はこのリポジトリに入れていません）
 
-- 初めてのキーで点検や改定案づくりをすると、そのキーのワークスペースに AI の設定（スキル・環境・エージェント）を自動で登録します。登録した ID は `private/agents/` に保存し、コミットしません。キーそのものは保存しません
-- アプリを更新してスキルや指示文が変わると、次に AI を使うときに登録も自動で更新します
-- 開発者のキーでは、リポジトリの `agents/state.json` の登録をそのまま使います（設定を変えたときは `uv run python -m agents.setup` で更新）
-- サービスとして提供する形（利用者が API キーを用意しなくてよい形）は、ハッカソン後の計画にしています（docs/plans/今後の展開.md）
+**理事会で検討する**：改定案を3段に分けた検討資料と、議題ごとの判断。判断に合わせて、対象の条だけを作り直す
 
-## 動かし方（手元のPC。実物の規約で使うときのおすすめ）
+![理事会で検討する画面](docs/readme/02_board.png)
 
-読み込んだ規約が自分の PC から外に出ず、Codespaces のポート転送の不具合（中では動いているのに外から 404 になる）も起きません。Mac の例です。
+**新旧対照表**：改定する条を、今の規約と並べて見比べる。印刷して会議で使える
 
-1. ターミナルで [uv](https://docs.astral.sh/uv/) を入れる
-   `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. リポジトリを取得する（初めて git を使うときは、開発ツールのインストールを求められるので入れる）
-   `git clone https://github.com/locotown/kiyaku-kaisei.git && cd kiyaku-kaisei`
+![新旧対照表](docs/readme/03_taisho.png)
+
+**相談する**：質問に、条文を読んだうえで根拠付きで答える。賛成の数などはプログラムが計算する
+
+![相談の答え](docs/readme/04_consult.png)
+
+画面はすべて架空のサンプルです。画面を直したときは `node docs/readme/make_shots.js` で撮り直せます。
+
+## Claude の使い方
+
+| どこで | 使ったもの | 工夫 |
+| --- | --- | --- |
+| 点検・改定案づくり | **Managed Agents**＋**Agent Skills**＋カスタムツール | 改正の知識をスキルにして持たせ、規約・標準管理規約・区分所有法の条文は道具で一条ずつ渡す。改定案は **Outcomes** の採点役（10項目のルーブリック）が合格まで差し戻す。止まっても続きから再開できる |
+| 説明文・写真の書き込み・直した文の確認・対象の条だけの作り直し | **Claude API**（Messages API） | 構造化出力で決まった形で受け取る。断られたときは自動で別のモデルにやり直す（フォールバック） |
+| 相談する | **Claude API**（道具の呼び出し） | AI が読んだ条だけを根拠として受け付け、読まずに書いた根拠は差し戻す。根拠のない断定は「資料で確かめられない」に下げる |
+| 開発 | **Claude Code**（claude.ai/code とスマホの Claude アプリ）、**Claude.ai の Artifacts** | 作者は外出中もスマホで開発を進めた。人に確かめてほしい点を「確認ボード」（Artifact）に載せ、結果を読んで直し、自動テストに変えた |
+
+**根拠を守る仕組み**：指摘には必ず区分所有法か標準管理規約の条を付け、存在しない条や、引用が規約の本文と一字一句合わないものは受け付けません（「根拠を示せない指摘は出さない」）。
+
+## どう確かめたか
+
+- **評価**：国の標準管理規約から作った架空の評価用規約3本で、正解（国交省の改正箇所の見え消し）と比べた。3本とも、法律で必ず直す論点 8/8 を正しい条で検出し、誤った指摘は0件。根拠の正しさは 100%（標準管理規約での評価。`evals/`）
+- **想定ユーザーでの確認**：架空の想定ユーザー3人（スマホの72歳の理事長・Mac の委員・スマホの新任理事）が、本物の AI で点検から最新の規約まで画面のボタンだけで通し、見つかった問題を直した（合計 約$13）
+- **画面の総点検**：19の状態（作る前・作っている途中・止まった・総会のあと など）×6ステップ×パソコンとスマホの194画面を撮り、機械と目で点検（問題0件）
+- **自動テスト**：215件（`uv run pytest`。API を呼ばない）
+
+## 作り方（開発のプロセス）
+
+作者（マンションの規約見直し委員会の委員）と Claude で、11/2〜11/7 の6日間で作りました（コミット222件）。
+
+1. **決める**：作者が課題と使う人を決め、Claude が仕様と改正の論点を一次資料（法令・国交省の資料）で確かめて整理する。大きな変更は、Claude が計画を示し、作者が承認してから作る
+2. **作る**：Claude Code で実装し、区切りごとにコミットする。作者は外出中や寝る前も、スマホの Claude アプリから指示を出した
+3. **使う**：作者が実物の規約（非公開）で使い、気づきを伝える
+4. **AI が先に確かめる**：自動テスト、画面の総点検、架空の想定ユーザーが本物の AI で最後まで通す確認、評価用の規約での評価
+5. **人は大事な点だけ確かめる**：AI が確かめたことと、人でないと分からないことを分け、「確認ボード」（claude.ai の Artifact）に回ごとに載せる（19回）。作者の結果やメモを Claude が読んで直し、自動テストに変える
+6. **記録する**：日ごとの記録（`progress.md`）と、回ごとの確認の記録（`docs/checks/`）を残す
+
+## β版と正規版（ととのう規約 データベース）
+
+今回の提出はβ版です。正規版では、法令と国の標準管理規約（解説を含む）を条ごとに整理し、原文で裏付けた独自の知識ベース「ととのう規約 データベース」を裏側で使い、各マンションが自分で決めることを根拠付きで示します。
+
+![ととのう規約 データベースの考え方：中身は裏に置き、表のアプリは答えだけを受け取る](docs/readme/05_knowledge_base.png)
+
+- **表（このリポジトリ）**：アプリと、公開資料（法令・標準管理規約）と、それを機械で読み取った条文。知識ベースがなくても、β版として全部の機能が動く
+- **裏（非公開）**：知識ベース（組合が選ぶ点・判断の目安・法と規約のつながり・根拠）と、その作り方（抽出と検証の仕組み）。AI が書いたものは、原文の引用が一字一句合うものだけを残す
+- アプリは知識ベースに問い合わせて、答えだけを受け取る（入口は `core/kb.py`。知識ベースがなければ何も変えない）
+- **試作で確かめた効果**：標準管理規約が断定せず各マンションに任せている点（役員の任期、理事会の招集の決まり、暴力団員への貸与の禁止）について、同じ質問を相談の AI に聞いた。β版は「国の解説を確かめられない」と答えたが、知識ベースを使うと、国の解説を根拠に具体的な目安と選択肢を示した。1回の費用はほぼ同じ（約$0.12〜0.16）
+
+## 今後の計画
+
+| 段階 | 内容 |
+| --- | --- |
+| 今回（β版） | 各管理組合が自分の API キーで使う。単棟型の標準管理規約に対応 |
+| 次（正規版の土台） | ととのう規約 データベースを整え、法的な中身を人の確認に通す。作者の管理組合で、委員会・理事会・総会まで通して使う |
+| 正規版（2027年春までに） | 標準管理規約が各マンションに任せている点（両案・空欄・解説の選択肢）をすべて扱う。今の規約と標準管理規約の条の対応表で、独自の規定を「残す・見直す・なくす」と判断できるようにする。規約と細則の構成を一覧にし、整理の案を出す |
+| その後 | API キーを用意しなくても使えるサービスとして提供する。団地型・複合用途型、関連する法令に広げ、法改正や標準管理規約の改正に追いつく |
+
+詳しくは `docs/plans/今後の展開.md`。
+
+## 動かし方（手元の PC。実物の規約で使うときのおすすめ）
+
+読み込んだ規約が自分の PC から外に出ません。Mac の例です。
+
+1. ターミナルで [uv](https://docs.astral.sh/uv/) を入れる：`curl -LsSf https://astral.sh/uv/install.sh | sh`
+2. リポジトリを取得する：`git clone https://github.com/locotown/kiyaku-kaisei.git && cd kiyaku-kaisei`
 3. API キーを置く：`cp .env.example .env && open -e .env` で開き、`ANTHROPIC_API_KEY=` の後ろにキーを貼って保存する（`.env` はコミットしない）
-   - キーは [Claude Console](https://platform.claude.com/settings/keys) の「キーを作成」→「API キーで続ける」で作る。作ったときに一度だけ表示される。ワークスペースは、エージェントを登録したもの（`agents/state.json`）と同じにする
-   - AI の準備（Managed Agents のエージェントの登録）は、初めて点検や改定案づくりをするときに自動で行う（1分ほど）。コマンドは要らない
+   - キーは [Claude Console](https://platform.claude.com/settings/keys) で作る。作ったときに一度だけ表示される
 4. 画面を起動する：`bash scripts/codespace_serve.sh`（30秒ごとに最新版を取り込み、サーバーも自動で再起動する。止めるときは Ctrl+C）
-5. ブラウザで `http://127.0.0.1:8000` を開く
+5. ブラウザで `http://127.0.0.1:8000` を開く。手元に規約がなければ、トップの「サンプルで試す」から始められる
 
-Codespace で作った作業を手元に移すとき：Codespace のターミナルで
-`cd /workspaces/kiyaku-kaisei && tar czf /tmp/p.tgz private && mv /tmp/p.tgz private/private_backup.tgz`
-を実行し、エクスプローラーで `private/private_backup.tgz` を右クリック →「ダウンロード」。手元で
-`cd ~/kiyaku-kaisei && tar xzf ~/Downloads/private_backup.tgz` を実行すると `private/` に戻る。
+<details>
+<summary>ブラウザだけで動かす（GitHub Codespaces）</summary>
 
-試すデータ：トップ画面の「サンプルで試す」から選べます（公開資料をもとにした規約と、架空の規約）。
-- 改正前の標準管理規約（87条、細則なし）
-- 細則を含む規約集（規約74条＋細則3種＋改正履歴・メモ。`evals/data/old_collection.txt`）
-- 長く改正していない古い規約（74条、条番号が標準と違う。`evals/data/old_style_kiyaku.txt`）
-- Word（.docx）の規約集（細則を含む規約集と同じ内容。`evals/build_sample_docx.py` で作成）
+1. 初回だけ、API キーを Codespaces のシークレットに登録する：GitHub の Settings → Codespaces → Secrets → New secret。名前 `KIYAKU_ANTHROPIC_API_KEY`、値に API キー、Repository access でこのリポジトリを選ぶ
+2. リポジトリのページで Code → Codespaces → 「Create codespace on main」
+3. 準備（2〜3分）が終わると画面が自動で起動する。開かないときは、下のパネルの「ポート」タブで 8000 の地球儀アイコンを押す
 
-読み込んだ規約と判断の記録は `private/work/` に保存されます（コミットされません）。点検・改定案の作成では API を呼ぶため費用がかかります（通しで $2〜3 程度）。
+- 画面が起動していないときは、ターミナルで `bash scripts/codespace_serve.sh`
+- 中では動いている（`curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000/` が 200）のに外から 404 になるときは、Codespaces のポート転送の不具合なので、手元の PC で動かす
+- 使い終わったら codespace を停止する（放置すると無料枠の利用時間を使う）
+- Codespace の作業を手元に移す：Codespace のターミナルで `cd /workspaces/kiyaku-kaisei && tar czf /tmp/p.tgz private && mv /tmp/p.tgz private/private_backup.tgz`、エクスプローラーで右クリック →「ダウンロード」、手元で `cd ~/kiyaku-kaisei && tar xzf ~/Downloads/private_backup.tgz`
+</details>
 
-## 評価
+### 試すデータ（トップ画面の「サンプルで試す」）
+- 改正前の標準管理規約（87条、細則なし。公開資料）
+- 細則を含む規約集（規約74条＋細則3種＋改正履歴・メモ。架空。`evals/data/old_collection.txt`）
+- 長く改正していない古い規約（74条、条番号が標準と違う。架空。`evals/data/old_style_kiyaku.txt`）
+- Word（.docx）の規約集（細則を含む規約集と同じ内容）
 
-- `uv run pytest`（API を呼ばないテスト）
-- `uv run python -m evals.run_eval` ほか（`evals/` の各スクリプトの説明を参照。API を呼ぶ）
+### 費用と、自分の API キーで使う仕組み
+- AI の部分は Anthropic の API で動き、費用は API キーの持ち主に、使った分だけかかります（Claude のサブスクリプションとは別）。一通り使って約 $2〜10（点検 約$1、改定案は採用する指摘の数しだいで $1〜8）、相談は1回 約$0.1〜0.9。処理ごとの費用は画面に出ます
+- 初めてのキーで点検や改定案づくりをすると、そのキーのワークスペースに AI の設定（スキル・環境・エージェント）を自動で登録します（1分ほど。コマンドは要らない）。登録した ID は `private/agents/` に保存し、キーそのものは保存しません
+- 開発者のキーでは、リポジトリの `agents/state.json` の登録を使います（設定を変えたときは `uv run python -m agents.setup` で更新）
+
+### データの扱い
+- 読み込んだ規約・判断の記録・相談の記録は `private/` にだけ保存し、コミットしません
+- このリポジトリの公開データは `data/public/` の公開資料と架空のサンプルだけです（出典は `data/public/SOURCES.md`）
+
+## リポジトリの案内
+
+| 場所 | 内容 |
+| --- | --- |
+| `app/` | 画面（FastAPI・Jinja2） |
+| `core/` | 規約の読み取り、AI の呼び出し、最新の規約の組み立て など |
+| `agents/`・`skills/` | Managed Agents の設定と、改正の知識のスキル |
+| `evals/` | 評価用のデータと評価の仕組み |
+| `tests/` | 自動テスト |
+| `docs/` | 設計（ARCHITECTURE.md）・改正の論点（DOMAIN.md）・確認の記録（checks/）・計画（plans/） |
+
+## English summary
+
+**Totonou Kiyaku** helps condominium owners' associations in Japan bring their bylaws in line with the amended Act on Building Unit Ownership (in force April 2026), without hiring experts. Upload the current bylaws; Claude checks them against the law and the government's model bylaws and lists what must or should change, each with the article it rests on. The committee decides, and the tool drafts the amendments, a side-by-side comparison, a board review paper, a plain-language explanation for residents, and finally the updated bylaws after the general meeting. A Q&A mode answers questions with cited articles and computes quorum and vote counts. Built with Managed Agents (with Agent Skills, custom tools and Outcomes grading) and the Claude API. This submission is the beta; the full version will draw on a private, curated knowledge base of the law and the model bylaws. Output is a draft for the general meeting, not legal advice.

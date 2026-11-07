@@ -13,7 +13,7 @@ def test_quality():
     q = draft_quality(work)
     assert q["level"] == "ok" and "2回目で合格" in q["head"] and q["checks_ok"]
     assert [r["result"] for r in q["rounds"]] == ["直しが必要", "合格"]
-    assert q["rounds"][1]["explanation"].startswith("採点役のまとめ") and "（満たす）" in q["rounds"][1]["explanation"]
+    assert q["rounds"][1]["explanation"].startswith("確認役のまとめ") and "（満たす）" in q["rounds"][1]["explanation"]
     assert q["by_doc"] == {"規約": 2, "○○マンション総会運営細則": 1} and q["choices"] == 1
     assert draft_quality({**work, "draft_evaluations": [{"result": "max_iterations_reached"}]})["level"] == "warn"
     assert draft_quality({**work, "draft_evaluations": []})["level"] == "warn"

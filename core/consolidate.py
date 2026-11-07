@@ -71,20 +71,30 @@ def _amendment_lines(am: Amendment, style: str) -> list[str]:
 
 
 def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
-                effective: date | None = None, meeting: str = "") -> list[Block]:
-    """今の規約に改定を重ねて、最新の全文をブロックの並びにする。"""
+                effective: date | None = None, meeting: str = "", pick: dict[str, str] | None = None) -> list[Block]:
+    """今の規約に改定を重ねて、最新の全文をブロックの並びにする。
+
+    pick は、今の規約にもともとある両案（（ア）（イ）など）で組合が選んだ案 {条番号: 案の記号}（core/variants.py）。
+    選んだ条は、その案だけを残し、案の印（〔ア案〕）を外す。選んでいない条は、今までどおり両案を残す。"""
+    pick = pick or {}
     style = kiyaku.articles[0].style if kiyaku.articles else "条"
     by_num = {normalize_article_ref(a.article): a for a in amendments}
     rows: list[tuple[tuple[int, ...], int, str, list[str], str]] = []  # (並び順, 元の順, 章, 行, 変更)
     seen: set[str] = set()
     for order, art in enumerate(kiyaku.articles):
+        chosen = pick.get(art.number) if art.variant and art.number not in by_num else None
+        if chosen and art.variant != chosen:
+            continue                          # 選ばなかった案は残さない
         if art.number in seen:  # 選択式の規定（ア・イ）は、改定があれば1つにまとめて差し替える
             if art.number in by_num:
                 continue
         seen.add(art.number)
         am = by_num.get(art.number)
         if am is None:
-            rows.append((_key(art.number), order, art.chapter, _article_lines(art), ""))
+            lines = _article_lines(art)
+            if chosen and lines and lines[0] == f"〔{art.variant}案〕":
+                lines = lines[1:]             # 選んだ案だけになったので、案の印は外す
+            rows.append((_key(art.number), order, art.chapter, lines, ""))
         elif am.kind == "削除":
             rows.append((_key(art.number), order, art.chapter, [f"{_label(art.number, style)}　削除"], "削除"))
         else:
@@ -96,7 +106,9 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
 
     blocks = [Block("title", [title])]
     for line in kiyaku.preamble:
-        if line.strip():
+        # 項や号の形の行（「2　…」「一　…」）は前置きではない。（ア）（イ）を並べて書いた規約で、
+        # どの条にも結び付かなかった項が前置きに入り、最新の規約の冒頭に出ていた（想定ユーザーでの確認で分かった）
+        if line.strip() and not re.match(r"^\s*([0-9０-９]+|[一二三四五六七八九十]+)[\s　]", line):
             blocks.append(Block("appendix", [line]))
     chapter = None
     for _, _, ch, lines, changed in rows:
@@ -105,12 +117,17 @@ def consolidate(kiyaku: Kiyaku, amendments: list[Amendment], title: str,
             blocks.append(Block("chapter", [ch]))
         chapter = ch
         blocks.append(Block("article", lines, changed))
-    if kiyaku.appendix:
-        blocks.append(Block("appendix", [line for line in kiyaku.appendix if line.strip()]))
+    # 今回の附則は、今ある附則のすぐあと・別表の前に入れる（規約集は「附則 → 別表」の順。別表のあとに付いていた。想定ユーザーでの確認から）
+    rest = [line for line in kiyaku.appendix if line.strip()]
+    cut = next((i for i, line in enumerate(rest) if re.match(r"^[\s　]*別表", line)), len(rest))
+    if rest[:cut]:
+        blocks.append(Block("appendix", rest[:cut]))
     if effective:
         what = "細則" if "細則" in title else "規約"
         head = f"附　則（{wareki(effective)}{('　' + meeting) if meeting else ''}改正）"
         blocks.append(Block("appendix", [head, "（施行期日）", f"この{what}の改正は、{wareki(effective)}から施行する。"], "附則"))
+    if rest[cut:]:
+        blocks.append(Block("appendix", rest[cut:]))
     return blocks
 
 
@@ -167,7 +184,7 @@ def to_html(blocks: list[Block], note: str = "", word_href: str = "", ident: str
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(blocks[0].lines[0] if blocks else "最新の規約")}</title>
 <style>{PRINT_CSS}{page_css(blocks[0].lines[0] if blocks else "最新の規約", ident=ident)}</style></head><body class="final">
-{toolbar(word_href)}
+{toolbar(word_href, back_href="../../#meeting")}
 {f'<p class="note">{html.escape(note)}</p>' if note else ''}
 {''.join(parts)}
 </body></html>

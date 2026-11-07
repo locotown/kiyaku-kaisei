@@ -38,7 +38,10 @@ class ExplainItem(BaseModel):
         description="どの段に載せるか。参照先の直し・言い回しの統一・古い制度名の更新など、住民の暮らしや運営に実質的に関わらないものは「古い規定や表現の整理」")
     what: str = Field(description="何が変わるか。2〜4文")
     why: str = Field(description="なぜ変えるか。2〜3文")
-    impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文")
+    impact: str = Field(description="暮らしや手続きにどう関わるか。関わりが小さければそう書く。1〜3文。"
+                              "決議の割合・定足数・期限・届出などの要件が変わる変更では、今より厳しくなるのか緩くなるのか（向き）を必ず1文で書く"
+                              "（例：ちょうど半数の出席では総会が成り立たなくなり、わずかに厳しくなります）")
+    finding_refs: list[str] = Field(default_factory=list, description="この項目が扱う論点ID（改定案の finding_refs から。この項目の変更に当たるものだけ）")
 
 
 class Explanation(BaseModel):
@@ -65,6 +68,12 @@ SYSTEM = """あなたは、マンション管理組合の理事会が住民（�
 - 改正法への対応として必要な変更と、そうでない変更を区別する（required）
 - 事実を誇張しない。「無効になります」と断定せず、「法律と食い違い、効力を失うおそれがあります」のように書く
 - 組合が選ぶ事項（〔選択〕の箇所）は、勝手に決めず choices に書く
+- このマンションについて、渡された資料にない事実（戸数・規模・設備・届出の有無など）を断定しない。理事会の選択が「〜の場合は」のように条件付きなら、条件付きのまま書く
+  例：×「このマンションは防火管理者を置く必要がある規模です」 ○「防火管理者を置く必要がある規模の場合は、選任します」
+- 誰が・誰に・何をするか（主語と向き）は、改定案の条文どおりに書く。言い換えで向きを逆にしない
+  例：「自らこれに保存行為を実施することを請求することができる」は、請求する側（管理組合など）が、相手の住戸で自ら修理などをさせてもらうよう求めること。×「持ち主に修理してもらう」
+- 決議の数・定足数・期限などの要件が変わる変更は、今より厳しくなるのか緩くなるのか（向き）と、その理由を書く。「影響はほとんどありません」と書く前に、向きが変わらないかを確かめる
+  例：定足数「半数以上」→「過半数」は、ちょうど半数では成立しなくなる（わずかに厳しくなる）
 - 専門家への相談を一律に勧めない
 """.format(jargon="、".join(JARGON))
 
@@ -81,11 +90,15 @@ def _ref_key(text: str) -> str:
     return re.sub(r"[\s　]", "", text)
 
 
-def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
+def build_prompt(draft: Draft, info: dict, board: str = "", edits: dict | None = None) -> str:
+    from core.board import committee_edits
+
     today = datetime.now(JST).date()
+    human = committee_edits(draft, edits)
     amendments = [
         {"ref": ref_name(a), "document": a.document,
-         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices")}}
+         **{k: v for k, v in a.to_dict().items() if k in ("kind", "caption", "reason", "finding_refs", "choices")},
+         **({"committee_edit": human[ref_name(a)]} if ref_name(a) in human else {})}
         for a in draft.amendments
     ]
     has_rules = any(a.document != "規約" for a in draft.amendments)
@@ -97,6 +110,8 @@ def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
         *(["細則（document が「規約」以外）の改定は、総会の普通決議（出席者の議決権の過半数）で決める。規約の改定とは別の議案になることを resolution で説明する。"]
           if has_rules else []),
         "各項目の articles には、改定案の ref をそのまま書く（例：「第47条」「駐車場使用細則 第3条」）。",
+        "各項目の finding_refs には、その項目が扱う論点IDだけを書く。法律で必ず必要な変更（必須の論点）と、組合で選べる変更を同じ項目にまとめない"
+        "（1つの条に両方が入っていても、項目は論点ごとに分ける）。理事会の判断の【段】に合わせる。",
         "",
         "## マンションの基本情報",
         *[f"- {k}：{v}" for k, v in info.items()],
@@ -106,12 +121,17 @@ def build_prompt(draft: Draft, info: dict, board: str = "") -> str:
         "",
         "## 担当者への申し送り（参考）",
         draft.notes,
-        *(["", "## 理事会の判断（この判断に沿って説明する。選んだ案があればその案で説明し、ご意見を伺いたい点には残さない）", board]
+        *(["", "## 理事会の判断（この判断に沿って説明する。選んだ案があればその案で説明し、ご意見を伺いたい点には残さない）",
+            "理事会のメモは理事会の内部の記録。住民に伝えるべき内容（修正した理由など）だけを説明に使い、"
+            "「次回確認する」「管理会社に聞く」などの理事会の段取りや宿題は書かない。", board]
           if board else []),
+        *(["", "committee_edit がある条は、委員会が文を直した条。reason は直す前の文についての説明のことがあるので、"
+            "committee_edit を踏まえ、「標準管理規約と同じ」「それ以外は変えていない」など直した文と食い違うことを書かない。"]
+          if human else []),
     ])
 
 
-def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") -> tuple[Explanation, dict]:
+def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "", edits: dict | None = None) -> tuple[Explanation, dict]:
     """説明文を作る。(説明, 使用量) を返す。"""
     c = client()
     with c.beta.messages.stream(
@@ -123,7 +143,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") 
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
         output_format=Explanation,
-        messages=[{"role": "user", "content": build_prompt(draft, info, board)}],
+        messages=[{"role": "user", "content": build_prompt(draft, info, board, edits)}],
     ) as stream:
         message = stream.get_final_message()
     if message.stop_reason == "refusal" or message.parsed_output is None:
@@ -131,6 +151,7 @@ def generate(draft: Draft, info: dict, effort: str = "medium", board: str = "") 
     usage = message.usage.model_dump() if message.usage else {}
     ex = message.parsed_output
     mark_required(ex, draft)
+    ex = __import__("core.topics", fromlist=["scrub_topics"]).scrub_topics(ex)  # 内部の呼び名（論点1-3）を出さない
     return ex, usage
 
 
@@ -140,7 +161,11 @@ def mark_required(ex: Explanation, draft: Draft) -> None:
 
     required_refs = {_ref_key(ref_name(a)) for a in draft.amendments if set(a.finding_refs) & set(REQUIRED_TOPIC_IDS)}
     for item in ex.items:
-        item.required = any(_ref_key(x) in required_refs for x in item.articles)
+        # 項目が扱う論点が分かれば、その論点で決める（必須と推奨が同じ条に入っていても、推奨の項目を「必ず必要」にしない）
+        if item.finding_refs:
+            item.required = bool(set(item.finding_refs) & set(REQUIRED_TOPIC_IDS))
+        else:
+            item.required = any(_ref_key(x) in required_refs for x in item.articles)
         if item.required:
             item.tier = "法律の改正に合わせる変更"
         elif item.tier == "法律の改正に合わせる変更":
@@ -204,12 +229,12 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None, ident: 
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(ex.title)}</title>
 <style>{PRINT_CSS}{page_css(ex.title, ident=ident)}</style></head><body>
-{toolbar("explain.docx")}
+{toolbar("explain.docx", back_href="./#explain")}
 <h1>{html.escape(ex.title)}</h1>
 {('<p class="arts">' + html.escape(name) + '</p>') if name else ''}
 {p(ex.intro)}
 {''.join(items)}
-<h2>皆さんのご意見を伺いたい点</h2><div class="box"><ul>{choices}</ul></div>
+{('<h2>皆さんのご意見を伺いたい点</h2><div class="box"><ul>' + choices + '</ul></div>') if ex.choices else ''}
 <h2>総会での決め方</h2>{p(ex.resolution)}
 {p(ex.closing)}
 {appendix}

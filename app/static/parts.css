@@ -1,0 +1,263 @@
+/* 共通部品（11/7〜）。「相談する」の画面で作った見せ方を、全体の決まりにする。
+   色・文字・余白は tokens.css の値だけを使う。部品の名前は役割で付ける。
+
+   .nx       次にすること（色付きの枠：太字の一文・進み具合・主なボタン）
+   .tiles    数のタイル（大きい数字と短い名前。押すとその場所へ移る・絞り込む）
+   .gh       見出し付きのまとまり（色の縦線と件数）
+   .alertbox 注意の枠（何が起きたか・どうすればよいか）
+   .note2 知らせの枠（注意ほど強くない）
+   .card2    入力・結果のカード（白い面の枠。.accent で上に濃い線）
+   .actend   内容の最後に置く、主なボタンの行
+*/
+
+/* ---- 次にすること ---- */
+.tk .nx { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3) var(--space-5); align-items: center;
+  border: 2px solid var(--color-primary); background: var(--color-primary-soft); border-radius: var(--radius-1);
+  padding: var(--space-4) var(--space-5); margin: 0 0 var(--space-5); }
+.nx .nx-k { font-size: var(--text-xs); font-weight: 700; color: var(--color-primary); letter-spacing: .04em; margin: 0 0 2px; }
+.tk .nx .nx-t { font-size: var(--text-lg); font-weight: 700; color: var(--color-ink); margin: 0; line-height: 1.5; text-align: left; }
+.tk .nx .nx-s { font-size: var(--text-sm); color: var(--color-ink-2); margin: var(--space-1) 0 0; text-align: left; }
+.nx .nx-meter { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-2); }
+.nx .nx-meter .m { flex: 1; max-width: 360px; height: 8px; border-radius: 999px; background: var(--color-surface); border: 1px solid var(--color-line-2); overflow: hidden; }
+.nx .nx-meter .m i { display: block; height: 100%; background: var(--color-primary); }
+.nx .nx-meter b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nx .btn { white-space: nowrap; }
+.nx .unsaved { color: var(--color-must); font-weight: 700; }
+
+/* ---- 数のタイル ---- */
+.tk .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-4); }
+.tk .tile { display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-height: 0; text-align: left; text-decoration: none; cursor: pointer;
+  background: var(--color-surface); border: 1px solid var(--color-line-2); border-top: 4px solid currentColor; border-radius: var(--radius-1);
+  padding: var(--space-2) var(--space-3); color: var(--color-ink-2); font: inherit; }
+.tile .tn { font-size: 28px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.tile .tl { font-size: var(--text-sm); font-weight: 700; color: var(--color-ink); }
+.tile .ts { font-size: var(--text-xs); color: var(--color-ink-2); }
+.tk .tile:hover { background: var(--color-bg); }
+.tk .tile.on { background: var(--color-primary-soft); box-shadow: inset 0 0 0 2px var(--color-primary); }
+.tile.t-must { color: var(--color-must); } .tile.t-rec { color: var(--color-rec); } .tile.t-ref { color: var(--color-ref); }
+.tile.t-main { color: var(--color-primary); } .tile.t-hold { color: var(--color-ink-2); } .tile.t-ok { color: var(--color-ok); }
+
+/* ---- 見出し付きのまとまり ---- */
+.tk .gh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-3); font-size: var(--text-md); margin: var(--space-5) 0 var(--space-2);
+  padding-left: var(--space-2); border-left: 4px solid currentColor; scroll-margin-top: 80px; }
+.gh .small { font-weight: 400; color: var(--color-ink-2); }
+.gh.g-must { color: var(--color-must); } .gh.g-rec { color: var(--color-rec); } .gh.g-ref { color: var(--color-ref); }
+
+/* ---- 注意の枠 ---- */
+.tk .alertbox { border: 2px solid var(--color-must); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); }
+.tk .alertbox > b:first-child { color: var(--color-must); display: flex; gap: 6px; align-items: center; }
+.tk .alertbox p { margin: var(--space-1) 0 0; text-align: left; }
+
+/* ---- カード ---- */
+.tk .card2 { background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); }
+.tk .card2.accent { border-top: 4px solid var(--color-primary); }
+
+/* ---- 内容の最後の主なボタン ---- */
+.tk .actend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--color-line-2); padding: var(--space-4) 0 0; margin: var(--space-5) 0 0; }
+.tk .actend p { margin: 0; text-align: left; }
+
+@media (max-width: 640px) {
+  .tk .nx { grid-template-columns: 1fr; padding: var(--space-3) var(--space-4); }
+  .tk .nx .btn { width: 100%; justify-content: center; }
+  .tk .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk .actend .btn { width: 100%; justify-content: center; }
+}
+
+/* ---- ステップ2（第1弾の当てはめ）：見出しを出し、指摘をカードに ---- */
+.tk .cathead.gh { display: flex; } .tk .cathead.gh[hidden] { display: none; }
+.tk [data-step="decide"] .fcard { background: var(--color-surface); border: 1px solid var(--color-line); border-left: 4px solid var(--color-line-2); border-radius: var(--radius-1); margin: 0 0 var(--space-2); padding: 0 var(--space-4); }
+.tk [data-step="decide"] .fcard.fc-必須 { border-left-color: var(--color-must); }
+.tk [data-step="decide"] .fcard.fc-推奨 { border-left-color: var(--color-rec); }
+.tk [data-step="decide"] .fcard.fc-参考 { border-left-color: var(--color-ref); }
+.tk [data-step="decide"] .bulkbox { margin-top: 0; }
+/* 「次にすること」の枠があるステップを見ているときは、上の1行の案内を出さない（同じことを2回言わない） */
+.tk main:has(.panel:not([hidden]) .nx) #j-next { display: none; }
+
+/* ---- 「次にすること」の枠（ステップ1・3〜6：文とボタンの組み立てを、下の行と共通にした形） ---- */
+.tk .nx.nxb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); }
+.nxb > .nx-k { flex-basis: 100%; margin: 0; }
+.tk .nxb > .t, .tk .actend > .t { flex: 1 1 320px; min-width: 0; text-align: left; }
+.tk .nxb > .t > b:first-child { display: block; font-size: var(--text-lg); color: var(--color-ink); line-height: 1.5; }
+.tk .nxb > .t .muted, .tk .actend > .t .muted { font-size: var(--text-sm); }
+.tk .actend > .t > b:first-child { margin-right: var(--space-2); }
+
+/* ---- 既存の部品を、共通部品の見た目にそろえる（各画面の書き換えを少なくするため、CSS で寄せる） ---- */
+/* 数の表 → 数のタイル */
+.tk .stats { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-2); border: 0; margin: 0 0 var(--space-4); }
+.tk .stats > div, .tk .stats > div + div { background: var(--color-surface); border: 1px solid var(--color-line-2); border-top: 4px solid var(--color-primary);
+  border-radius: var(--radius-1); padding: var(--space-2) var(--space-3); grid-column: auto; }
+.tk .stats .k { font-weight: 700; color: var(--color-ink-2); }
+.tk .stats .v { font-size: 28px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; } .tk .stats .v small { margin-left: 0; }
+/* 注意 → 注意の枠 */
+.tk .warn { border: 2px solid var(--color-must); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: var(--space-3) 0 var(--space-4); }
+.tk .warn > strong:first-child, .tk .warn > b:first-child { display: inline; }
+/* 済んだことの知らせ → 緑の枠 */
+.tk .justdone { border: 1px solid var(--color-ok); border-left: 4px solid var(--color-ok); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); }
+.tk .justdone.warn { border-color: var(--color-must); }
+@media (max-width: 640px) {
+  .tk .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk .stats > div:nth-child(3) { grid-column: auto; border-left: 1px solid var(--color-line-2); padding-left: var(--space-3); border-top: 4px solid var(--color-primary); }
+}
+
+/* ---- 進み具合の枠（AI が作業しているあいだ。点検・改定案・作り直し・検討資料・説明文・写真の読み取り・相談で共通） ---- */
+.tk .runbox { border: 2px solid var(--color-primary); background: var(--color-primary-soft); border-radius: var(--radius-1); padding: var(--space-4) var(--space-5); margin: 0 0 var(--space-5); }
+.rb-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; }
+.rb-head b { font-size: var(--text-lg); color: var(--color-primary); margin-right: var(--space-3); }
+.tk .rb-head p { margin: 4px 0 0; text-align: left; }
+.rb-el { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--color-ink-2); margin-right: 4px; }
+.rb-spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(36, 69, 107, .2); border-top-color: var(--color-primary); animation: rbspin .9s linear infinite; margin-top: 2px; }
+@keyframes rbspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rb-spin { animation-duration: 3s; } }
+.tk .rb-phases { list-style: none; counter-reset: ph; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: var(--space-4) 0 var(--space-2); }
+.rb-phases li { counter-increment: ph; font-size: var(--text-sm); padding: 6px 12px; border-radius: 999px; background: var(--color-surface); color: var(--color-ink-3); border: 1px solid var(--color-line-2); margin: 0; }
+.rb-phases li::before { content: counter(ph) " "; font-weight: 700; }
+.rb-phases li.done { color: var(--color-ok); border-color: var(--color-ok); } .rb-phases li.done::before { content: "✓ "; }
+.rb-phases li.now { color: #fff; background: var(--color-primary); border-color: var(--color-primary); font-weight: 700; }
+.tk .rb-now, .tk .rb-quiet { margin: 0; color: var(--color-ink-2); text-align: left; }
+.tk .rb-quiet:empty { display: none; }
+.tk .runbox .pcounts { margin: var(--space-2) 0 0; }
+.tk .runbox .plog { margin-top: var(--space-2); }
+.tk .runbox .log { background: var(--color-surface); }
+@media (max-width: 640px) { .tk .runbox { padding: var(--space-3) var(--space-4); } }
+/* 直した文の確認（条の文を直す）の進み具合も、同じ枠の見た目に */
+.tk .reviewing { border: 2px solid var(--color-primary); background: var(--color-primary-soft); padding: var(--space-3) var(--space-4); }
+.tk .reviewing > div > b:first-child { color: var(--color-primary); }
+.tk .nxb > .t > .muted, .tk .actend > .t > .muted { display: block; }
+.tk .actend > .t > .muted { display: inline; }
+.tk .art-save { margin: var(--space-3) 0 0; text-align: right; }
+.tk .nx .tbtn2, .tk .actend .tbtn2 { white-space: nowrap; }
+/* トップ：読み込み・サンプル・これまでの作業を、カードに分ける */
+.tk .card.card2 { padding: var(--space-4) var(--space-5) var(--space-5); margin: 0 0 var(--space-5); }
+.tk .card.card2 > h2:first-child { margin-top: 0; }
+.tk .samples .sample { background: var(--color-bg); }
+@media (max-width: 640px) { .tk .card.card2 { padding: var(--space-3) var(--space-4) var(--space-4); } }
+
+/* 数の表も、タイルと同じく数字を上に */
+.tk .stats > div { display: flex; flex-direction: column; }
+.tk .stats .v { order: -1; }
+/* 進み具合の段：済んだ段・これからの段は枠を付けず、今の段だけを札にする（押せるボタンに見えないように） */
+.rb-phases li { border-color: transparent; background: transparent; padding-left: 6px; padding-right: 6px; }
+.rb-phases li.done { border-color: transparent; }
+.rb-phases li.now { padding-left: 12px; padding-right: 12px; }
+/* ステップ2：絞り込みの表示中 */
+.tk .flist-now { font-size: var(--text-sm); font-weight: 700; color: var(--color-primary); margin: 0 0 var(--space-2); scroll-margin-top: 12px; text-align: left; }
+.tk .flist-now:empty { display: none; }
+/* 保存の知らせ（少しのあいだ画面の下に出す） */
+.tk .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; max-width: calc(100% - 32px); box-shadow: 0 4px 16px rgba(0, 0, 0, .15); }
+
+/* タイルの色：.tk .tile の文字色に負けないように（ステップ2の数字が灰色になっていた） */
+.tk .tile.t-must { color: var(--color-must); } .tk .tile.t-rec { color: var(--color-rec); } .tk .tile.t-ref { color: var(--color-ref); }
+.tk .tile.t-main { color: var(--color-primary); } .tk .tile.t-hold { color: var(--color-ink-2); } .tk .tile.t-ok { color: var(--color-ok); }
+.tk .tile.t-all { color: var(--color-ink); }
+.tk .tiles-help { margin: 0 0 var(--space-1); color: var(--color-ink-2); text-align: left; }
+/* ステップ4：段の見出しと、議題のカード、議題のそばの保存の知らせ */
+.tk .gh.g-tier { color: var(--color-primary); font-size: var(--text-lg); margin-top: var(--space-6); }
+.tk [data-step="board"] .bitem { background: var(--color-surface); border: 1px solid var(--color-line); border-left: 4px solid var(--color-primary); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-3); }
+.tk .bdec { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.tk .bsave { font-weight: 700; color: var(--color-ink-2); } .tk .bsave.ok { color: var(--color-ok); } .tk .bsave.ng { color: var(--color-must); }
+/* AI が動く（費用がかかる）ボタンに「AI」の札。画面を移るだけのボタンと見分けられるように */
+.tk .btn[data-ai]::before, .tk button.boxed[data-ai]::before { content: "AI"; font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px;
+  border: 1px solid currentColor; margin-right: 6px; opacity: .9; }
+/* 相談：基本情報のカードも白に（カードの背景をそろえる） */
+.tk .cs-sub { background: var(--color-surface); }
+/* タイルの中の数字・名前は、絞り込みのタブ（.fbtn > span）の小さい灰色の字にしない */
+.tk .tile.fbtn > .tn { font-size: 28px; color: inherit; }
+.tk .tile.fbtn > .tl { font-size: var(--text-sm); color: var(--color-ink); }
+.tk .tile.fbtn > .ts { font-size: var(--text-xs); color: var(--color-ink-2); }
+.tk .tile.fbtn.on { border-bottom-color: var(--color-line-2) !important; }
+
+/* AI が動くボタンの札：枠のない文字のボタン（「改定案を作り直す」など）にも付ける */
+.tk button[data-ai]:not(.btn)::before { content: "AI"; font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px; border: 1px solid currentColor; margin-right: 6px; }
+/* タイルの色の見分け：決めること＝黒（主）、あとで決める＝こげ茶、すべて＝薄い灰（推奨の青・参考の灰と重ならないように） */
+.tk .tile.t-main, .tk .tile.fbtn.t-main > .tn { color: var(--color-ink); }
+.tk .tile.t-hold, .tk .tile.fbtn.t-hold > .tn { color: #8a5a00; }
+.tk .tile.t-all, .tk .tile.fbtn.t-all > .tn { color: var(--color-ink-3); }
+/* ステップ2：指摘のカードを開いたときに、枠が左右にはみ出し、見出しが上の段の見出しに重なっていた
+   （開いたカードに付けていた古い負の余白を、カードの形に合わせて付け直す。作者の指摘） */
+.tk [data-step="decide"] details.fcard > summary { padding: var(--space-3) 0; }
+.tk [data-step="decide"] details.fcard[open] { margin: 0 0 var(--space-3); padding: 0 var(--space-4) var(--space-4); }
+.tk [data-step="decide"] details.fcard[open] > summary { margin: 0 calc(-1 * var(--space-4)); padding: var(--space-3) var(--space-4); border-radius: 0; }
+.tk [data-step="decide"] .gh { margin-bottom: var(--space-3); }
+
+/* ---- ステップ2（C案）：足すは表、変えるはカード、必須は下に閉じる。表示は「まだ決めていないものだけ／すべて」 ---- */
+.tk .dview { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 var(--space-3); }
+.tk .toggle2 { display: inline-flex; border: 1px solid var(--color-line-2); border-radius: 999px; overflow: hidden; }
+.tk .toggle2 button { border: 0; border-radius: 0; min-height: 40px; padding: 0 16px; font-size: var(--text-sm); background: var(--color-surface); color: var(--color-ink); }
+.tk .toggle2 button[aria-pressed="true"] { background: var(--color-primary) !important; color: #fff !important; font-weight: 700; }
+.tk .toggle2 button + button { border-left: 1px solid var(--color-line-2) !important; }
+.tk .dsec { margin: var(--space-5) 0 0; }
+.tk .dlead { margin: 0 0 var(--space-3); text-align: left; }
+.tk .gh.g-add { color: var(--color-ok); } .tk .gh.g-chg { color: #8a5a00; } .tk .gh.g-ref { color: var(--color-ref); } .tk .gh.g-must { color: var(--color-must); }
+.tk .addall { margin: 0 0 var(--space-2); }
+.tk .addall-confirm { border: 1px solid var(--color-primary); background: var(--color-surface); border-radius: var(--radius-1); padding: var(--space-3) var(--space-4); margin-top: var(--space-2); }
+.tk .addall-confirm p { margin: 0 0 var(--space-2); text-align: left; }
+.tk .arows { background: var(--color-surface); border: 1px solid var(--color-line); border-left: 4px solid var(--color-ok); border-radius: var(--radius-1); }
+.tk .arow { border-top: 1px solid var(--color-line); }
+.tk .arow:first-child { border-top: 0; }
+.tk .ar-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px var(--space-4); align-items: center; padding: var(--space-2) var(--space-4); }
+.tk button.ar-name { display: block !important; background: none !important; border: 0 !important; padding: 4px 0 !important; min-height: 0; text-align: left; color: var(--color-ink) !important; font-weight: 400; width: 100%; }
+.tk .ar-name b { display: block; font-size: var(--text-md, 1.0625rem); }
+.tk .ar-name > span { display: block; font-size: var(--text-sm); color: var(--color-ink-2); }
+.tk .ar-name .w { color: #8a5a00; }
+.tk .ar-tri { color: var(--color-primary); }
+.tk .mini2 { display: inline-grid; grid-template-columns: repeat(3, auto); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); overflow: hidden; }
+.tk .mini2 label { margin: 0; padding: 8px 14px; font-size: var(--text-sm); font-weight: 400; background: var(--color-surface); cursor: pointer; white-space: nowrap; }
+.tk .mini2 label + label { border-left: 1px solid var(--color-line-2); }
+.tk .mini2 input { position: absolute; opacity: 0; pointer-events: none; }
+.tk .mini2 label:has(input:checked) { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 700; box-shadow: inset 0 -3px 0 var(--color-primary); }
+.tk .mini2 label:has(input:focus-visible) { outline: 3px solid var(--color-primary); outline-offset: -3px; }
+.tk .arow > .cardsave { padding: 0 var(--space-4); }
+.tk .arow > .cardsave:empty { display: none; }
+.tk .ar-more { padding: 0 var(--space-4) var(--space-4); border-top: 1px dashed var(--color-line); }
+.tk .ar-more .facts { margin-left: 0; }
+.tk [data-step="decide"] .fcard.k-chg { border-left-color: #8a5a00; }
+.tk .cmp1 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; font-size: var(--text-sm); margin-top: 6px; font-weight: 400; }
+.tk .cmp1-k { color: var(--color-ink-3); white-space: nowrap; } .tk .cmp1-new { font-weight: 700; color: var(--color-ink); background: #fbf1df; border-radius: 3px; padding: 0 4px; }
+.tk .dq { font-size: var(--text-sm); background: #fbf1df; border-radius: 6px; padding: 6px 10px; margin: 0 0 var(--space-3); text-align: left; }
+.tk .mustfold { margin: var(--space-6) 0 0; }
+.tk .mustfold > summary { cursor: pointer; list-style: none; }
+.tk .mustfold > summary::-webkit-details-marker { display: none; }
+.tk .mustfold > summary .gh { margin: 0 0 var(--space-3); }
+.tk .mustfold > summary .gh::after { content: "▸ 開く"; font-size: var(--text-sm); font-weight: 700; color: var(--color-primary); margin-left: auto; }
+.tk .mustfold[open] > summary .gh::after { content: "▾ 閉じる"; }
+@media (max-width: 640px) {
+  .tk .ar-line { grid-template-columns: 1fr; }
+  .tk .mini2 { width: 100%; grid-template-columns: repeat(3, 1fr); } .tk .mini2 label { text-align: center; }
+}
+
+/* 資料を作る前の見込み（ステップ4・5） */
+.tk .preview h2 { font-size: var(--text-lg); margin: 0 0 var(--space-1); }
+.tk .preview p { margin: var(--space-2) 0 0; text-align: left; }
+.tk .tierlist { list-style: none; padding: 0; margin: var(--space-3) 0 0; display: grid; gap: var(--space-2); }
+.tk .tierlist li { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border-left: 4px solid var(--color-primary); background: var(--color-bg); border-radius: 0 var(--radius-2) var(--radius-2) 0; margin: 0; }
+.tk .tierlist li span { font-size: var(--text-sm); color: var(--color-ink-2); }
+.tk .bp-n { font-size: var(--text-md, 1.0625rem); }
+/* 知らせの枠（注意ほど強くない。例：総会の結果を記録済みで、判断を変えるとどうなるか） */
+.tk .note2 { border-left: 4px solid var(--color-ink-3); background: var(--color-bg); border-radius: 0 var(--radius-1) var(--radius-1) 0; padding: var(--space-2) var(--space-3); margin: var(--space-3) 0 var(--space-4); text-align: left; }
+.tk .note2 .w { color: var(--color-ink); }
+
+/* 進み具合の列：いま開いている画面に色の枠（● の「次にすること」と見分ける。想定ユーザーで、● と見出しのステップが違って迷った） */
+/* 枠は名前だけに付ける（丸と線ごと四角で囲むと、線が枠を突き抜けて見えた。作者の指摘） */
+.flow li.view .lbl { padding: 1px 10px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); text-decoration: none; font-weight: 700; }
+@media (min-width: 861px) { .flow li.view .lbl { display: inline-block; } }
+/* 860px 以下は短い名前にする（長い名前が札の中で2行に折れた）。札は短い名前に付け、ほかの名前と同じ高さにそろえる */
+@media (max-width: 860px) {
+  .flow li .lbl { display: none; }
+  .flow li .lbl-s { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--color-ink-2); white-space: nowrap; }
+  .flow li.view .lbl-s { width: fit-content; margin: 2px auto 0; padding: 0 6px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); font-weight: 700; }
+}
+.tk .flow-legend .view-demo { display: inline-block; padding: 0 8px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); }
+/* これまでの作業：スマホでは1件を2行に（作業名を1行で、日時・状態・指摘をその下に。作業名が1〜2字で折り返していた） */
+@media (max-width: 600px) {
+  .tk .wlist, .tk .wlist tbody { display: block; }
+  .tk .wlist tr:first-child { display: none; }
+  .tk .wlist tr { display: block; padding: var(--space-2) 0; border-bottom: 1px solid var(--color-line-2); }
+  .tk .wlist td { display: inline; border: 0; padding: 0 var(--space-2) 0 0; font-size: var(--text-sm); color: var(--color-ink-2); }
+  .tk .wlist td:first-child { display: block; font-size: var(--text-base, 1rem); margin-bottom: 2px; }
+}
+
+/* 想定ユーザー（本物の AI で通した確認）から：経過時間を単位の途中で折り返さない／理事会のメモ欄を全幅に／空の表示に罫線を出さない */
+.rb-el, .rb-el .num { white-space: nowrap; }
+.tk input.bnote { width: 100%; max-width: none; }
+.tk .dempty { border: 0 !important; }

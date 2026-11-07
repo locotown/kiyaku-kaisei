@@ -2,8 +2,9 @@
 {% block content %}
 <h1>管理規約を、改正法に合わせて見直す</h1>
 <p>現行の管理規約を読み込むと、改正区分所有法と標準管理規約（単棟型）に照らして、対応が必要な箇所を<strong>根拠条文付き</strong>で洗い出します。採用した指摘から、改定案と新旧対照表を作ります。</p>
+<p class="toplinks">手元に規約がなければ → <a href="#samples">サンプルで試す</a>{% if works %}　／　続きから → <a href="#works">これまでの作業</a>{% endif %}</p>
 
-<div class="card">
+<div class="card card2 accent top-main">
 <h2>1. 規約を読み込む</h2>
 <form action="/works" method="post" enctype="multipart/form-data">
   <label for="name">作業の名前</label>
@@ -50,12 +51,12 @@
     </ul>
     国の標準管理規約には、「利用する場合」と「利用しない場合」の2つの条文案があります。ここで選んだ方針で改定案を作ります。
     <b>迷ったら「未定・分からない」を選んでください。</b>両方の案を示し、理事会で決められるようにします。</div>
-  <p style="margin-top:var(--space-6)"><button type="submit" class="btn">点検を始める</button></p>
-  <p class="muted">読み込んだ規約と判断の記録は、このツールを動かしている環境の private/ フォルダに保存され、GitHub にはコミットされません（Codespaces で動かしている場合は、GitHub 上のあなた専用の作業環境の中です）。点検では、必要な条だけを AI に渡します。</p>
+  <p style="margin-top:var(--space-6)"><button type="submit" class="btn" data-ai="規約を読み込んで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1〜2ほど。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">点検を始める</button></p>
+  <p class="muted">読み込んだ規約と判断の記録は、このツールを動かしているパソコン（またはあなた専用の作業環境）の中だけに保存され、公開されません。点検では、必要な条だけを AI に渡します。</p>
 </form>
 </div>
 
-<div class="card">
+<div class="card card2" id="samples">
 <h2>サンプルで試す</h2>
 <p class="muted">手元に規約がなくても、次のサンプルで流れを確かめられます（公開資料をもとにした規約と、架空の規約です）。点検から総会後の最新規約まで通すと、時間は15〜50分ほど、AI の費用は$2〜10ほどかかります（点検 約$1、改定案は採用する指摘の数しだいで$1〜8。理事会の判断で作り直すと、その分も加わります）。</p>
 <div class="samples">
@@ -66,21 +67,36 @@
     <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
     <div class="s-contents">{{ s.contents }}</div>
     <div class="muted s-point">{{ s.point }}</div>
-    <button class="boxed" type="submit">このサンプルで試す</button>
+    <button class="boxed" type="submit" data-ai="このサンプルで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1ほど。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">このサンプルで試す</button>
   </form>
 {% endfor %}
 </div>
 </div>
 
 {% if works %}
-<div class="card" id="works">
+{% set mine = works|rejectattr("persona")|list %}{% set personas = works|selectattr("persona")|list %}
+<div class="card card2" id="works">
 <h2>これまでの作業</h2>
-<table>
-<tr><th>作業</th><th>状態</th><th>指摘</th></tr>
-{% for w in works %}
-<tr><td><a href="/works/{{ w.id }}">{{ w.name }}</a></td><td>{{ w.status }}</td><td>{{ w.findings }}件</td></tr>
+{% macro rows(list, show_who=False) %}
+<table class="wlist">
+<tr><th>作業</th><th>作った日時</th><th>状態</th><th>指摘</th></tr>
+{% for w in list %}
+{# 同じ名前の作業が並んでも見分けられるよう、作った日時（作業の番号の頭）を出す #}
+{% set ts = w.id[:13] %}
+<tr><td><a href="/works/{{ w.id }}">{{ w.name }}</a></td>
+  <td class="nowrap">{% if ts[:8]|int(0) and ts[9:11]|int(99) < 24 and ts[11:13]|int(99) < 60 %}{{ ts[4:6]|int }}/{{ ts[6:8]|int }} {{ ts[9:11] }}:{{ ts[11:13] }}{% else %}—{% endif %}</td>
+  <td class="nowrap">{{ w.status }}</td><td class="nowrap">{{ w.findings }}件</td></tr>
 {% endfor %}
 </table>
+{% endmacro %}
+{% if mine %}{{ rows(mine) }}{% else %}<p class="muted">まだ作業はありません。</p>{% endif %}
+{% if personas %}
+{# 想定ユーザー（架空）が実際の画面で使った作業。どんな判断をして、どうなったかを確認ボードと合わせて見返せるように #}
+<details class="persona-works" open><summary><b>想定ユーザーの作業（架空・確認用）{{ personas|length }}件</b></summary>
+  <p class="small muted">改善のたびに、架空の想定ユーザー（スマホの理事長・Mac の委員・スマホの新任理事）がサンプルの規約で実際に使った作業です。判断の履歴・作業の記録・費用をそのまま見返せます。開いて操作してもかまいません（元の記録は変わりません）。</p>
+  {{ rows(personas) }}
+</details>
+{% endif %}
 </div>
 {% endif %}
 {% endblock %}

@@ -245,7 +245,11 @@ def test_human_edit_marks_and_ai_review(work, monkeypatch):
     assert "委員会で直した文" in seen["material"] and "AI が作った改定案の文" in seen["material"]
     assert r["cost_usd"] == pytest.approx(0.06)                                  # 10000×$4 ＋ 1000×$20
     assert store.load(WID)["costs"][-1]["step"].startswith("直した文の確認")
-    taisho = (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+    for _ in range(100):  # 確認の結果を保存したあとで、新旧対照表を書き直す（裏の処理）ので、書き直されるまで待つ
+        taisho = (store.path(WID) / "taisho.html").read_text(encoding="utf-8")
+        if "AI 確認済み：気になる点あり" in taisho:
+            break
+        time.sleep(0.05)
     assert "AI 確認済み：気になる点あり" in taisho and "AI の確認前" not in taisho
     page = work.get(f"/works/{WID}/articles").text
     assert "主語が変わった" in page and "AI の確認：気になる点あり" in page
@@ -390,7 +394,7 @@ def test_photo_box_is_a_distinct_card_with_buttons(work):
     """写真を読み込む欄は、操作の並びと見分けられる枠の欄で、ボタンの形で置く（折りたたまない。人の確認の気づき）。"""
     page = work.get(f"/works/{WID}").text
     assert "委員会・理事会の書き込みを、写真で戻す" in page and "写真を選ぶ" in page
-    assert 'class="btn nb-go" data-go disabled' in page                    # 写真を選ぶまで「読み込む」は押せない
+    assert 'class="btn nb-go" data-go data-ai=' in page and 'disabled>' in page                    # 写真を選ぶまで「読み込む」は押せない
     assert '<details class="more notesbox"' not in page
 
 

@@ -1,0 +1,22 @@
+{# 理事会の判断を、対象の条だけに反映した作り直しの結果（core/partial.py）。全体を作り直したあとは出さない #}
+{% set pr = work.draft_partial %}
+{% if pr and work.draft_mode == "partial" %}
+<div class="partialres sec" id="partial-result">
+  {% if pr.status == "済み" %}{% set ck = pr.check or {} %}
+    <p><b>{{ icon("check") }}対象の条だけ作り直しました（{{ pr.at }}・約${{ "%.2f"|format(pr.cost_usd or 0) }}）</b>：{{ (pr.changed or pr.targets)|join("、") }}</p>
+    <p class="small">{{ pr.summary }}</p>
+    <p><span class="verdict v-{{ 'ok' if ck.verdict == '問題なし' else 'ng' }}">直した条の AI の確認：{{ ck.verdict }}</span> <span class="small">{{ ck.summary }}</span></p>
+    {% if not pr.checked_with %}<p class="small warn-lite">この確認は、確かめ方を直す前のものです。関係する条を改定前の文と比べた、誤った指摘が含まれることがあります。気になる点は新旧対照表で確かめてください。</p>{% endif %}
+    {% if ck.concerns %}<ul class="concerns">{% for c in ck.concerns %}
+      <li><b>{{ c.kind }}</b>（{{ c.ref }}）：{{ c.point }}<div class="small">根拠：{{ c.basis }}</div><div class="small">どうするか：{{ c.suggestion }}</div></li>{% endfor %}</ul>
+      <p class="small">気になる点は、新旧対照表で確かめてください。条の文はステップ3の「条の文を直す」で直せます。理由の説明も、同じ「条の文を直す」画面で直せます（AI の費用はかかりません）。</p>{% endif %}
+    {% if pr.others %}<div class="small warn-lite"><b>ほかの条も直す必要がありそうです</b>（今回は直していません）：
+      <ul>{% for o in pr.others %}<li>{{ o.ref }}：{{ o.why }}</li>{% endfor %}</ul>
+      必要なら「条の文を直す」で直すか、全体を作り直してください。</div>{% endif %}
+    <p class="small muted">結果は総会提案の下書きを見直すための参考で、法的助言ではありません。</p>
+  {% elif pr.status in ("失敗", "中断") %}
+    <p class="warn"><b class="w">対象の条だけの作り直しが{{ "うまくいきませんでした" if pr.status == "失敗" else "途中で止まりました" }}（{{ pr.at }}）。</b>
+      今の改定案はそのまま残っています。もう一度押すか、「全体を作り直す」を押してください。<span class="small">（{{ pr.error }}）</span></p>
+  {% endif %}
+</div>
+{% endif %}

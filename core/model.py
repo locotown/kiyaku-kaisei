@@ -30,6 +30,7 @@ class Article:
     variant: str | None = None
     note: str = ""
     style: str = "条"  # 「条」（第1条…）または「項目」（1. 管理員 … のような細則の書き方）
+    variant_label: str = ""  # 選択式の規定の案の見出し（例：「電磁的方法が利用可能ではない場合」）
 
     @property
     def key(self) -> str:

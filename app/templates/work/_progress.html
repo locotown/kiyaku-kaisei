@@ -2,25 +2,23 @@
 {% from "_icons.html" import icon %}
 {% if busy and progress %}
 {% set what = {"点検中": "AI が規約の条文を一つずつ取り寄せ、標準管理規約・区分所有法と照らし合わせています。",
-               "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（採点役）が確認しています。",
+               "改定案作成中": "AI が採用した指摘をもとに条文案を書き、自分で点検したあと、別の AI（確認役）が確認しています。",
                "検討資料作成中": "AI が改定案を3段（理解する・判断する・確認する）に分けて、理事会の検討資料を書いています。",
                "説明文作成中": "AI が改定案と理事会の判断をもとに、住民向けの説明を書いています。"} %}
-<section class="card progress" id="progress">
-  <h2>{{ {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</h2>
-  <p class="muted">{{ what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます）。</p>
-  <ol class="steps" id="steps">{% for st in progress.steps %}
+{% set part = work.status == "改定案作成中" and work.draft_mode == "partial" %}
+<section class="runbox" id="progress" role="status" aria-live="polite">
+  <div class="rb-head"><span class="rb-spin" aria-hidden="true"></span>
+    <div><b>{{ "理事会の判断を、対象の条に反映しています" if part else {"点検中": "点検しています", "改定案作成中": "改定案を作っています", "検討資料作成中": "理事会の検討資料を作っています", "説明文作成中": "住民向けの説明を作っています"}[work.status] }}</b>
+      <span class="rb-el">経過 <span id="elapsed" class="num">{% if progress.elapsed >= 3600 %}{{ progress.elapsed // 3600 }}時間{{ progress.elapsed % 3600 // 60 }}分{% else %}{{ progress.elapsed // 60 }}分{{ "%02d"|format(progress.elapsed % 60) }}秒{% endif %}</span></span><span class="small muted">（目安 {{ progress.estimate }}）</span>
+      <p class="small">{{ "AI が理事会の判断を対象の条だけに反映し、別の AI が直した条を確かめています。ほかの条は今の文のまま残ります。" if part else what[work.status] }}このページは開いたままで大丈夫です（閉じても処理は続きます。あとで、トップ画面の「これまでの作業」から戻れます）。終わると、結果の画面に自動で移ります。</p></div></div>
+  <ol class="rb-phases" id="steps">{% for st in progress.steps %}
     <li class="{{ 'done' if loop.index0 < progress.stage else ('now' if loop.index0 == progress.stage else '') }}">{{ st }}</li>{% endfor %}</ol>
-  <div class="pgrid">
-    <div><div class="plbl">経過時間</div><div class="pval"><span id="elapsed" class="num">{{ progress.elapsed // 60 }}分{{ "%02d"|format(progress.elapsed % 60) }}秒</span>
-      <span class="muted">（目安 {{ progress.estimate }}）</span></div></div>
-    <div><div class="plbl">いまの作業</div><div class="pval" id="current">{{ progress.current }}</div></div>
-    <div><div class="plbl">最後の動き</div><div class="pval"><span class="pulse"></span><span id="lastage">{{ progress.last_age }}秒前</span></div>
-      <div class="small" id="quiet"></div></div>
-  </div>
+  <p class="small rb-now">今：<span id="current">{{ progress.current|replace("採点役", "確認役") }}</span>　<span class="nowrap"><span class="pulse"></span>最後の動き {% set la = progress.last_age %}<span id="lastage">{% if la < 60 %}{{ la }}秒{% elif la >= 3600 %}{{ la // 3600 }}時間{{ la % 3600 // 60 }}分{% else %}{{ la // 60 }}分{{ "%02d"|format(la % 60) }}秒{% endif %}前</span></span></p>
+  <p class="small rb-quiet" id="quiet"></p>
   {% if work.status == "点検中" %}
-  <div class="pcounts" id="counts">確認した規約の条 <b data-c="規約の条">{{ progress.counts["規約の条"] }}</b>回・標準管理規約との照合 <b data-c="標準管理規約">{{ progress.counts["標準管理規約"] }}</b>回・区分所有法との照合 <b data-c="区分所有法">{{ progress.counts["区分所有法"] }}</b>回・受け付けた指摘 <b data-c="指摘">{{ progress.counts["指摘"] }}</b>件</div>
+  <div class="pcounts small" id="counts">確認した規約の条 <b data-c="規約の条">{{ progress.counts["規約の条"] }}</b>回・標準管理規約との照合 <b data-c="標準管理規約">{{ progress.counts["標準管理規約"] }}</b>回・区分所有法との照合 <b data-c="区分所有法">{{ progress.counts["区分所有法"] }}</b>回・受け付けた指摘 <b data-c="指摘">{{ progress.counts["指摘"] }}</b>件</div>
   {% endif %}
-  <details class="plog" open><summary>作業の記録</summary>
+  <details class="plog"><summary>作業の記録を見る</summary>
     <div class="log" id="log">{% for l in progress.lines %}<div>{{ l.t }} [{{ l.kind }}] {{ l.text }}</div>{% endfor %}</div></details>
 </section>
 <script>
@@ -29,13 +27,14 @@
   var elapsed = {{ progress.elapsed }}, lastAge = {{ progress.last_age }};
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (t) { return String(t).replace(/[<>&]/g, function (c) { return {"<": "&lt;", ">": "&gt;", "&": "&amp;"}[c]; }); };
-  function fmt(sec) { return Math.floor(sec / 60) + '分' + String(sec % 60).padStart(2, '0') + '秒'; }
+  function fmt(sec) { return sec >= 3600 ? Math.floor(sec / 3600) + '時間' + Math.floor(sec % 3600 / 60) + '分'
+    : Math.floor(sec / 60) + '分' + String(sec % 60).padStart(2, '0') + '秒'; }
   function tick() {
     elapsed++; lastAge++;
     $('elapsed').textContent = fmt(elapsed);
     $('lastage').textContent = lastAge < 60 ? lastAge + '秒前' : fmt(lastAge) + '前';
     $('quiet').textContent = lastAge >= 600 ? '10分以上動きがありません。しばらく待っても変わらなければ、ページを再読み込みしてください。'
-      : (lastAge >= 90 ? 'AI が考えています（長い条文の照合や文章を書くときは、しばらく動きがないことがあります）' : '');
+      : (lastAge >= 90 ? 'AI が文を書いたり考えたりしています。1〜3分ほど動きが出ないことがあります（止まってはいません）' : '');
   }
   setInterval(tick, 1000);
   async function poll() {
@@ -44,13 +43,13 @@
       $('status').textContent = s.status;
       if (!BUSY.includes(s.status)) {  // 終わったら、結果の画面へ移って知らせる
         var to = s.status.indexOf('エラー') >= 0 ? 'error'
-          : {"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"];
+          : {% if part %}"board"{% else %}{"点検中": "findings", "改定案作成中": "next", "検討資料作成中": "board", "説明文作成中": "explain"}["{{ work.status }}"]{% endif %};
         location.href = '/works/{{ id }}?done=' + encodeURIComponent('{{ work.status }}') + '#' + to;
         return;
       }
       var p = s.progress;
       elapsed = p.elapsed; lastAge = p.last_age;
-      $('current').textContent = p.current;
+      $('current').textContent = String(p.current).replace(/採点役/g, '確認役');
       $('steps').querySelectorAll('li').forEach(function (li, i) { li.className = i < p.stage ? 'done' : (i === p.stage ? 'now' : ''); });
       document.querySelectorAll('[data-c]').forEach(function (b) { b.textContent = p.counts[b.dataset.c]; });
       $('log').innerHTML = p.lines.map(function (l) { return '<div>' + l.t + ' [' + esc(l.kind) + '] ' + esc(l.text) + '</div>'; }).join('');

@@ -128,6 +128,12 @@ class ToolHandler:
                 head = f"【{a.label}" + (f"（{a.variant}案）" if a.variant else "") + "】"
                 note = f"\n{a.note}" if a.note else ""
                 out.append(head + note + "\n" + a.text())
+            if found and name == "標準管理規約":
+                from core.kb import standard_extra   # 正規版：知識ベースのコメント・選ぶ点（β版では空）
+
+                extra = standard_extra(number)
+                if extra:
+                    out.append(extra)
         return "\n\n".join(out)
 
     def _list_rules(self) -> str:
