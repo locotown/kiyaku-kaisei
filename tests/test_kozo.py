@@ -65,3 +65,23 @@ def test_various_wordings_and_caption_variants():
     assert _same_caption("窓ガラス等の改良", "敷地及び共用部分等の管理に関する責任と負担並びに窓ガラス等の改良")
     assert not _same_caption("駐車場の使用", "敷地及び共用部分等の第三者の使用")
     assert isinstance(main, Kiyaku)
+
+
+def test_other_rules_are_their_own_documents():
+    """「○○ルール」「申し合わせ」などは「その他の決まり」として分ける（規約・細則に混ぜない。改正対応の対象外）。
+    個々のルールの見出し（①…ルール）は同じ文書の中に入れる。本文の「議案の要領」などは拾わない。"""
+    from core.collection import segment
+
+    body = "".join(f"（見出し{i}）\n第{i}条　規定{i}とする。\n" for i in range(1, 7))
+    text = ("○○マンション管理規約\n" + body + "第7条　招集通知には、議案の要領を示さなければならない。\n"
+            "○○マンション　ルールの新設・改定\n① 日除け天幕設置に関するルール\n設置業者は一社に限る。\n"
+            "② 自転車置場使用料徴収方法変更に関するルール\n毎月10日に引き落とす。\n"
+            "○○マンション駐車場使用細則\n第1条　目的とする。\n第2条　資格とする。\n第3条　使用料とする。\n")
+    c = segment(text.splitlines())
+    kinds = [(d.kind, d.title) for d in c.documents]
+    assert ("その他の決まり", "○○マンション　ルールの新設・改定") in kinds
+    other = next(d for d in c.documents if d.kind == "その他の決まり")
+    assert "1 日除け天幕設置に関するルール" in other.lines and len([k for k, _ in kinds if k == "その他の決まり"]) == 1
+    main = c.main.kiyaku
+    assert len(main.articles) == 7 and not any("日除け" in x for x in main.appendix)   # 規約に混ぜない
+    assert Corpus.from_collection(c).rules.keys() == {"○○マンション駐車場使用細則"}     # 点検の対象は細則だけ
