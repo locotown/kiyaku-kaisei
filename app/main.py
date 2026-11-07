@@ -538,6 +538,7 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     if not adopted:
         return []
     corpus = _corpus(work_id)
+    from core.blanks import is_table
     from core.variants import groups as vgroups, picks as vpicks_of
 
     vpicks = vpicks_of(vgroups(corpus), work.get("variant_choices"))
@@ -550,11 +551,19 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         kiyaku = corpus.get(doc)
         pick = vpicks.get(corpus.resolve(doc) or doc, {})   # 今の規約の両案で、組合が選んだ案（計画A）
         blocks = consolidate(kiyaku, ams, title, effective, meeting.get("name", ""), pick) if kiyaku and not left else []
+        raw_blanks = blanks_in(blocks)   # 空欄を埋める前（ステップ6の入力欄に使う。計画D3）
+        fills = (work.get("final_fills") or {}).get(doc) or {}
+        if fills:
+            from core.blanks import fill_blocks
+
+            fill_blocks(blocks, fills)
         changed = "・".join(a.article for a in ams)
         history = (f"{meeting.get('name', '総会')}（{wareki(held) if held else '日付未入力'}）"
                    f"{'特別決議' if doc == '規約' else '普通決議'}により改正（{changed}）")
         docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
-                     "history": history, "variants": variant_articles(blocks), "blanks": blanks_in(blocks)})
+                     "history": history, "variants": variant_articles(blocks), "blanks": blanks_in(blocks),
+                     "blank_slots": blank_slots(raw_blanks, fills, _org(work)),
+                     "blank_tables": [x for x in raw_blanks if is_table(x)]})
     return docs
 
 
@@ -953,6 +962,106 @@ async def save_org(request: Request, work_id: str):
     store.update(work_id, **fields)
     _rerender(work_id)
     return RedirectResponse(f"/works/{work_id}?done=org", status_code=303)
+
+
+def blank_view(work_id: str, work: dict) -> list[dict]:
+    """ステップ4の「空欄に入れる数字」：改定案の条ごとの空欄と、入れた数字・今の規約の数字（計画D3）。
+
+    空欄を埋めた文は「委員会で直した文」として改定案に入れる。埋める前の文（template）を残し、入れ直し・消すときに使う。
+    その後に文が変わった（作り直し・条の文を直す）ときは、前の記録を使わない。
+    """
+    from core.blanks import slots, suggest
+    from core.sources import normalize_article_ref
+
+    draft = work.get("draft") or {}
+    fills = work.get("blank_fills") or {}
+    corpus = None
+    out, row = [], {x["where"]: x["n"] for x in draft_blanks(work)}
+    for am in draft.get("amendments") or []:
+        if am.get("kind") == "削除":
+            continue
+        doc = am.get("document") or "規約"
+        key = f"{doc}|{am['article']}"
+        rec = fills.get(key)
+        valid = rec and rec.get("filled") == am["text"]
+        template = rec["template"] if valid else am["text"]
+        ss = slots(template)
+        if not ss:
+            continue
+        if corpus is None:
+            corpus = _corpus(work_id)
+        old = "\n".join(a.text() for a in corpus.find(doc, normalize_article_ref(am["before_article"]))) if am.get("before_article") else ""
+        sug = suggest(template, old) if old else [""] * len(ss)
+        values = (rec.get("values") or []) if valid else []
+        for s_ in ss:
+            s_["value"] = values[s_["i"]] if s_["i"] < len(values) else ""
+            s_["suggest"] = sug[s_["i"]] if s_["i"] < len(sug) else ""
+        where = (f"{doc} " if doc != "規約" else "") + am["article"]
+        out.append({"key": key, "where": where, "caption": am.get("caption", ""), "slots": ss, "n": row.get(where),
+                    "left": sum(1 for x in ss if not x["value"])})
+    return out
+
+
+@app.post("/works/{work_id}/blanks")
+async def save_blanks(request: Request, work_id: str):
+    """ステップ4で入れた空欄の数字を、改定案の条に入れる（AI は使わない。委員会で直した文として記録する。計画D3）。"""
+    from core.blanks import fill
+
+    form = await request.form()
+    work = store.load(work_id)
+    if work["status"] in BUSY:
+        raise HTTPException(409, "AI が作業中です。終わってから入れてください。")
+    view = {v["key"]: v for v in blank_view(work_id, work)}
+    fills = dict(work.get("blank_fills") or {})
+    edits = []
+    for am in (work.get("draft") or {}).get("amendments") or []:
+        key = f"{am.get('document') or '規約'}|{am['article']}"
+        v = view.get(key)
+        if not v or not any(f"k_{key}_{x['i']}" in form for x in v["slots"]):
+            continue
+        rec = fills.get(key)
+        template = rec["template"] if rec and rec.get("filled") == am["text"] else am["text"]
+        values = [str(form.get(f"k_{key}_{x['i']}", "")).strip()[:20] for x in v["slots"]]
+        text = fill(template, values)
+        if text == am["text"]:
+            continue
+        filled = [f"{x['before'].lstrip('…')[-6:]}{val}{x['after'].rstrip('…')[:4]}" for x, val in zip(v["slots"], values) if val]
+        edits.append({"document": am.get("document") or "規約", "article": am["article"], "text": text,
+                      "note": "空欄（○）に数字を入れた：" + ("、".join(filled) if filled else "入れた数字を消した")})
+        fills[key] = {"template": template, "values": values, "filled": text, "at": _now()}
+    if edits:
+        store.update(work_id, blank_fills=fills)
+        _edit_articles(work_id, edits, f"{_now()} 空欄（○）に数字を入れました")
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "saved_at": _now(), "changed": [e["article"] for e in edits]})
+    return RedirectResponse(f"/works/{work_id}?done=blanks#blanks", status_code=303)
+
+
+@app.post("/works/{work_id}/final-blanks")
+async def save_final_blanks(request: Request, work_id: str):
+    """ステップ6：最新の規約に残る空欄（今の規約から引き継いだもの）に入れる数字を保存する。
+    改定ではなく、原本の数字を写す作業。最新の規約の画面と Word に入る（計画D3）。"""
+    form = await request.form()
+    store.load(work_id)
+    got: dict[str, dict[str, list[str]]] = {}
+    for k, v in form.items():
+        if not k.startswith("f|"):
+            continue
+        _, doc, where, i = k.split("|", 3)
+        got.setdefault(doc, {}).setdefault(where, {})[int(i)] = str(v).strip()[:30]
+
+    def fn(d):
+        ff = dict(d.get("final_fills") or {})
+        for doc, places in got.items():
+            cur = dict(ff.get(doc) or {})
+            for where, vals in places.items():
+                cur[where] = [vals.get(i, "") for i in range(max(vals) + 1)]
+            ff[doc] = cur
+        d["final_fills"] = ff
+    store.mutate(work_id, fn)
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "saved_at": _now()})
+    return RedirectResponse(f"/works/{work_id}?done=final-blanks#finals", status_code=303)
 
 
 @app.post("/works/{work_id}/variants")
@@ -2120,6 +2229,22 @@ def draft_blanks(work: dict) -> list[dict]:
     return in_draft(work.get("draft"))
 
 
+def blank_slots(raw: list[dict], fills: dict, org: str) -> list[dict]:
+    """ステップ6の入力欄：別表のような表は除き、入れた数字と、マンション名の初めの値（作業に入れたマンション名）を添える。"""
+    from core.blanks import is_table
+
+    name = re.sub(r"(マンション|管理組合)$", "", org.strip()) if org else ""
+    out = []
+    for x in raw:
+        if is_table(x):
+            continue
+        vals = fills.get(x["where"]) or []
+        slots = [dict(s, value=vals[s["i"]] if s["i"] < len(vals) else "",
+                      suggest=name if name and s["after"].startswith("マンション") else "") for s in x["slots"]]
+        out.append(dict(x, slots=slots))
+    return out
+
+
 def blanks_in(blocks) -> list[dict]:
     from core.blanks import in_blocks
 
@@ -2127,6 +2252,7 @@ def blanks_in(blocks) -> list[dict]:
 
 
 templates.env.globals["draft_blanks"] = draft_blanks
+templates.env.globals["blank_view"] = blank_view
 templates.env.globals["name_topics"] = lambda t: __import__("core.topics", fromlist=["name_topics"]).name_topics(t)
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""

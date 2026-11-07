@@ -58,9 +58,72 @@ def in_blocks(blocks) -> list[dict]:
         found = snippets("\n".join(b.lines))
         if not found:
             continue
-        lines = [ln.strip() for ln in b.lines if ln.strip()]
-        no = next((m.group(1) for ln in lines for m in [ART_NO.match(ln)] if m), "")   # 1行目は見出し（「（役員）」）のことが多い
-        caption = lines[0] if lines and lines[0].startswith("（") and len(lines[0]) <= 30 else ""
-        where = (no + caption) if no else (lines[0].split("　")[0][:12] if lines else "")
-        out.append({"where": where, "snippets": found, "changed": b.changed in ("改正", "新設")})
+        out.append({"where": _where(b), "snippets": found, "changed": b.changed in ("改正", "新設"),
+                    "slots": slots("\n".join(b.lines))})
+    return out
+
+
+def _where(b) -> str:
+    """最新の規約のブロックの呼び名（「第35条（役員）」）。1行目は見出し（「（役員）」）のことが多い。"""
+    lines = [ln.strip() for ln in b.lines if ln.strip()]
+    no = next((m.group(1) for ln in lines for m in [ART_NO.match(ln)] if m), "")
+    head = "附則 " if lines and lines[0].replace("　", "").startswith("附則") else ""   # 附則の第1条を、本則の第1条と分ける
+    cap = next((ln for ln in lines[:2] if ln[:1] in "（(" and len(ln) <= 30), "")
+    cap = cap.replace("(", "（").replace(")", "）")
+    return (head + no + cap) if no else (lines[0].split("　")[0][:12] if lines else "")
+
+
+TABLE_SLOTS = 8   # 別表（部屋ごとの持分など）のように空欄が多いものは、入力欄ではなく Word で直す
+
+
+def is_table(x: dict) -> bool:
+    return x["where"].startswith("別表") or len(x.get("slots", [])) > TABLE_SLOTS
+
+
+def fill_blocks(blocks, fills: dict) -> None:
+    """最新の規約のブロックの空欄を、ステップ6で入れた数字で埋める（{条など: [数字…]}。ブロックの文の中の順番どおり）。"""
+    for b in blocks:
+        if b.kind not in ("article", "appendix"):
+            continue
+        vals = fills.get(_where(b))
+        if vals and any(vals):
+            b.lines = fill("\n".join(b.lines), list(vals)).split("\n")
+
+
+# ---- 空欄を入力欄で埋める（計画D3） ----
+NUM = r"[0-9０-９一二三四五六七八九十百千.．]+"
+
+
+def slots(text: str) -> list[dict]:
+    """空欄ごとの入力欄の位置（前後の文字を添える）。i は文の中の空欄の順番（0から）。"""
+    out = []
+    for line in text.splitlines():
+        for m in BLANK.finditer(line):
+            short = len(line.strip()) <= SHORT
+            b = line[:m.start()] if short else line[max(0, m.start() - BEFORE):m.start()]
+            a = line[m.end():] if short else line[m.end():m.end() + AFTER]
+            out.append({"i": len(out), "before": ("" if short or m.start() <= BEFORE else "…") + b.lstrip().replace("　", " "),
+                        "after": a.rstrip().replace("　", " ") + ("" if short or m.end() + AFTER >= len(line) else "…"),
+                        "mark": m.group(0)})
+    return out
+
+
+def fill(text: str, values: list[str]) -> str:
+    """空欄を順に values で置き換える（空の値の空欄は「○」のまま）。"""
+    it = iter(values)
+
+    def rep(m):
+        v = (next(it, "") or "").strip()
+        return v or m.group(0)
+
+    return "\n".join(BLANK.sub(rep, line) for line in text.split("\n"))
+
+
+def suggest(text: str, old: str) -> list[str]:
+    """今の規約の同じ箇所に数字があれば、それを入力欄の初めの値にする（前後の文字が同じ箇所を探す）。"""
+    out = []
+    for s in slots(text):
+        b, a = s["before"].lstrip("…")[-6:], s["after"].rstrip("…")[:4]
+        m = re.search(re.escape(b) + "(" + NUM + ")" + re.escape(a), old.replace("　", " ")) if (b or a) else None
+        out.append(m.group(1) if m else "")
     return out

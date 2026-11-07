@@ -1,0 +1,22 @@
+{# ステップ4：改定案の「○」の空欄に、理事会で決めた数字を入れる（計画D3。AI は使わない。work.html の変数を使う） #}
+{% set bv = blank_view(id, work) %}
+{% if bv %}{% set nslot = bv|map(attribute="slots")|map("length")|sum %}{% set nleft = bv|map(attribute="left")|sum %}
+<section class="choose-ui blanks-ui" id="blanks">
+  <div class="cu-head">空欄に入れる数字（「○」{{ nslot }}か所{% if nleft < nslot %}・入れた {{ nslot - nleft }}か所{% endif %}）</div>
+  <p class="small">標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が決めて数字を入れます。
+    理事会で決めた数字を入れて保存すると、改定案の条に入ります（AI は使いません。「委員会で直した文」として残り、新旧対照表などにもすぐ入ります）。
+    {% if bv|map(attribute="slots")|sum(start=[])|selectattr("suggest")|list %}今の規約の同じ箇所に数字があるものは、その数字を初めから入れてあります。そのままでよければ保存してください。{% endif %}
+    空にして保存すると「○」に戻ります。</p>
+  <form method="post" action="/works/{{ id }}/blanks" class="autoblank">
+  {% for b in bv %}
+    <div class="cu-point bl-art"><b>{% if b.n %}<a href="/works/{{ id }}/articles#row{{ b.n }}">{{ b.where }}</a>{% else %}{{ b.where }}{% endif %}{% if b.caption %}（{{ b.caption }}）{% endif %}</b>
+      {% for s in b.slots %}<label class="bl-slot"><span>{{ s.before }}</span><input type="text" name="k_{{ b.key }}_{{ s.i }}" value="{{ s.value or s.suggest }}"
+        aria-label="{{ b.where }} の空欄{{ s.i + 1 }}（{{ s.before|trim('…') }}○{{ s.after|trim('…') }}）"{% set cls = ("unset" if not s.value else "") ~ (" wide" if s.mark|length > 1 else "") %}{% if cls|trim %} class="{{ cls|trim }}"{% endif %}><span>{{ s.after }}</span>
+        {% if s.suggest and not s.value %}<span class="small muted">今の規約の数字（まだ保存していません）</span>{% endif %}</label>{% endfor %}
+    </div>
+  {% endfor %}
+    <p class="bl-act"><button type="submit" class="boxed">入れた数字を保存する</button><span class="bsave small" role="status"></span></p>
+  </form>
+</section>
+{% endif %}
+{% include "work/_blanks_js.html" %}

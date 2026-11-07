@@ -61,8 +61,19 @@
     {% for f in finals %}
       <div class="doc final">{{ icon("file") }}<div style="flex:1;min-width:0">
         <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}か条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
-        {% if f.blanks %}{% set nb = f.blanks|selectattr("changed")|list %}<div class="warn blanks"><b class="w">「○」の空欄が残っている箇所があります（{{ f.blanks|length }}か所）。</b>標準管理規約のひな形で、組合が数字や名前を入れる箇所です。このままでは規約として使えないので、Word で保存したあとに入れてください。{% if nb %}今回の改定で入った条（{{ nb|map(attribute="where")|join("、") }}）は理事会・総会で決めた数字を、{% endif %}それ以外は今お使いの規約（原本）の数字を入れます。
-          <details class="fold"><summary>空欄の一覧（{{ f.blanks|length }}か所）</summary><ul class="small">{% for x in f.blanks %}<li><b>{{ x.where }}</b>{% if x.changed %}（今回の改定）{% endif %}：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></details></div>{% endif %}
+        {% if f.blank_slots or f.blank_tables %}{% set nb = f.blank_slots|selectattr("changed")|list %}{% set nslot = f.blank_slots|map(attribute="slots")|map("length")|sum %}
+        {# 最新の規約に残る「○」の空欄。入れた数字は最新の規約の画面と Word に入る（計画D3） #}
+        <div class="{{ 'warn' if f.blanks else 'note2' }} blanks" id="fb-{{ f.n }}">{% if f.blanks %}<b class="w">「○」の空欄が残っている箇所があります（{{ f.blanks|length }}か所）。</b>標準管理規約のひな形で、組合が数字や名前を入れる箇所です。このままでは規約として使えないので、下の欄に入れてください（最新の規約の画面と Word に入ります）。{% if nb %}今回の改定で入った条（{{ nb|map(attribute="where")|join("、") }}）は理事会・総会で決めた数字を、{% endif %}それ以外は今お使いの規約（原本）の数字を入れます。改定ではなく、原本の数字を写す作業です。
+          {% else %}<b>「○」の空欄には、すべて数字や名前を入れました（{{ nslot }}か所）。</b>最新の規約の画面と Word に入っています。{% endif %}
+          <details class="fold"{% if f.blanks %} open{% endif %}><summary>空欄に入れる数字・名前（{{ nslot }}か所）</summary>
+          <form method="post" action="/works/{{ id }}/final-blanks" class="autoblank" data-done="保存しました。最新の規約の画面と Word に入ります。">
+          {% for x in f.blank_slots %}<div class="bl-art"><b>{{ x.where }}</b>{% if x.changed %}（今回の改定）{% endif %}
+            {% for s in x.slots %}<label class="bl-slot"><span>{{ s.before }}</span><input type="text" name="f|{{ f.doc }}|{{ x.where }}|{{ s.i }}" value="{{ s.value or s.suggest }}"{% set cls = ("unset" if not s.value else "") ~ (" wide" if s.mark|length > 1 else "") %}{% if cls|trim %} class="{{ cls|trim }}"{% endif %}
+              aria-label="{{ x.where }} の空欄{{ s.i + 1 }}（{{ s.before|trim('…') }}○{{ s.after|trim('…') }}）"><span>{{ s.after }}</span>{% if s.suggest and not s.value %}<span class="small muted">マンション名（まだ保存していません）</span>{% endif %}</label>{% endfor %}</div>{% endfor %}
+            {% if f.blank_tables %}<p class="small">{{ f.blank_tables|map(attribute="where")|join("、") }}（{{ f.blank_tables|map(attribute="slots")|map("length")|sum }}か所）は表なので、ここでは入れません。Word で保存したあとに、原本の表を写してください。</p>{% endif %}
+            <p class="bl-act"><button type="submit" class="boxed">入れた数字を保存する</button><span class="bsave small" role="status"></span></p>
+          </form></details></div>
+          {% include "work/_blanks_js.html" %}{% endif %}
         {% if f.variants %}<p class="warn"><b class="w">どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ f.variants|join("、") }}</b>。今の規約にもともとある両案です。<a href="#variants">「4. 理事会で検討」の「今の規約の両案」</a>で組合で採用している案を選ぶと、最新の規約にはその案だけが残ります。選べない形の条は、Word で保存したあとに、採用している案だけを残してください。</p>{% endif %}
         {% if f.left %}<p class="warn"><b class="w">改定案に〔選択〕が残っています</b>（{{ f.left|join("、") }}）。理事会で案を選び、改定案を作り直してから作ってください。</p>
         {% else %}<div class="acts"><a class="tbtn2" href="/works/{{ id }}/final/{{ f.n }}/view">画面で確認（変更した条に色）</a></div>{% endif %}</div>

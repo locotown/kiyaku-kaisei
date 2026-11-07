@@ -1,0 +1,30 @@
+{# 空欄の入力欄（ステップ4・6）：入れたらすぐ保存する（保存を押し忘れて消えないように。判断のボタンと同じ）。
+   今の規約から初めに入れた数字は、人が触るか「保存する」を押すまで保存しない（確かめずに入らないように） #}
+<script>
+(() => {
+  document.querySelectorAll("form.autoblank:not([data-ready])").forEach((form) => {
+    form.dataset.ready = "1";
+    const note = form.querySelector(".bsave");
+    const save = async (all) => {
+      const fd = new FormData(form);
+      const sent = [];
+      form.querySelectorAll("input[type=text]").forEach((i) => {
+        const untouched = i.classList.contains("unset") && i.value === i.defaultValue;
+        if (untouched && !all) fd.set(i.name, ""); else if (i.value.trim()) sent.push(i);
+      });
+      if (note) { note.textContent = "保存しています…"; note.className = "bsave small"; }
+      try {
+        const r = await fetch(form.action, { method: "POST", body: fd, headers: { accept: "application/json" } });
+        if (!r.ok) throw new Error(r.status);
+        sent.forEach((i) => { i.classList.remove("unset"); i.defaultValue = i.value; const m = i.closest(".bl-slot").querySelector(".muted"); if (m) m.remove(); });
+        if (note) { note.textContent = form.dataset.done || "保存しました。改定案の条・新旧対照表に入りました。"; note.className = "bsave small ok"; }
+      } catch (e) {
+        if (note) { note.textContent = "保存できませんでした。「入れた数字を保存する」を押してください。"; note.className = "bsave small ng"; }
+      }
+    };
+    form.addEventListener("input", (e) => { if (e.target.matches("input[type=text]")) e.target.classList.remove("unset"); });
+    form.addEventListener("change", (e) => { if (e.target.matches("input[type=text]")) save(false); });
+    form.addEventListener("submit", (e) => { e.preventDefault(); save(true); });
+  });
+})();
+</script>
