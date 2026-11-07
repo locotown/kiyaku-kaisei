@@ -106,3 +106,12 @@ def test_board_decision_is_buttons_like_step2(board_work):
     c.post(f"/works/{wid}/board/decisions", data={})
     page = c.get(f"/works/{wid}").text
     assert re.search(r'name="b_decision_0" value="" checked>未判断', page)
+
+
+def test_taisho_rewritten_when_opened(board_work):
+    """前に作った新旧対照表も、開いたときに今の作り（スマホの項ごとの見比べ）で書き直す。AI は使わない（計画C）。"""
+    M, store, c, wid, _, _ = board_work
+    p = store.path(wid) / "taisho.html"
+    p.write_text("<html>前の作りの表</html>", encoding="utf-8")
+    page = c.get(f"/works/{wid}/taisho").text
+    assert "前の作りの表" not in page and ".pairs { display: none; }" in page

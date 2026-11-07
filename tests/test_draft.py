@@ -180,3 +180,36 @@ def test_print_ident_tracks_draft_version(kiyaku, findings):
     other = draft.to_dict()
     other["amendments"][0]["text"] += "（委員会で修正）"
     assert M._ident("20261104-000000-abcdef", {"draft": other}) != fresh
+
+
+def test_paragraph_pairs_for_phone():
+    """スマホ用：条を項に分け、番号だけ繰り下がった項も同じ項として組む（計画C）。号は前の項に含める。"""
+    from core.taisho import para_pairs, paragraphs
+
+    old = "第5条　甲は乙とする。\n2　前項の場合、丙とする。\n一　あ\n二　い\n3　理事長は報告する。"
+    new = "第5条　甲は乙とする。\n2　前項の場合、丁とする。\n一　あ\n二　い\n3　新しい項。\n4　理事長は報告する。"
+    assert len(paragraphs(new)) == 4 and paragraphs(new)[1].endswith("二　い")
+    got = [(p["kind"], p["old_label"], p["new_label"]) for p in para_pairs(old, new)]
+    assert got == [("same", "第1項", "第1項"), ("change", "第2項", "第2項"), ("add", "", "第3項"), ("change", "第3項", "第4項")]
+
+
+def test_taisho_phone_view_interleaves_paragraphs(kiyaku, findings):
+    """スマホでは項ごとに改定案と現行を見比べ、変わっていない項は折りたたむ。パソコンと印刷の表は今のまま（計画C）。"""
+    from core.taisho import PAIRS_CSS
+
+    draft, _, _ = check({"amendments": [amendment(kiyaku)], "notes": ""}, kiyaku, findings)
+    html = to_html(draft, kiyaku)
+    assert 'has-pairs"' in html
+    pairs = html[html.index('<div class="pairs">'):html.index('</td>', html.index('<div class="pairs">'))]
+    assert "変わっていない項" in pairs and "<details" in pairs                 # 変わっていない項は折りたたむ
+    assert "<del>5日間</del><mark>1週間</mark>" in pairs                       # 少しだけ変わった項は1つの文の中で示す
+    assert '<span class="fullnew">' in html and 'class="c-old"' in html      # パソコンと印刷の表の列は残す
+    assert ".pairs { display: none; }" in PAIRS_CSS and "@media print { .pairs { display: none !important; } }" in PAIRS_CSS
+
+
+def test_inline_falls_back_when_rewritten():
+    """書き換えが多い項は、1つの文に混ぜず、改定案と現行を上下に並べる。"""
+    from core.taisho import _inline_html
+
+    assert _inline_html("理事長は総会に報告する。", "理事長は総会に書面で報告する。")
+    assert _inline_html("理事長は総会に報告する。", "管理者が区分所有者全員に通知しなければならない。") == ""

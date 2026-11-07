@@ -1143,6 +1143,14 @@ def taisho(work_id: str):
     p = store.path(work_id) / "taisho.html"
     if not p.exists():
         raise HTTPException(404, "新旧対照表はまだありません")
+    # 開くたびに今の作りで書き直す（AI は使わない）。表の作りを直したとき、前に作った作業にも効くように（計画C）
+    work = store.load(work_id)
+    draft = _draft(work)
+    if draft:
+        try:
+            _write_taisho(work_id, work, draft, _corpus(work_id))
+        except Exception:   # 書き直せなくても、前に作った表は見せる
+            pass
     return FileResponse(p, media_type="text/html; charset=utf-8")
 
 
