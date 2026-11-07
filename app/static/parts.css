@@ -346,4 +346,10 @@
 .tk .ml-std summary { cursor: pointer; color: var(--color-primary); font-weight: 700; min-height: 36px; display: flex; align-items: center; }
 .tk .ml-std p { margin: var(--space-1) 0; padding: var(--space-2) var(--space-3); background: var(--color-bg); border-radius: var(--radius-1); }
 .tk .ml-memo-wrap { display: grid; gap: 4px; } .tk .ml-memo-wrap[hidden] { display: none; }
+.tk .ml-badge.fixed { color: var(--color-ink-2); background: var(--color-bg); border: 1px dashed var(--color-line-2); }
+.tk .ml-map summary { cursor: pointer; color: var(--color-ink-2); min-height: 36px; display: flex; align-items: center; }
+.tk .ml-map[open] { display: grid; gap: 4px; padding-bottom: var(--space-2); }
+.tk .ml-map label { display: grid; gap: 4px; } .tk .ml-map select { width: 100%; max-width: 32rem; min-height: 40px; font-size: 1rem; }
+.tk .ml-map button { justify-self: start; }
+.tk .ml-mapped { margin: 4px 0; font-weight: 700; }
 @media (max-width: 640px) { .tk .place .d-short { display: block; font-size: var(--text-xs); } }

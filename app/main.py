@@ -1290,10 +1290,11 @@ def _taiou(work_id: str) -> dict:
     from core.taiou import match
 
     src = _source(work_id)
-    key = (work_id, src.stat().st_mtime)
+    fixed = store.load(work_id).get("minaoshi_map") or {}   # 人が選び直した対応（計画E3-4）
+    key = (work_id, src.stat().st_mtime, tuple(sorted(fixed.items())))
     if key not in _TAIOU_CACHE:
         _TAIOU_CACHE.clear() if len(_TAIOU_CACHE) > 20 else None
-        _TAIOU_CACHE[key] = match(_corpus(work_id).main, standard())
+        _TAIOU_CACHE[key] = match(_corpus(work_id).main, standard(), fixed)
     return _TAIOU_CACHE[key]
 
 
@@ -1322,17 +1323,19 @@ def _added(work: dict) -> set:
 def minaoshi_page(request: Request, work_id: str):
     """②これからの見直し（計画E2a）：違いの量・構成表・条の対応表と理事会の判断・決めたことの一覧。AI は使わない。"""
     from core.kozo import build
-    from core.minaoshi import ACTIONS, KEEP, added_now, rows, state, summary
+    from core.minaoshi import ACTIONS, KEEP, added_now, rows, state, summary, valid
 
     work = store.load(work_id)
     t = _taiou(work_id)
     rs = rows(t, _touched(work), _added(work))
-    dec = work.get("minaoshi") or {}
+    dec = {r["id"]: v for r in rs if (v := valid(r["type"], (work.get("minaoshi") or {}).get(r["id"])))}
     k = build(_corpus(work_id))
     return templates.TemplateResponse(request, "minaoshi.html", {
         "id": work_id, "work": work, "counts": t["counts"], "rows": rs, "dec": dec, "sum": summary(rs, dec),
         "states": {r["id"]: state(dec.get(r["id"])) for r in rs}, "actions": ACTIONS, "keep": KEEP,
-        "added_now": added_now(t, _added(work)),
+        "added_now": added_now(t, _added(work)), "std_all": t["std_all"],
+        "cur_all": [{"number": r["number"], "label": r["label"], "caption": r["caption"]} for r in t["rows"]],
+        "mapped": request.query_params.get("mapped", ""),
         "kozo": {"rows": len(k["rows"]), "missing": len(k["missing"]), "bad": len(k["bad_cites"])}})
 
 
@@ -1366,42 +1369,46 @@ async def save_minaoshi(request: Request, work_id: str):
 
 @app.get("/works/{work_id}/minaoshi/shukudai", response_class=HTMLResponse)
 def minaoshi_print(work_id: str):
-    """規約の見直しの宿題一覧（印刷用）：次回以降にした行と、今回の改定案に入れるにした行。"""
-    from core.minaoshi import rows, summary
+    """見直しの宿題の検討表（計画E3-1。印刷用）：宿題の条を、今の規約と標準管理規約の文を並べて、理事会の書き込み欄と一緒に。"""
+    from core.minaoshi import rows, summary, to_html
 
     work = store.load(work_id)
     rs = rows(_taiou(work_id), _touched(work), _added(work))
     s = summary(rs, work.get("minaoshi") or {})
-    title = f"{_org(work)} 規約の見直しの宿題一覧".strip()
-    return HTMLResponse(_minaoshi_html(s, title, _ident(work_id, work), _org(work) or work.get("name", "")))
+    title = f"{_org(work)} 規約の見直し 宿題の検討表".strip()
+    return HTMLResponse(to_html(s, title, _ident(work_id, work), _org(work) or work.get("name", ""), _today_wareki()))
 
 
-def _minaoshi_html(s: dict, title: str, ident: str, who: str = "") -> str:
-    import html as h
+@app.post("/works/{work_id}/minaoshi/map")
+async def save_minaoshi_map(request: Request, work_id: str):
+    """対応する標準管理規約の条を、人が選び直す（計画E3-4。AI は使わない）。
+    c＝今の規約の条番号、s＝標準管理規約の条番号（"none" は当たる条がない、"auto" は自動の対応づけに戻す）。
+    選び直した行の判断は、行の種類が変わることがあるので消す。"""
+    form = await request.form()
+    c, sn = str(form.get("c", "")), str(form.get("s", ""))
+    if not c or not sn:
+        raise HTTPException(400, "対応する条を選んでから押してください。")
+    sn = "" if sn == "none" else sn   # 画面では「当たる条はない」を none で送る（空は「まだ選んでいない」と区別するため）
+    t = _taiou(work_id)
+    if c not in {r["number"] for r in t["rows"]}:
+        raise HTTPException(400, "その条は見つかりません。画面を開き直してください。")
+    if sn not in ("", "auto") and sn not in {x["number"] for x in t["std_all"]}:
+        raise HTTPException(400, "その標準管理規約の条は見つかりません。")
 
-    from core.printstyle import PRINT_CSS, page_css, toolbar
-    from core.taisho import DISCLAIMER
-
-    def table(items):
-        if not items:
-            return "<p>ありません。</p>"
-        body = "".join(f"<tr><td data-label=\"条\"><b>{h.escape(i['name'])}</b><br><small>（{h.escape(i['caption'])}）</small></td>"
-                       f"<td data-label=\"判断\">{h.escape(i['d'])}</td><td data-label=\"理由・経緯のメモ\">{h.escape(i['m'])}</td></tr>" for i in items)
-        return f"<table class=\"taisho\"><thead><tr><th>条</th><th>判断</th><th>理由・経緯のメモ</th></tr></thead><tbody>{body}</tbody></table>"
-
-    c = s["counts"]
-    return f"""<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{h.escape(title)}</title><style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}</style></head><body class="wide">
-{toolbar("", landscape=True, back_href="./minaoshi")}
-<h1>{h.escape(title)}</h1>
-<p class="note">{DISCLAIMER}</p>
-<p class="legend">{h.escape(who)}{'の' if who else ''}今の規約と標準管理規約の条の対応表を見て、理事会が行ごとに決めたことの一覧です（{_today_wareki()}時点）。次の理事会・総会や、全部改正の準備に引き継ぎます。</p>
-<p class="summary">宿題（次回以降に見直す） {c['later']}件・今のまま／残す／足さない {c['keep']}件・まだ決めていない {c['undecided']}件</p>
-<h2>宿題（次回以降に見直す）（{len(s['lists']['later'])}件）</h2>{table(s['lists']['later'])}
-<h2>今のまま・残す・足さないと決めた条（{len(s['lists']['keep'])}件）</h2>{table(s['lists']['keep'])}
-</body></html>
-"""
+    def fn(data):
+        m = dict(data.get("minaoshi_map") or {})
+        if sn == "auto":
+            m.pop(c, None)
+        else:
+            m[c] = sn
+        data["minaoshi_map"] = m
+        dec = dict(data.get("minaoshi") or {})
+        dec.pop(f"c{c}", None)
+        if sn:
+            dec.pop(f"s{sn}", None)
+        data["minaoshi"] = dec
+    store.mutate(work_id, fn)
+    return RedirectResponse(f"/works/{work_id}/minaoshi?mapped=c{c}#r-c{c}", status_code=303)
 
 
 def _today_wareki() -> str:

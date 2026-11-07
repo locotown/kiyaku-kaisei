@@ -7,7 +7,7 @@
 {% set place = "later" %}{% include "work/_places.html" %}
 <div class="stepttl"><p class="eyebrow">これからの見直し</p><h1 class="page-title">今の規約と標準管理規約の違いを見て、少しずつ決める</h1>
   <p class="lead">今回の改正（法改正への対応）が済んだあとに、理事会で少しずつ使う場所です。急ぎません。行ごとに、標準管理規約の文と見比べて「今のまま・合わせる・残す・見直す・なくす・足す」を決めます。
-    見直すと決めた行は「宿題」になり、宿題の一覧を印刷して、次の理事会・総会や、標準管理規約をベースに規約を作り直す（全部改正）準備に使えます。AI は使いません。</p></div>
+    見直すと決めた行は「宿題」になり、今の規約と標準管理規約の文を並べた「宿題の検討表」を印刷して、次の理事会・総会や、標準管理規約をベースに規約を作り直す（全部改正）準備に使えます。AI は使いません。</p></div>
 
 <section class="sec" aria-labelledby="ml-diff">
   <h2 id="ml-diff">違いの量</h2>
@@ -39,12 +39,15 @@
     {% for k, lab in (("all", "すべて"), ("undecided", "まだ決めていない"), ("later", "宿題"), ("keep", "今のまま・残す")) %}<button type="button" class="ml-chip" data-f="{{ k }}" aria-pressed="{{ 'true' if k == 'all' else 'false' }}">{{ lab }}</button>{% endfor %}
   </div>
   <div class="ml-rows">
+  {% set will_later = "宿題になりました。次の理事会で、下の「宿題の検討表」を使って話し合えます" %}{% set will_keep = "記録しました" %}
   {% for r in rows %}{% set d = dec.get(r.id, {}) %}{% set acts = actions[r.type] %}
     <form class="ml-row t-{{ {'違う': 'diff', '今の規約だけ': 'own', '標準にない': 'miss'}[r.type] }}" id="r-{{ r.id }}" data-id="{{ r.id }}" data-state="{{ states[r.id] }}" method="post" action="/works/{{ id }}/minaoshi">
       <input type="hidden" name="id" value="{{ r.id }}">
       <div class="ml-h"><b>{% if r.type == "標準にない" %}標準 {{ r.std_label }}（{{ r.std_caption }}）{% else %}{{ r.label }}（{{ r.caption }}）{% if r.std_label %} ⇄ 標準 {{ r.std_label }}{% if r.std_caption != r.caption %}（{{ r.std_caption }}）{% endif %}{% endif %}{% endif %}</b>
         {% if r.type == "違う" %}<span class="ml-badge">違う（違いの量：{{ r.amount }}）</span>{% elif r.type == "今の規約だけ" %}<span class="ml-badge own">今の規約だけ（独自）</span>{% else %}<span class="ml-badge miss">標準にあって今の規約にない</span>{% endif %}
-        {% if r.touched %}<span class="ml-badge now">今回の改正でも直す条</span>{% endif %}</div>
+        {% if r.touched %}<span class="ml-badge now">今回の改正でも直す条</span>{% endif %}
+        {% if r.fixed %}<span class="ml-badge fixed">人が選び直した対応</span>{% endif %}</div>
+      {% if mapped and mapped == r.id %}<p class="small ok ml-mapped" role="status">対応を選び直しました。この行の判断は、選び直す前のものを消しました。</p>{% endif %}
       {% if r.text %}<div class="ml-ex small"><span class="ml-k">今の規約</span>{{ r.text|striptags|truncate(90, true, "…") }}</div>{% endif %}
       {# 標準管理規約の文。見ないと「合わせる」「足す」を決められない（想定ユーザーでの確認から） #}
       {% if r.std_text %}<details class="ml-std small"><summary>標準管理規約の文を見る（{{ r.std_label }}）{% if r.type == "違う" %}　似ている度合い {{ r.ratio }}%{% endif %}</summary>
@@ -54,12 +57,22 @@
         <label class="b-none"><input type="radio" name="d" value="" {% if not d.d %}checked{% endif %}>未判断</label></div>
       <div class="ml-memo-wrap" {% if not d.d %}hidden{% endif %}>
         <input type="text" name="m" value="{{ d.m }}" class="ml-memo" placeholder="理由・経緯のメモ" aria-label="{{ r.label or r.std_label }} の理由・経緯のメモ">
-        <span class="small muted ml-will">{% if d.d and d.d not in keep %}宿題（次回以降に見直す）になりました{% endif %}</span></div>
+        <span class="small muted ml-will">{% if d.d and d.d not in keep %}{{ will_later }}{% elif d.d %}{{ will_keep }}{% endif %}</span></div>
+      {# 対応づけの選び直し（計画E3-4）。行の form の中に別の form は置けないので、form 属性で下の form に送る #}
+      <details class="ml-map small" data-kind="{{ 'cur' if r.type == '標準にない' else 'std' }}" data-sel="{{ r.std_number if r.fixed else '' }}">
+        <summary>{% if r.type == "標準にない" %}今の規約に当たる条がある{% else %}対応する標準管理規約の条を選び直す{% endif %}</summary>
+        <label>{% if r.type == "標準にない" %}今の規約の条{% else %}標準管理規約の条{% endif %}
+          <select name="{{ 'c' if r.type == '標準にない' else 's' }}" form="mf-{{ r.id }}" class="ml-map-sel"><option value="" disabled selected hidden>選んでください</option></select></label>
+        <button type="submit" form="mf-{{ r.id }}" class="boxed">この対応にする</button>
+        <span class="muted">選び直すと、この行の判断は消えます（行の種類が変わることがあるため）。</span>
+      </details>
       <span class="bsave small" role="status"></span>
       <noscript><button type="submit" class="boxed">保存</button></noscript>
     </form>
   {% endfor %}
   </div>
+  {% for r in rows %}<form id="mf-{{ r.id }}" method="post" action="/works/{{ id }}/minaoshi/map" hidden>
+    {% if r.type == "標準にない" %}<input type="hidden" name="s" value="{{ r.number }}">{% else %}<input type="hidden" name="c" value="{{ r.number }}">{% endif %}</form>{% endfor %}
 </section>
 
 <section class="sec" aria-labelledby="ml-lists">
@@ -69,7 +82,7 @@
     <div class="card2"><h3>今のまま・残す・足さない</h3><div id="ml-l-keep"></div></div>
   </div>
   <p class="small muted">今回の改定案に入れたい見直しがあれば、今は「今回の改正」の「条の文を直す」で直してください。ここで決めた見直しを今回の改定案にそのまま入れる仕組みは、これから作ります。</p>
-  <p><a class="tbtn2 boxed" href="/works/{{ id }}/minaoshi/shukudai">{{ icon("file") }}宿題の一覧を開く（見る・印刷する）</a></p>
+  <p><a class="tbtn2 boxed" href="/works/{{ id }}/minaoshi/shukudai">{{ icon("file") }}宿題の検討表を開く（見る・印刷する）</a></p>
 </section>
 
 <script>
@@ -96,10 +109,11 @@
   };
   document.querySelectorAll(".ml-row").forEach((f) => {
     f.addEventListener("change", (e) => {
+      if (e.target.form !== f) return;                              // 対応の選び直しの欄は別の form に送る
       if (e.target.name === "d") {
         const d = e.target.value; const w = f.querySelector(".ml-memo-wrap"); w.hidden = !d;
         if (!d) f.querySelector(".ml-memo").value = "";             // 未判断に戻したらメモも消す
-        f.querySelector(".ml-will").textContent = d && !KEEP.has(d) ? "宿題（次回以降に見直す）になりました" : "";
+        f.querySelector(".ml-will").textContent = !d ? "" : (KEEP.has(d) ? {{ will_keep|tojson }} : {{ will_later|tojson }});
       }
       f.dataset.state = stateOf(f); save(f);
     });
@@ -108,6 +122,17 @@
   document.querySelectorAll(".ml-chip").forEach((c) => c.addEventListener("click", () => {
     filter = c.dataset.f; document.querySelectorAll(".ml-chip").forEach((x) => x.setAttribute("aria-pressed", x === c)); apply(); }));
   lists(SUM);
+  // 対応の選び直し：開いたときに選択肢を入れる（行ごとに全部の条を書き出すと重いので）
+  const STD = {{ std_all|tojson }}, CUR = {{ cur_all|tojson }};
+  document.querySelectorAll(".ml-map").forEach((dt) => dt.addEventListener("toggle", () => {
+    const sel = dt.querySelector("select"); if (!dt.open || sel.dataset.filled) return;
+    const opt = (v, t, on) => { const o = document.createElement("option"); o.value = v; o.textContent = t; if (on) o.selected = true; sel.append(o); };
+    if (dt.dataset.kind === "std") {
+      (STD).forEach((x) => opt(x.number, `${x.label}（${x.caption}）`, x.number === dt.dataset.sel));
+      opt("none", "当たる条はない（今の規約だけ・独自）", false); opt("auto", "自動の対応づけに戻す", false);
+    } else { CUR.forEach((x) => opt(x.number, `${x.label}（${x.caption}）`, false)); }
+    sel.dataset.filled = "1";
+  }));
 })();
 </script>
 {% endblock %}
