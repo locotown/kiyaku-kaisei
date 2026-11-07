@@ -200,10 +200,10 @@ def test_work_page_links_to_consult_with_its_rules(board_work):
 
 
 def test_mask_names_after_roles_without_honorifics():
-    """「記録：中川」「出席：佐藤、鈴木」のように敬称のない名前も伏せ、同じ名前は文中のどこでも伏せる（想定ユーザーでの確認で分かった）。"""
-    masked, mapping = C.mask_names("講師：森田一郎氏（管理士）、記録：中川。中川から説明。出席：佐藤、鈴木（監事）。記録：理事会")
-    assert not any(n in masked for n in ("森田", "中川", "佐藤", "鈴木")) and "記録：理事会" in masked
-    assert set(mapping.values()) == {"森田一郎", "中川", "佐藤", "鈴木"}
+    """「記録：中川」「出席：田中、鈴木」のように敬称のない名前も伏せ、同じ名前は文中のどこでも伏せる（想定ユーザーでの確認で分かった）。"""
+    masked, mapping = C.mask_names("講師：森田一郎氏（管理士）、記録：中川。中川から説明。出席：田中、鈴木（監事）。記録：理事会")
+    assert not any(n in masked for n in ("森田", "中川", "田中", "鈴木")) and "記録：理事会" in masked
+    assert set(mapping.values()) == {"森田一郎", "中川", "田中", "鈴木"}
 
 
 def test_reply_copy_and_profile_used(app_client):
@@ -257,11 +257,11 @@ def test_follow_up_masks_names_known_from_the_first_text(app_client):
                follow_redirects=False)
     cid = r.headers["location"].rsplit("/", 1)[1]
     _wait(c, cid)
-    c.post(f"/consult/{cid}/ask", data={"question": "中川の件と、305号室の件、それから新しく佐藤さんの件"})
+    c.post(f"/consult/{cid}/ask", data={"question": "中川の件と、305号室の件、それから新しく田中さんの件"})
     _wait(c, cid)
     d = store.load_consult(cid)
     q = d["turns"][1]["sent_question"]
-    assert not any(w in q for w in ("中川", "305号室", "佐藤")), q
+    assert not any(w in q for w in ("中川", "305号室", "田中")), q
     assert d["mapping"][q.split("の件")[0]] == "中川"
 
 
