@@ -130,3 +130,21 @@ def test_step6_final_fills_are_saved_and_applied(board_work):
     blocks = [Block("article", ["（会計年度）", "第56条　会計年度は、毎年○月○日から翌年○月○日までとする。"])]
     fill_blocks(blocks, ff["規約"])
     assert blocks[0].lines[1] == "第56条　会計年度は、毎年4月1日から翌年○月○日までとする。"
+
+
+def test_lines_show_whole_sentence_with_inputs():
+    """入力欄は、前後の数文字ではなく項の文の中に置く（確認ボード 第22回：前後の文がないと数字を入れられない）。"""
+    from core.blanks import lines
+
+    t = "第54条　理事会は、理事長が招集する。\n3　前項の規定による請求があった日から○日以内に、その請求があった日から○日以内の日を理事会の日とする。"
+    got = lines(t)
+    assert len(got) == 1 and [p.get("slot") for p in got[0] if "slot" in p] == [0, 1]
+    assert "".join(p.get("t", "□") for p in got[0]) == "3　前項の規定による請求があった日から□日以内に、その請求があった日から□日以内の日を理事会の日とする。"
+
+
+def test_mansion_name_suggestion_drops_suffix():
+    import app.main as M
+
+    raw = [{"where": "第1条（目的）", "slots": [{"i": 0, "before": "…この規約は、", "after": "マンション…", "mark": "○○"}], "lines": [], "changed": False}]
+    got = M.blank_slots(raw, {}, "グリーンヒルマンション管理組合")
+    assert got[0]["slots"][0]["suggest"] == "グリーンヒル"

@@ -59,7 +59,7 @@ def in_blocks(blocks) -> list[dict]:
         if not found:
             continue
         out.append({"where": _where(b), "snippets": found, "changed": b.changed in ("改正", "新設"),
-                    "slots": slots("\n".join(b.lines))})
+                    "slots": slots("\n".join(b.lines)), "lines": lines("\n".join(b.lines))})
     return out
 
 
@@ -126,4 +126,25 @@ def suggest(text: str, old: str) -> list[str]:
         b, a = s["before"].lstrip("…")[-6:], s["after"].rstrip("…")[:4]
         m = re.search(re.escape(b) + "(" + NUM + ")" + re.escape(a), old.replace("　", " ")) if (b or a) else None
         out.append(m.group(1) if m else "")
+    return out
+
+
+def lines(text: str) -> list[list[dict]]:
+    """空欄のある行（項・号）を、文のまま入力欄の位置で区切る（[{"t": 文}, {"slot": 空欄の番号}, …]）。
+    前後の数文字だけでは何の数字か分からない（確認ボード 第22回の作者の声）ので、項の文を全部見せる。空欄の番号は slots と同じ。"""
+    out, n = [], 0
+    for line in text.splitlines():
+        ms = list(BLANK.finditer(line))
+        if not ms:
+            continue
+        parts, pos = [], 0
+        for m in ms:
+            if m.start() > pos:
+                parts.append({"t": line[pos:m.start()]})
+            parts.append({"slot": n})
+            n += 1
+            pos = m.end()
+        if pos < len(line):
+            parts.append({"t": line[pos:]})
+        out.append(parts)
     return out

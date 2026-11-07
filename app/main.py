@@ -970,7 +970,7 @@ def blank_view(work_id: str, work: dict) -> list[dict]:
     空欄を埋めた文は「委員会で直した文」として改定案に入れる。埋める前の文（template）を残し、入れ直し・消すときに使う。
     その後に文が変わった（作り直し・条の文を直す）ときは、前の記録を使わない。
     """
-    from core.blanks import slots, suggest
+    from core.blanks import lines, slots, suggest
     from core.sources import normalize_article_ref
 
     draft = work.get("draft") or {}
@@ -997,7 +997,7 @@ def blank_view(work_id: str, work: dict) -> list[dict]:
             s_["value"] = values[s_["i"]] if s_["i"] < len(values) else ""
             s_["suggest"] = sug[s_["i"]] if s_["i"] < len(sug) else ""
         where = (f"{doc} " if doc != "規約" else "") + am["article"]
-        out.append({"key": key, "where": where, "caption": am.get("caption", ""), "slots": ss, "n": row.get(where),
+        out.append({"key": key, "where": where, "caption": am.get("caption", ""), "slots": ss, "n": row.get(where), "lines": lines(template),
                     "left": sum(1 for x in ss if not x["value"])})
     return out
 
@@ -2233,7 +2233,7 @@ def blank_slots(raw: list[dict], fills: dict, org: str) -> list[dict]:
     """ステップ6の入力欄：別表のような表は除き、入れた数字と、マンション名の初めの値（作業に入れたマンション名）を添える。"""
     from core.blanks import is_table
 
-    name = re.sub(r"(マンション|管理組合)$", "", org.strip()) if org else ""
+    name = re.sub(r"(?:マンション)?(?:管理組合)?$", "", org.strip()) if org else ""   # 「○○マンション」の○○に入れるので、後ろの「マンション管理組合」を外す
     out = []
     for x in raw:
         if is_table(x):
