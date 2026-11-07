@@ -42,8 +42,7 @@ def test_board_autosave_keeps_other_tabs_items(board_work):
     import json
     M, store, c, wid, _, _ = board_work
     paper = M._board(store.load(wid))
-    if len(paper.items) < 2:
-        return
+    assert len(paper.items) >= 2, "議題が2つ以上ある作業で確かめる"
     from core.board import DECISIONS
     d0 = DECISIONS[paper.items[0].tier][0]
     d1 = [x for x in DECISIONS[paper.items[1].tier] if x][-1]
