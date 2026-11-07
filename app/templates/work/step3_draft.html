@@ -76,6 +76,10 @@
         {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>「現行」欄について（{{ source_note.label }}から読み込み）：</b>{{ source_note.text }}確認役の照合も、読み込んだデータとの照合です。</div>{% endif %}</div></div>
       {% if q.choices %}<div class="check"><span class="num small">2</span><div>組合が選ぶ点（〔選択〕の印）が<b>{{ q.choices }}か所</b>あります。{% if work.board %}「4. 理事会で検討」の「組合が選ぶ点」で、どちらの案にするか選びます（選ぶと、対象の条だけ作り直せます）。{% else %}次の「理事会で検討」で、どちらの案にするか選びます。{% endif %}</div></div>{% endif %}
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
+      {% set bl = draft_blanks(work) %}
+      {# 標準管理規約の「○」の空欄（役員の人数・任期など）が改定案に残ると、そのままでは規約として使えない（計画D1） #}
+      {% if bl %}<div class="check blanks"><span class="num small">！</span><div><b class="w">「○」の空欄が残っている条があります（{{ bl|length }}条）。</b>標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が数字を入れて決めます。理事会で決めた数字を、<a href="/works/{{ id }}/articles#row-top">「条の文を直す」</a>で入れてください。
+        <ul class="small">{% for x in bl %}<li><b>{{ x.where }}</b>：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></div></div>{% endif %}
       {% set side = draft_side_notes(work) %}
       {% if side %}<div class="check"><span class="num small">＋</span><div><details class="fold"><summary>AI が気づいた、今回の指摘の範囲外の点（{{ side|length }}点）：改定案には入れていません。必要なら理事会で話し合い、「条の文を直す」で直せます</summary>
         <ul class="small">{% for s in side %}<li>{{ name_topics(s) }}</li>{% endfor %}</ul></details></div></div>{% endif %}

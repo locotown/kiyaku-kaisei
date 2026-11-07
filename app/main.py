@@ -554,7 +554,7 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         history = (f"{meeting.get('name', '総会')}（{wareki(held) if held else '日付未入力'}）"
                    f"{'特別決議' if doc == '規約' else '普通決議'}により改正（{changed}）")
         docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
-                     "history": history, "variants": variant_articles(blocks)})
+                     "history": history, "variants": variant_articles(blocks), "blanks": blanks_in(blocks)})
     return docs
 
 
@@ -2111,6 +2111,22 @@ def draft_side_notes(work: dict) -> list[str]:
 
 
 templates.env.globals["draft_side_notes"] = draft_side_notes
+
+
+def draft_blanks(work: dict) -> list[dict]:
+    """改定案の条に残る「○」の空欄（標準管理規約で組合が数字を入れる箇所。計画D1）。"""
+    from core.blanks import in_draft
+
+    return in_draft(work.get("draft"))
+
+
+def blanks_in(blocks) -> list[dict]:
+    from core.blanks import in_blocks
+
+    return in_blocks(blocks)
+
+
+templates.env.globals["draft_blanks"] = draft_blanks
 templates.env.globals["name_topics"] = lambda t: __import__("core.topics", fromlist=["name_topics"]).name_topics(t)
 def ai_note(kind: str, work: dict) -> str:
     """AI を動かすボタンを押したときの確認の文（何をするか・時間・費用の目安）。費用は APIキーの持ち主に請求される。"""
