@@ -1281,6 +1281,115 @@ async def save_version(request: Request, work_id: str):
     return RedirectResponse(f"/works/{work_id}#readcheck", status_code=303)
 
 
+_TAIOU_CACHE: dict = {}
+
+
+def _taiou(work_id: str) -> dict:
+    """条の対応表（文の似かたの計算に1〜2秒かかるので、読み込んだファイルが同じ間は使い回す）。"""
+    from core.sources import standard
+    from core.taiou import match
+
+    src = _source(work_id)
+    key = (work_id, src.stat().st_mtime)
+    if key not in _TAIOU_CACHE:
+        _TAIOU_CACHE.clear() if len(_TAIOU_CACHE) > 20 else None
+        _TAIOU_CACHE[key] = match(_corpus(work_id).main, standard())
+    return _TAIOU_CACHE[key]
+
+
+def _touched(work: dict) -> set:
+    """今回の改定案（①）で直す、今の規約の条の番号。"""
+    from core.sources import normalize_article_ref
+
+    return {normalize_article_ref(a["before_article"]) for a in (work.get("draft") or {}).get("amendments") or []
+            if a.get("before_article") and (a.get("document") or "規約") == "規約"}
+
+
+@app.get("/works/{work_id}/minaoshi", response_class=HTMLResponse)
+def minaoshi_page(request: Request, work_id: str):
+    """②これからの見直し（計画E2a）：違いの量・構成表・条の対応表と理事会の判断・決めたことの一覧。AI は使わない。"""
+    from core.kozo import build
+    from core.minaoshi import ACTIONS, KEEP, WHEN, rows, state, summary
+
+    work = store.load(work_id)
+    t = _taiou(work_id)
+    rs = rows(t, _touched(work))
+    dec = work.get("minaoshi") or {}
+    k = build(_corpus(work_id))
+    return templates.TemplateResponse(request, "minaoshi.html", {
+        "id": work_id, "work": work, "counts": t["counts"], "rows": rs, "dec": dec, "sum": summary(rs, dec),
+        "states": {r["id"]: state(dec.get(r["id"])) for r in rs}, "actions": ACTIONS, "keep": KEEP, "when": WHEN,
+        "kozo": {"rows": len(k["rows"]), "missing": len(k["missing"]), "bad": len(k["bad_cites"])}})
+
+
+@app.post("/works/{work_id}/minaoshi")
+async def save_minaoshi(request: Request, work_id: str):
+    """②の判断を1行ずつ保存する（選ぶとすぐ保存。空の判断は「まだ決めていない」に戻す）。"""
+    from core.minaoshi import clean, rows, summary
+
+    form = await request.form()
+    rid = str(form.get("id", ""))
+    work = store.load(work_id)
+    rs = rows(_taiou(work_id), _touched(work))
+    row = next((r for r in rs if r["id"] == rid), None)
+    if row is None:
+        raise HTTPException(400, "その行は見つかりません。画面を開き直してください。")
+    d, w = clean(row["type"], str(form.get("d", "")), str(form.get("w", "")))
+    memo = str(form.get("m", "")).strip()[:300]
+
+    def fn(data):
+        m = dict(data.get("minaoshi") or {})
+        if d or memo:
+            m[rid] = {"d": d, "w": w, "m": memo, "at": _now()}
+        else:
+            m.pop(rid, None)
+        data["minaoshi"] = m
+    work = store.mutate(work_id, fn)
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "saved_at": _now(), **summary(rs, work.get("minaoshi") or {})})
+    return RedirectResponse(f"/works/{work_id}/minaoshi#r-{rid}", status_code=303)
+
+
+@app.get("/works/{work_id}/minaoshi/shukudai", response_class=HTMLResponse)
+def minaoshi_print(work_id: str):
+    """規約の見直しの宿題一覧（印刷用）：次回以降にした行と、今回の改定案に入れるにした行。"""
+    from core.minaoshi import rows, summary
+
+    work = store.load(work_id)
+    rs = rows(_taiou(work_id), _touched(work))
+    s = summary(rs, work.get("minaoshi") or {})
+    title = f"{_org(work)} 規約の見直しの宿題一覧".strip()
+    return HTMLResponse(_minaoshi_html(s, title, _ident(work_id, work)))
+
+
+def _minaoshi_html(s: dict, title: str, ident: str) -> str:
+    import html as h
+
+    from core.printstyle import PRINT_CSS, page_css, toolbar
+    from core.taisho import DISCLAIMER
+
+    def table(items):
+        if not items:
+            return "<p>ありません。</p>"
+        body = "".join(f"<tr><td data-label=\"条\"><b>{h.escape(i['name'])}</b><br><small>（{h.escape(i['caption'])}）</small></td>"
+                       f"<td data-label=\"判断\">{h.escape(i['d'])}</td><td data-label=\"理由・経緯のメモ\">{h.escape(i['m'])}</td></tr>" for i in items)
+        return f"<table class=\"taisho\"><thead><tr><th>条</th><th>判断</th><th>理由・経緯のメモ</th></tr></thead><tbody>{body}</tbody></table>"
+
+    c = s["counts"]
+    return f"""<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{h.escape(title)}</title><style>{PRINT_CSS}{page_css(title, landscape=True, ident=ident)}</style></head><body class="wide">
+{toolbar("", landscape=True, back_href="./minaoshi")}
+<h1>{h.escape(title)}</h1>
+<p class="note">{DISCLAIMER}</p>
+<p class="legend">今の規約と標準管理規約の条の対応表を見て、理事会が行ごとに決めたことの一覧です。次の理事会・総会や、全部改正の準備に引き継ぎます。</p>
+<p class="summary">宿題（次回以降） {c['later']}件・今回の改定案に入れる {c['now']}件・今のまま／残す {c['keep']}件・まだ決めていない {c['undecided']}件</p>
+<h2>宿題（次回以降に扱う）（{len(s['lists']['later'])}件）</h2>{table(s['lists']['later'])}
+<h2>今回の改定案に入れる（{len(s['lists']['now'])}件）</h2>{table(s['lists']['now'])}
+</body></html>
+"""
+
+
 @app.get("/works/{work_id}/taiou", response_class=HTMLResponse)
 def taiou(work_id: str):
     """今の規約と標準管理規約の条の対応表（計画E1。AI は使わない）。全部改正を考える材料。"""
@@ -1288,9 +1397,7 @@ def taiou(work_id: str):
     from core.taiou import match, to_html
 
     work = store.load(work_id)
-    t = match(_corpus(work_id).main, standard())
-    touched = {normalize_article_ref(a["before_article"]) for a in (work.get("draft") or {}).get("amendments") or []
-               if a.get("before_article") and (a.get("document") or "規約") == "規約"}
+    t, touched = _taiou(work_id), _touched(work)
     title = f"{_org(work)} 管理規約と標準管理規約の条の対応表".strip()
     return HTMLResponse(to_html(t, title, ident=_ident(work_id, work), touched=touched))
 

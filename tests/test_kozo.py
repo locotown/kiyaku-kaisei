@@ -39,7 +39,8 @@ def test_build_matches_rules_and_finds_wrong_citation():
 def test_kozo_page_from_work(board_work):
     """作業の画面（ステップ1）から開ける。細則を読み込んでいない作業では、そう書く。"""
     M, store, c, wid, _, _ = board_work
-    assert f'href="/works/{wid}/kozo"' in c.get(f"/works/{wid}").text
+    assert f'href="/works/{wid}/minaoshi"' in c.get(f"/works/{wid}").text           # ステップ1からは②へ案内する
+    assert f'href="/works/{wid}/kozo"' in c.get(f"/works/{wid}/minaoshi").text      # 構成表は②に置く
     page = c.get(f"/works/{wid}/kozo").text
     assert "規約がほかの決まりに任せている事項" in page and "細則は読み込んでいません" in page and "./#documents" in page
 

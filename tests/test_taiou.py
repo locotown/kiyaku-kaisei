@@ -28,6 +28,6 @@ def test_match_renumbered_old_rules():
 
 def test_taiou_page_from_work(board_work):
     M, store, c, wid, _, _ = board_work
-    assert f'href="/works/{wid}/taiou"' in c.get(f"/works/{wid}").text
+    assert f'href="/works/{wid}/taiou"' in c.get(f"/works/{wid}/minaoshi").text     # 対応表は②に置く
     page = c.get(f"/works/{wid}/taiou").text
     assert "標準管理規約の条の対応表" in page and "標準管理規約にあって、今の規約にない条" in page and "./#documents" in page

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}これからの見直し｜{{ work.name }}｜ととのう規約{% endblock %}
+{% block content %}
+{# ②これからの見直し（計画E2a。AI は使わない）。今回の改正（①）とは別の場所。今の規約と標準管理規約の違いを見て、行ごとに判断と時期を記録する #}
+<p class="eyebrow wk"><a href="/works/{{ id }}">{{ work.name }}</a></p>
+{% set place = "later" %}{% include "work/_places.html" %}
+<div class="stepttl"><p class="eyebrow">② これからの見直し</p><h1 class="page-title">今の規約と標準管理規約の違いを見て、少しずつ決める</h1>
+  <p class="lead">今回の改正（①）が済んだあとに、理事会で少しずつ使う場所です。急ぎません。行ごとに「今のまま・合わせる・残す・なくす・足す」と、いつ扱うかを決めます。
+    決めたことは「宿題の一覧」として印刷でき、次の理事会・総会や、標準管理規約をベースに規約を作り直す（全部改正）準備に使えます。AI は使いません。</p></div>
+
+<section class="sec" aria-labelledby="ml-diff">
+  <h2 id="ml-diff">違いの量</h2>
+  <div class="ml-tiles">
+    <div class="ml-tile"><b>{{ counts["ほぼ同じ"] }}</b><span>ほぼ同じ（か条）</span></div>
+    <div class="ml-tile"><b>{{ counts["違う"] }}</b><span>違う（か条）</span></div>
+    <div class="ml-tile"><b>{{ counts["今の規約だけ"] }}</b><span>今の規約だけ・独自（か条）</span></div>
+    <div class="ml-tile"><b>{{ counts["標準にあって今の規約にない"] }}</b><span>標準にあって今の規約にない（か条）</span></div>
+  </div>
+  <p class="small"><a href="/works/{{ id }}/taiou">{{ icon("file") }}条の対応表を開く（見る・印刷する）</a>　すべての条（ほぼ同じも含む）を並べた表です。</p>
+</section>
+
+<section class="sec" aria-labelledby="ml-kozo">
+  <h2 id="ml-kozo">規約集の構成表</h2>
+  <p class="small">規約がほかの決まりに任せている事項 {{ kozo.rows }}件のうち、細則が見当たらないもの {{ kozo.missing }}件。細則が引いている規約の条のずれ {{ kozo.bad }}件。</p>
+  <p class="small"><a href="/works/{{ id }}/kozo">{{ icon("file") }}構成表を開く（見る・印刷する）</a></p>
+</section>
+
+<section class="sec" aria-labelledby="ml-rows" id="ml-decide">
+  <h2 id="ml-rows">条の対応表と、理事会の判断（{{ rows|length }}行）</h2>
+  <p class="small muted">「ほぼ同じ」の条は判断が要らないので出していません。選ぶとすぐ保存します。対応づけは見出しと文の似かたによる目安です。</p>
+  <div class="ml-tiles" id="ml-sum">
+    <div class="ml-tile hl"><b data-c="now">{{ sum.counts.now }}</b><span>今回入れる</span></div>
+    <div class="ml-tile"><b data-c="later">{{ sum.counts.later }}</b><span>宿題（次回以降）</span></div>
+    <div class="ml-tile"><b data-c="keep">{{ sum.counts.keep }}</b><span>今のまま・残す・足さない</span></div>
+    <div class="ml-tile"><b data-c="undecided">{{ sum.counts.undecided }}</b><span>まだ決めていない</span></div>
+  </div>
+  <div class="ml-chips" role="group" aria-label="出す行">
+    {% for k, lab in (("all", "すべて"), ("undecided", "まだ決めていない"), ("now", "今回入れる"), ("later", "宿題")) %}<button type="button" class="ml-chip" data-f="{{ k }}" aria-pressed="{{ 'true' if k == 'all' else 'false' }}">{{ lab }}</button>{% endfor %}
+  </div>
+  <div class="ml-rows">
+  {% for r in rows %}{% set d = dec.get(r.id, {}) %}{% set acts = actions[r.type] %}
+    <form class="ml-row t-{{ {'違う': 'diff', '今の規約だけ': 'own', '標準にない': 'miss'}[r.type] }}" id="r-{{ r.id }}" data-id="{{ r.id }}" data-state="{{ states[r.id] }}" method="post" action="/works/{{ id }}/minaoshi">
+      <input type="hidden" name="id" value="{{ r.id }}">
+      <div class="ml-h"><b>{% if r.type == "標準にない" %}標準 {{ r.std_label }}（{{ r.std_caption }}）{% else %}{{ r.label }}（{{ r.caption }}）{% if r.std_label %} ⇄ 標準 {{ r.std_label }}{% if r.std_caption != r.caption %}（{{ r.std_caption }}）{% endif %}{% endif %}{% endif %}</b>
+        {% if r.type == "違う" %}<span class="ml-badge">違う・違いの量 {{ r.amount }}（{{ r.ratio }}%）</span>{% elif r.type == "今の規約だけ" %}<span class="ml-badge own">今の規約だけ（独自）</span>{% else %}<span class="ml-badge miss">標準にあって今の規約にない</span>{% endif %}
+        {% if r.touched %}<span class="ml-badge now">今回の法改正への対応で直す条</span>{% endif %}</div>
+      <div class="ml-ex small">{{ r.text|striptags|truncate(90, true, "…") }}</div>
+      <div class="mini2 ml-seg" role="radiogroup" aria-label="{{ r.label or r.std_label }} の判断">
+        {%- for a in acts %}<label><input type="radio" name="d" value="{{ a }}" {% if d.d == a %}checked{% endif %}>{{ a }}</label>{% endfor -%}
+        <label class="b-none"><input type="radio" name="d" value="" {% if not d.d %}checked{% endif %}>未判断</label></div>
+      <div class="ml-when" {% if not d.d or d.d in keep %}hidden{% endif %}>
+        <span class="small muted">いつ扱う：</span>
+        <div class="mini2 ml-seg" role="radiogroup" aria-label="{{ r.label or r.std_label }} をいつ扱うか">
+          {%- for k, lab in when.items() %}<label><input type="radio" name="w" value="{{ k }}" {% if d.w == k %}checked{% endif %}>{{ lab }}</label>{% endfor -%}</div>
+        <input type="text" name="m" value="{{ d.m }}" class="ml-memo" placeholder="理由・経緯のメモ（議事録や来年の作業に使います）" aria-label="{{ r.label or r.std_label }} のメモ">
+      </div>
+      <span class="bsave small" role="status"></span>
+      <noscript><button type="submit" class="boxed">保存</button></noscript>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="ml-lists">
+  <h2 id="ml-lists">決めたことの一覧</h2>
+  <div class="ml-lists">
+    <div class="card2"><h3>今回の改定案に入れる</h3><div id="ml-l-now"></div>
+      <p class="small muted">今回の改定案（①）に入れる仕組みは、これから作ります（計画E2b）。それまでは、① の「条の文を直す」で直すか、次回以降に回してください。</p></div>
+    <div class="card2"><h3>宿題（次回以降）</h3><div id="ml-l-later"></div></div>
+  </div>
+  <p><a class="tbtn2 boxed" href="/works/{{ id }}/minaoshi/shukudai">{{ icon("file") }}宿題の一覧を開く（見る・印刷する）</a></p>
+</section>
+
+<script>
+(() => {
+  const SUM = {{ sum|tojson }};
+  const KEEP = new Set({{ keep|list|tojson }});
+  const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let filter = "all";
+  const lists = (s) => {
+    const item = (i) => `<li><b>${esc(i.name)}</b>（${esc(i.caption)}）：${esc(i.d)}${i.m ? `　<span class="small muted">${esc(i.m)}</span>` : ""}</li>`;
+    document.getElementById("ml-l-now").innerHTML = s.lists.now.length ? `<ul>${s.lists.now.map(item).join("")}</ul>` +
+      (s.lists.now.length > 5 ? `<p class="note2 small">今回入れる見直しが多くなっています。議案の説明と合意の負担が増えるので、法改正への対応と別の議案に分けることも考えてください。</p>` : "")
+      : `<p class="small muted">まだありません。行で「今回の改定案に入れる」を選ぶと、ここに並びます。</p>`;
+    document.getElementById("ml-l-later").innerHTML = s.lists.later.length ? `<ul>${s.lists.later.map(item).join("")}</ul>` : `<p class="small muted">まだありません。</p>`;
+    Object.entries(s.counts).forEach(([k, v]) => { const b = document.querySelector(`[data-c="${k}"]`); if (b) b.textContent = v; });
+  };
+  const stateOf = (f) => { const d = (f.querySelector("input[name=d]:checked") || {}).value || ""; if (!d) return "undecided";
+    if (KEEP.has(d)) return "keep"; return (f.querySelector("input[name=w]:checked") || {}).value || "undecided"; };
+  const apply = () => document.querySelectorAll(".ml-row").forEach((f) => { f.hidden = !(filter === "all" || f.dataset.state === filter); });
+  const save = async (f) => {
+    const note = f.querySelector(".bsave"); note.textContent = "保存しています…"; note.className = "bsave small";
+    try {
+      const r = await fetch(f.action, { method: "POST", body: new FormData(f), headers: { accept: "application/json" } });
+      if (!r.ok) throw new Error(r.status);
+      lists(await r.json()); note.textContent = "保存しました"; note.className = "bsave small ok";
+    } catch (e) { note.textContent = "保存できませんでした。もう一度選んでください"; note.className = "bsave small ng"; }
+  };
+  document.querySelectorAll(".ml-row").forEach((f) => {
+    f.addEventListener("change", (e) => {
+      if (e.target.name === "d") {
+        const d = e.target.value; const w = f.querySelector(".ml-when"); w.hidden = !d || KEEP.has(d);
+        if (w.hidden) f.querySelectorAll("input[name=w]").forEach((x) => { x.checked = false; });
+      }
+      f.dataset.state = stateOf(f); save(f);
+    });
+    f.addEventListener("submit", (e) => { e.preventDefault(); save(f); });
+  });
+  document.querySelectorAll(".ml-chip").forEach((c) => c.addEventListener("click", () => {
+    filter = c.dataset.f; document.querySelectorAll(".ml-chip").forEach((x) => x.setAttribute("aria-pressed", x === c)); apply(); }));
+  lists(SUM);
+})();
+</script>
+{% endblock %}

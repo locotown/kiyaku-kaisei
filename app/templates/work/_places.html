@@ -1,0 +1,5 @@
+{# 作業の2つの場所（11/7 作者の判断）：①今回の改正（法改正に合わせる一部改正の一本道）と、②これからの見直し（全部改正・少しずつの改正の準備） #}
+<nav class="places" aria-label="作業の場所">
+  <a class="place" href="/works/{{ id }}"{% if place == "now" %} aria-current="page"{% endif %}><b>① 今回の改正</b><span>法改正に合わせる一部改正。6ステップの一本道</span></a>
+  <a class="place" href="/works/{{ id }}/minaoshi"{% if place == "later" %} aria-current="page"{% endif %}><b>② これからの見直し</b><span>全部改正・少しずつの改正の準備。急ぎません</span></a>
+</nav>
