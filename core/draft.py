@@ -138,6 +138,15 @@ def check(data: dict, kiyaku, findings: list[Finding]) -> tuple[Draft | None, li
                 errors.append(f"{where}：標準管理規約に「{ref}」がありません。")
         if raw.get("choices") and CHOICE_MARK not in raw["text"]:
             warnings.append(f"{where}：choices があるのに本文に{CHOICE_MARK}がありません。")
+        if kind != "削除":   # 標準管理規約から写した「○」の空欄（今の規約にもともとある空欄は除く。計画D1）
+            from core.blanks import snippets
+
+            olds = corpus.find(document, normalize_article_ref(before)) if before else []
+            had = {x for a in olds for x in snippets(a.text())}
+            new = [s for s in snippets(raw.get("text") or "") if s not in had]
+            if new:
+                warnings.append(f"{where}：「○」の空欄が残っています（{' ／ '.join(new[:3])}）。今の規約の同じ箇所の数字を使うか、"
+                                f"数字がなければ{CHOICE_MARK}を付けて choices に決めることを書いてください。")
         covered.update(raw.get("finding_refs", []))
         amendments.append(Amendment(
             kind=kind, article=raw["article"], before_article=before, caption=raw.get("caption", ""),

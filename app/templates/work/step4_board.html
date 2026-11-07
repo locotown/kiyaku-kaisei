@@ -46,9 +46,10 @@
     <p class="small">改定案の条を議題にまとめ、次の3段に分けます。理事会（委員会）では、段ごとにすることが違います。</p>
     <ol class="tierlist">{% for t in ["法律の改正に合わせる変更", "暮らしや運営に関わる変更", "古い規定や表現の整理"] %}
       <li><b>{{ "①②③"[loop.index0] }} {{ t }}：{{ board_tasks[t][0] }}</b><span>{{ board_tasks[t][1] }}</span></li>{% endfor %}</ol>
-    <p class="bp-n">この改定案は <b>{{ bp.total }}条</b>。法律の改正に合わせる変更 <b>{{ bp.required }}条</b>は①に、それ以外の <b>{{ bp.other }}条</b>は②か③に入ります（AI が議題にまとめます）。{% if bp.choices %}〔選択〕のある条 <b>{{ bp.choices }}条</b>は、②で案を選びます。{% endif %}</p>
+    <p class="bp-n">この改定案は <b>{{ bp.total }}か条</b>。法律の改正に合わせる変更 <b>{{ bp.required }}か条</b>は①に、それ以外の <b>{{ bp.other }}か条</b>は②か③に入ります（AI が議題にまとめます）。{% if bp.choices %}〔選択〕のある条 <b>{{ bp.choices }}か条</b>は、②で案を選びます。{% endif %}</p>
     <p class="small">作ると、印刷できる検討資料（Word でも保存できます）と、議題ごとに判断を選ぶボタン（理解した・採用・見送りなど）がこの画面にできます。判断は選ぶとすぐ保存し、必要なら対象の条だけを作り直します。</p>
   </section>
+  {% include "work/_blanks.html" %}
   {% endif %}
   {% if board %}
     <div class="acts">
@@ -143,6 +144,7 @@
     <noscript><p><button type="submit" class="boxed">理事会の判断を保存する</button></p></noscript>
     </form>
     {% include "work/_variants.html" %}
+    {% include "work/_blanks.html" %}
     <script>
     // 理事会の判断は、選んだらすぐ保存する（保存を押し忘れて、再読み込みや画面の移動で消えるのを防ぐ。想定ユーザーでの確認で分かった）
     // 上の「組合が選ぶ点」で選んだ案は、議題の「選ぶ点」にもその場で出す

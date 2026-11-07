@@ -54,7 +54,7 @@ def test_taisho_marks_skipped_rows_and_committee_note():
                    Amendment("改正", "第20条", "第20条", "区分所有者の責務", "第20条　…", "", ["10"], [], [])], "n")
     edits = {"規約|第47条": {"text": "第47条　委員会で直した文", "original": "第47条　…", "note": "会議で言い回しを平易にした"}}
     page = to_html(draft, corpus, edits=edits, skipped={"第20条"})
-    assert "理事会で見送り（総会には出しません）" in page and "1条は理事会で見送りにした" in page
+    assert "理事会で見送り（総会には出しません）" in page and "1か条は理事会で見送りにした" in page
     assert "委員会で直した点：</b>会議で言い回しを平易にした" in page
     assert page.index("行1") < page.index("行2")                     # 行の番号はそのまま
 

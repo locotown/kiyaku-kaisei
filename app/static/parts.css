@@ -270,3 +270,21 @@
 .rb-el, .rb-el .num { white-space: nowrap; }
 .tk input.bnote { width: 100%; max-width: none; }
 .tk .dempty { border: 0 !important; }
+
+/* 「○」の空欄の入力欄（ステップ4・6。計画D3） */
+.tk .bl-art { margin: 0 0 var(--space-3); }
+.tk .bl-art > b { display: block; margin-bottom: 4px; }
+.tk .bl-slot { display: block; margin: 6px 0 6px var(--space-3); font-weight: 400; line-height: 2.4; }
+.tk .bl-slot > span { margin: 0 4px; }
+.tk .bl-slot .muted { display: block; line-height: 1.4; margin: 0; }
+.tk .bl-slot input[type=text] { width: 5em; vertical-align: middle; min-height: var(--hit-min); font: inherit; padding: 4px 8px; border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
+.tk .bl-line { margin: 4px 0 6px var(--space-3); line-height: 2.5; font-weight: 400; text-align: left; text-justify: none; letter-spacing: normal; }
+@media (max-width: 640px) { .tk .bl-line { margin-left: 0; } }
+.tk .bl-line input[type=text] { width: 4.5em; min-height: 40px; margin: 0 4px; font: inherit; padding: 2px 8px; border: 1px solid var(--color-line-2); border-radius: var(--radius-1); vertical-align: middle; }
+.tk .bl-line input.wide { width: 10em; }
+.tk .bl-line input.unset { border-style: dashed; background: #fbf1df; }
+.tk .bl-hint { margin: 0 0 var(--space-2) var(--space-3); }
+.tk .bl-slot input.wide { width: 10em; }  /* 「○○」はマンション名・地名などの名前が入る */
+.tk .bl-slot input.unset { border-style: dashed; background: #fbf1df; }
+.tk .bl-act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); }
+.tk .bsave.ok { color: var(--color-ok); } .tk .bsave.ng { color: var(--color-must); }
