@@ -238,8 +238,16 @@
 .tk .note2 .w { color: var(--color-ink); }
 
 /* 進み具合の列：いま開いている画面に色の枠（● の「次にすること」と見分ける。想定ユーザーで、● と見出しのステップが違って迷った） */
-.flow li.view > a, .flow li.view > .na { background: #e8eef7; border-radius: var(--radius-2); box-shadow: inset 0 0 0 2px var(--color-primary); }
-.tk .flow-legend .view-demo { display: inline-block; padding: 0 6px; border-radius: 4px; background: #e8eef7; box-shadow: inset 0 0 0 2px var(--color-primary); color: var(--color-ink); }
+/* 枠は名前だけに付ける（丸と線ごと四角で囲むと、線が枠を突き抜けて見えた。作者の指摘） */
+.flow li.view .lbl { padding: 1px 10px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); text-decoration: none; font-weight: 700; }
+@media (min-width: 861px) { .flow li.view .lbl { display: inline-block; } }
+/* 860px 以下は短い名前にする（長い名前が札の中で2行に折れた）。札は短い名前に付け、ほかの名前と同じ高さにそろえる */
+@media (max-width: 860px) {
+  .flow li .lbl { display: none; }
+  .flow li .lbl-s { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--color-ink-2); white-space: nowrap; }
+  .flow li.view .lbl-s { width: fit-content; margin: 2px auto 0; padding: 0 6px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); font-weight: 700; }
+}
+.tk .flow-legend .view-demo { display: inline-block; padding: 0 8px; border-radius: 999px; background: #e8eef7; box-shadow: inset 0 0 0 1.5px var(--color-primary); color: var(--color-ink); }
 /* これまでの作業：スマホでは1件を2行に（作業名を1行で、日時・状態・指摘をその下に。作業名が1〜2字で折り返していた） */
 @media (max-width: 600px) {
   .tk .wlist, .tk .wlist tbody { display: block; }

@@ -364,7 +364,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 
 /* ---- スマホ：進み具合の丸の下に短い名前（丸だけでは、どこに戻ればよいか分からない、という声から） ---- */
 .flow li .lbl-s { display: none; }
-@media (max-width: 720px) {
+@media (max-width: 640px) {   /* 長い名前を隠す幅（components.css）とそろえる。641〜720px で両方が並んでいた */
   .flow li .lbl-s { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--color-ink-2); white-space: nowrap; }
   .flow li.view .lbl-s { color: var(--color-ink); font-weight: 700; }
 }
