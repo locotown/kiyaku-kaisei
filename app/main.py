@@ -529,7 +529,7 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     """最新の規約・細則（総会で可決したもの）。〔選択〕が残っていれば作らない。"""
     from datetime import date
 
-    from core.consolidate import consolidate, wareki
+    from core.consolidate import consolidate, left_out, wareki
     from core.draft import CHOICE_MARK
     from core.explain import ref_name
 
@@ -563,7 +563,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
         docs.append({"n": n, "doc": doc, "title": title, "blocks": blocks, "left": left, "count": len(ams),
                      "history": history, "variants": variant_articles(blocks), "blanks": blanks_in(blocks),
                      "blank_slots": blank_slots(raw_blanks, fills, _org(work)),
-                     "blank_tables": [x for x in raw_blanks if is_table(x)]})
+                     "blank_tables": [x for x in raw_blanks if is_table(x)],
+                     "left_out": left_out(kiyaku) if kiyaku else {"notes": [], "tables": [], "table_lines": 0}})
     return docs
 
 

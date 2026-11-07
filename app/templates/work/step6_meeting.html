@@ -61,6 +61,9 @@
     {% for f in finals %}
       <div class="doc final">{{ icon("file") }}<div style="flex:1;min-width:0">
         <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}か条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
+        {# 別表・様式は表の形を再現できないので入れず「原本のとおり」と書く。前置きの作業用の説明も入れない（11/7 作者の判断） #}
+        {% set lo = f.left_out or {} %}{% if not f.left and (lo.tables or lo.notes) %}<p class="note2 small lo">{% if lo.tables %}<b class="w">{{ lo.tables|join("・") }}は入れていません。</b>今回の改正はないので、最新の規約には「原本のとおり」と書いています。原本の{{ "ページ" }}（表・使用料の一覧など、別表のあとに綴じられている資料も）をそのまま綴じてください。{% endif %}
+          {% if lo.notes %}<b class="w">規約の前に書かれていた説明（{{ lo.notes|length }}行）も入れていません。</b>委員会の作業用の注記などです。規約の前文として必要な文なら、Word で足してください。{% endif %}</p>{% endif %}
         {% if f.blank_slots or f.blank_tables %}{% set nb = f.blank_slots|selectattr("changed")|list %}{% set nslot = f.blank_slots|map(attribute="slots")|map("length")|sum %}
         {# 最新の規約に残る「○」の空欄。入れた数字は最新の規約の画面と Word に入る（計画D3） #}
         <div class="{{ 'warn' if f.blanks else 'note2' }} blanks" id="fb-{{ f.n }}">{% if f.blanks %}<b class="w">「○」の空欄が残っている箇所があります（{{ f.blanks|length }}か所）。</b>標準管理規約のひな形で、組合が数字や名前を入れる箇所です。このままでは規約として使えないので、下の欄に入れてください（最新の規約の画面と Word に入ります）。{% if nb %}今回の改定で入った条（{{ nb|map(attribute="where")|join("、") }}）は理事会・総会で決めた数字を、{% endif %}それ以外は今お使いの規約（原本）の数字を入れます。改定ではなく、原本の数字を写す作業です。
@@ -82,7 +85,7 @@
       </div>
     {% endfor %}
     </div>
-    <div class="srcnote src-電子データ"><b>使う前に確認すること：</b>文字は今の規約と改定案から正確に組み立てますが、元の規約集の書式（字下げ、表、別表のレイアウト）や、条番号の書き方（漢数字など）までは引き継ぎません。
+    <div class="srcnote src-電子データ"><b>使う前に確認すること：</b>文字は今の規約と改定案から正確に組み立てますが、元の規約集の書式（字下げ・表）や、条番号の書き方（漢数字など）までは引き継ぎません。別表・様式は入れず「原本のとおり」と書くので、原本のページを綴じてください。
       体裁は元の規約集に合わせて整え、総会の議事録の文言と照らし合わせてから、規約原本と一緒に保管してください。</div>
   {% else %}
     {% if meeting.results %}<p class="muted">可決した議案がないため、最新の規約は作りません。</p>{% endif %}

@@ -16,7 +16,8 @@ import re
 from core.corpus import MAIN, Corpus
 
 # ほかの決まりに任せる書き方。「この規約に別に定めるもののほか」のような、規約の中を指すものは除く
-DELEGATE = re.compile(r"別に[^。、]{0,8}?定め(?:る|た|ところ)|(?:使用)?細則(?:で|において)定め(?:る|た)")
+DELEGATE = re.compile(r"別に[^。、]{0,8}?定め(?:る|た|ところ)|別途[^。、]{0,12}?定め(?:る|た|ところ)"
+                      r"|(?:使用)?細則(?:で|において)定め(?:る|た)|細則を定め(?:る|た)")
 SELF = re.compile(r"(?:この)?規約(?:に|で)別に定め")
 # 任せている事項の呼び名（文の言葉から。上から順に見る）
 MATTERS = [
@@ -26,6 +27,7 @@ MATTERS = [
     (r"組合員以外の者から理事又は監事|役員.*選任方法", "外部の役員の選任方法"),
     (r"報酬|必要経費", "役員の報酬・必要経費"),
     (r"徴収日|臨時に要する費用", "管理費等の徴収日・臨時の徴収"),
+    (r"窓ガラス|開口部", "窓ガラス等の改良"),
     (r"使用細則", "使用細則（建物・敷地の使い方）"),
     (r"総会及び理事会の運営|会計処理|届出事項", "総会・理事会の運営、会計処理、届出事項など"),
     (r"総会", "総会の運営"),
@@ -40,6 +42,7 @@ RULE_WORDS = {
     "役員の報酬・必要経費": r"報酬|役員",
     "管理費等の徴収日・臨時の徴収": r"管理費|徴収",
     "使用細則（建物・敷地の使い方）": r"使用細則",
+    "窓ガラス等の改良": r"窓ガラス|開口部",
     "総会の運営": r"総会",
     "総会・理事会の運営、会計処理、届出事項など": r"総会|理事会|会計|届出",
     "理事会の運営": r"理事会運営|理事会細則",
@@ -76,13 +79,23 @@ def delegations(corpus: Corpus) -> list[dict]:
     return out
 
 
+def _same_caption(cited: str, real: str) -> bool:
+    """細則が引いた見出しと規約の見出しが、同じ条を指していると言えるか。略して引く（「窓ガラス等の改良」）、
+    送り仮名や「の／への」が違う（「必要箇所の立ち入り」と「必要箇所への立入り」）ものは同じとみなす。"""
+    from difflib import SequenceMatcher
+
+    a, b = re.sub(r"[　 ・、]", "", cited), re.sub(r"[　 ・、]", "", real)
+    return a in b or b in a or SequenceMatcher(None, a, b).ratio() >= 0.7
+
+
 def citations(corpus: Corpus) -> list[dict]:
     """細則が引いている規約の条と、それが合っているか（見出しが違えば、見出しが同じ条を探して示す）。"""
     by_no = {a.number: a for a in corpus.main.articles}
     by_cap = {a.caption: a for a in corpus.main.articles if a.caption}
     out = []
     for name, rule in corpus.rules.items():
-        text = "\n".join(a.text() for a in rule.articles)
+        # 細則の前文（「管理規約第17条の規定に基づいて…」）にも根拠の条が書かれる
+        text = "\n".join([*rule.preamble, *(a.text() for a in rule.articles)])
         seen = set()
         for m in CITE.finditer(text):
             no = m.group(1).translate(Z2H) + (f"-{m.group(2).translate(Z2H)}" if m.group(2) else "")
@@ -95,6 +108,9 @@ def citations(corpus: Corpus) -> list[dict]:
             row = {"rule": name, "cited": label + (f"（{cap}）" if cap else ""), "number": no, "ok": True, "note": "", "right": ""}
             if art is None:
                 row.update(ok=False, note=f"規約に{label}がありません。")
+            elif cap and art.caption and _same_caption(cap, art.caption):
+                if cap != art.caption:
+                    row["note"] = f"見出しの書き方が少し違います（規約は「{art.caption}」）。"
             elif cap and art.caption and cap != art.caption:
                 right = by_cap.get(cap)
                 row.update(ok=False, right=right.number if right else "", note=f"規約の{art.label}は「{art.caption}」です。"
@@ -153,7 +169,7 @@ def to_html(k: dict, title: str, ident: str = "") -> str:
         + "".join(f"<br><b>ただし</b>{e(w)}" for w in r["wrong"]) + "</td></tr>" for r in k["rows"])
     cites = "".join(
         f"<tr class=\"{'row-opt' if c['ok'] else 'row-must'}\"><td data-label=\"細則\">{e(c['rule'])}</td><td data-label=\"引いている規約の条\">{e(c['cited'])}</td>"
-        f"<td data-label=\"合っているか\">{'合っている' if c['ok'] else '<b>ずれている</b>：' + e(c['note'])}</td></tr>" for c in k["citations"])
+        f"<td data-label=\"合っているか\">{('合っている' + ('（' + e(c['note']) + '）' if c['note'] else '')) if c['ok'] else '<b>ずれている</b>：' + e(c['note'])}</td></tr>" for c in k["citations"])
     summary = (f"規約がほかの決まりに任せている事項 {len(k['rows'])}件のうち、読み込んだ規約集に細則が見当たらないもの {len(k['missing'])}件。"
                + (f"細則が引いている規約の条のずれ {len(k['bad_cites'])}件。" if k["has_rules"] else "細則は読み込んでいません。"))
     return f"""<!doctype html>

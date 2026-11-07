@@ -42,3 +42,26 @@ def test_kozo_page_from_work(board_work):
     assert f'href="/works/{wid}/kozo"' in c.get(f"/works/{wid}").text
     page = c.get(f"/works/{wid}/kozo").text
     assert "規約がほかの決まりに任せている事項" in page and "細則は読み込んでいません" in page and "./#documents" in page
+
+
+def test_various_wordings_and_caption_variants():
+    """実在の規約集の書き方の幅（11/7 作者の規約集で確かめて直した）：
+    「別途細則を定める」「細則を定めるものとする」も拾う。細則の前文に書かれた根拠の条も見る。
+    見出しを略して引く・送り仮名が違うだけのものは、ずれにしない。"""
+    from core.kozo import _same_caption, citations
+    from core.model import Kiyaku
+    from core.split import split_kiyaku
+
+    main = split_kiyaku(("（使用細則）\n第17条　対象物件の使用については、必要に応じて使用細則等別途細則を定めるものとする。\n"
+                         "（管理）\n第20条　管理組合が管理する。\n2　管理組合は、前項の工事について、細則を定めるものとする。\n"
+                         "（必要箇所への立入り）\n第22条　必要箇所への立入りを請求できる。\n（効力）\n第23条　効力を持つ。\n（組合）\n第24条　組合を置く。\n").splitlines())
+    rule = split_kiyaku(("管理規約第17条の規定に基づいて、次のとおり定める。\n第1条　この細則は、規約第22条（必要箇所の立ち入り）による。\n"
+                         "第2条　守る。\n第3条　改廃する。\n").splitlines())
+    co = Corpus(main, {"使用細則": rule})
+    got = {r["article"]: r for r in delegations(co)}
+    assert "第17条" in got and "第20条" in got and got["第20条"]["para"] == "第2項"
+    cites = {c["number"]: c for c in citations(co)}
+    assert "17" in cites and cites["22"]["ok"] and "見出しの書き方が少し違います" in cites["22"]["note"]
+    assert _same_caption("窓ガラス等の改良", "敷地及び共用部分等の管理に関する責任と負担並びに窓ガラス等の改良")
+    assert not _same_caption("駐車場の使用", "敷地及び共用部分等の第三者の使用")
+    assert isinstance(main, Kiyaku)

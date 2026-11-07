@@ -148,3 +148,23 @@ def test_mansion_name_suggestion_drops_suffix():
     raw = [{"where": "第1条（目的）", "slots": [{"i": 0, "before": "…この規約は、", "after": "マンション…", "mark": "○○"}], "lines": [], "changed": False}]
     got = M.blank_slots(raw, {}, "グリーンヒルマンション管理組合")
     assert got[0]["slots"][0]["suggest"] == "グリーンヒル"
+
+
+def test_latest_rules_leave_out_tables_and_working_notes():
+    """最新の規約：別表・様式は「原本のとおり」と書いて中身を入れない。前置きの作業用の説明の文も入れない（11/7 作者の判断）。"""
+    from datetime import date
+
+    from core.consolidate import consolidate, left_out
+    from core.split import split_kiyaku
+
+    text = ("○○マンション管理規約\n議事録で内容は確認済。第31期の改正は規約4条の改正をまとめて1つの注記で示す形式で、別紙にも載っている\n"
+            "（目的）\n第1条　目的とする。\n（定義）\n第2条　定義する。\n（範囲）\n第3条　範囲とする。\n（効力）\n第4条　効力を持つ。\n"
+            "附　則\nこの規約は、令和元年4月1日から効力を発する。\n別表第1　対象物件の表示\n物件名　○○マンション\n別表第2　共用部分\n"
+            "管理費の表\n地下駐車場　8,000円　17台\n様式1　届出書\n")
+    k = split_kiyaku(text.splitlines())
+    lo = left_out(k)
+    assert lo["tables"] == ["別表第1", "別表第2", "様式1"] and len(lo["notes"]) == 1
+    blocks = consolidate(k, [], "規約", date(2027, 5, 23), "総会")
+    alltext = "\n".join(x for b in blocks for x in b.lines)
+    assert "議事録で内容は確認済" not in alltext and "○○マンション管理規約" in alltext   # 題名は残す
+    assert "地下駐車場" not in alltext and "別表第1・別表第2・様式1は、今回の改正はありません。原本のとおりです" in alltext
