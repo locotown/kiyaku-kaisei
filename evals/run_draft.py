@@ -123,7 +123,7 @@ def main() -> None:
         (out / "taisho.md").write_text(to_markdown(result.draft, corpus, f"新旧対照表（評価用：{input_path.name}）"), encoding="utf-8")
     (out / "metrics.json").write_text(json.dumps({"metrics": metrics, "result": result.to_dict()}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
-    print(f"保存: {out.relative_to(ROOT)}/")
+    print(f"保存: {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out}/")   # リポジトリの外（非公開の結果の置き場）にも保存できる
 
 
 if __name__ == "__main__":
