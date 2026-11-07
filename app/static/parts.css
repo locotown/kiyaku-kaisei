@@ -288,3 +288,10 @@
 .tk .bl-slot input.unset { border-style: dashed; background: #fbf1df; }
 .tk .bl-act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); }
 .tk .bsave.ok { color: var(--color-ok); } .tk .bsave.ng { color: var(--color-must); }
+
+/* 読み込んだ版の確かめ（ステップ1。課題①②） */
+.tk .readcheck { margin-top: var(--space-4); }
+.tk .readcheck h2 { font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+.tk .readcheck .vform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0; }
+.tk .readcheck .vform label { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit-min); margin: 0; font-weight: 400; }
+.tk .readcheck table td { vertical-align: top; }

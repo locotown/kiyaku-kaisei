@@ -52,6 +52,27 @@
   </table>
   </details>
   {% endif %}
+  {# 読み込んだ規約が今有効な版かの確かめ（課題①②。AI は使わない）。本文が改正前のままだと、古い文で点検し古い文に改定を重ねてしまう #}
+  {% set rc = read_check(id) %}{% set va = work.version or ("はい" if work.persona else "") %}
+  <section class="card2 readcheck" id="readcheck" aria-labelledby="rc-h">
+    <h2 id="rc-h">読み込んだ版の確かめ</h2>
+    {% if va == "はい" %}<p class="small">「これまでの改正を全部反映した版」として読み込みました。{% if rc.history.count %}念のため、下の「規約集の改正の記録」に出てくる条が、改正後の文になっているかを見てください。{% endif %}</p>
+    {% else %}<div class="{{ 'warn' if va else 'note2' }}"><b class="w">{% if va %}読み込むときに「{{ va }}」と答えました。{% else %}この規約が、これまでの改正を全部反映した版かを確かめてください。{% endif %}</b>
+      本文が改正前のままだと、古い文で点検し、古い文に改定を重ねてしまいます。改正を本文に重ねた版を作り、新しい作業として読み込み直してください。
+      <ol class="small"><li>規約集の改正の一覧（冒頭の一覧表など）と総会の議事録で、改正された条と改正後の文を確かめる（規約集に綴じ込まれていない改正がないかも、議事録で確かめる）</li>
+        <li>Word などで、本文の改正された条を、改正後の文に差し替える</li>
+        <li>その版を、トップの「1. 規約を読み込む」から新しい作業として読み込む</li></ol></div>{% endif %}
+    <form method="post" action="/works/{{ id }}/version" class="vform small"><span>この規約は、これまでの改正を全部反映した版ですか：</span>
+      {% for k in ["はい", "いいえ", "分からない"] %}<label><input type="radio" name="version" value="{{ k }}" {% if va == k %}checked{% endif %} onchange="this.form.submit()">{{ k }}</label>{% endfor %}
+      <noscript><button type="submit" class="boxed">保存</button></noscript></form>
+    {% if rc.history.count %}<details class="fold"><summary>規約集の改正の記録（{% if rc.history.articles %}出てくる条 {{ rc.history.articles|length }}か条・{% endif %}記録 {{ rc.history.count }}件）</summary>
+      <p class="small">本文がこの改正のあとの文になっているかを、原本と見比べてください（機械では決められません）。</p>
+      <table class="small"><tr><th>改正の記録</th><th>出てくる条</th></tr>{% for e in rc.history.entries %}<tr><td>{{ e.text }}</td><td>{{ e.refs|join("、") or "—" }}</td></tr>{% endfor %}</table>
+      {% if rc.history.count > rc.history.entries|length %}<p class="small muted">ほか {{ rc.history.count - rc.history.entries|length }}件</p>{% endif %}</details>
+    {% elif not rc.has_history %}<p class="small muted">規約集の中に、改正の記録（改正履歴）は見当たりませんでした。これまでに改正したことがあれば、その条が改正後の文になっているかを確かめてください。</p>{% endif %}
+    {% if rc.memos %}<div class="note2"><b class="w">条の文の中に、メモのような文があります（{{ rc.memos|length }}か所）。</b>規約の文でなければ、元のファイルから消して読み込み直してください（そのままだと、最新の規約にも残ります）。
+      <ul class="small">{% for m in rc.memos %}<li><b>{% if m.doc != "規約" %}{{ m.doc }} {% endif %}{{ m.article }}</b>：{{ m.text }}</li>{% endfor %}</ul></div>{% endif %}
+  </section>
   {# 規約集の構成表：規約がほかの決まりに任せている事項と、対応する細則（計画F1。AI は使わない） #}
   <div class="draftacts kozo-acts"><div class="da-card kozo-link">
     <div class="da-head">{{ icon("file", "icon da-icon") }}<div><h3>規約集の構成表（細則の整理）</h3>
