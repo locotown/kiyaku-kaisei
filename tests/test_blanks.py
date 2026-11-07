@@ -25,7 +25,7 @@ def test_in_draft_skips_deleted_articles_and_names_documents():
         {"kind": "改正", "article": "第3条", "document": "総会運営細則", "text": "第3条　○日前までに通知する。"},
         {"kind": "改正", "article": "第60条", "text": "第60条　年利5%の遅延損害金"},
     ]}
-    assert [x["where"] for x in in_draft(draft)] == ["第52条", "総会運営細則 第3条"]
+    assert [(x["where"], x["n"]) for x in in_draft(draft)] == [("第52条", 1), ("総会運営細則 第3条", 4)]   # 行の番号は規約が先
     assert in_draft(None) == []
 
 
@@ -47,7 +47,7 @@ def test_step3_tells_blanks_in_draft(board_work):
     w["draft"]["amendments"][0]["text"] += "\n2　理事長は、○か月に1回以上、職務の執行の状況を理事会に報告しなければならない。"
     store.update(wid, draft=w["draft"])
     page = c.get(f"/works/{wid}").text
-    assert "「○」の空欄が残っている条があります（1条）" in page and "○か月に1回" in page and "/articles#row-top" in page
+    assert "「○」の空欄が残っている条があります（1か条）" in page and "○か月に1回" in page and "/articles#row1" in page
 
 
 def test_step6_tells_blanks_in_latest_rules(board_work, monkeypatch):

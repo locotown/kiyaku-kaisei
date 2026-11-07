@@ -38,7 +38,7 @@
     {% for doc, ams in meeting_groups.items() %}{% set gi = loop.index0 %}{% set res = (meeting.results or {}).get(doc) %}
       <div class="mtg">
         <div class="mh"><div><span class="eyebrow">第{{ gi + 1 }}号議案　{{ "総会の特別決議" if doc == "規約" else "総会の普通決議" }}</span>
-          <div class="tt"><b>{{ doc if doc != "規約" else "管理規約" }}の改定（{{ ams|length }}条）</b></div></div>
+          <div class="tt"><b>{{ doc if doc != "規約" else "管理規約" }}の改定（{{ ams|length }}か条）</b></div></div>
           {% if res in passed %}<div class="seal" style="transform:rotate({{ -9 if gi % 2 == 0 else 7 }}deg)" aria-label="{{ res }}">可決</div>{% endif %}</div>
         <label for="m_result_{{ gi }}" class="sr">結果</label>
         <select id="m_result_{{ gi }}" name="m_result_{{ gi }}" style="max-width:280px">
@@ -60,7 +60,7 @@
     <div class="finals">
     {% for f in finals %}
       <div class="doc final">{{ icon("file") }}<div style="flex:1;min-width:0">
-        <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
+        <div class="tt">{{ f.title }}</div><div class="d">改正 {{ f.count }}か条{% if not f.left %}　規約集の改正履歴に足す一行：{{ f.history }}{% endif %}</div>
         {% if f.blanks %}{% set nb = f.blanks|selectattr("changed")|list %}<div class="warn blanks"><b class="w">「○」の空欄が残っている箇所があります（{{ f.blanks|length }}か所）。</b>標準管理規約のひな形で、組合が数字や名前を入れる箇所です。このままでは規約として使えないので、Word で保存したあとに入れてください。{% if nb %}今回の改定で入った条（{{ nb|map(attribute="where")|join("、") }}）は理事会・総会で決めた数字を、{% endif %}それ以外は今お使いの規約（原本）の数字を入れます。
           <details class="fold"><summary>空欄の一覧（{{ f.blanks|length }}か所）</summary><ul class="small">{% for x in f.blanks %}<li><b>{{ x.where }}</b>{% if x.changed %}（今回の改定）{% endif %}：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></details></div>{% endif %}
         {% if f.variants %}<p class="warn"><b class="w">どちらかを選ぶ両案（（ア）（イ）など）が残っている条があります：{{ f.variants|join("、") }}</b>。今の規約にもともとある両案です。<a href="#variants">「4. 理事会で検討」の「今の規約の両案」</a>で組合で採用している案を選ぶと、最新の規約にはその案だけが残ります。選べない形の条は、Word で保存したあとに、採用している案だけを残してください。</p>{% endif %}

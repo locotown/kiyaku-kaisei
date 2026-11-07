@@ -352,8 +352,8 @@ def edit_note(edits: dict | None, a) -> str:
 
 def summary_line(all_rows: list[dict], n_required: int, skipped: set | None) -> str:
     n_skip = sum(1 for r in all_rows if is_skipped(skipped, r["amendment"]))
-    tail = f"。このうち{n_skip}条は理事会で見送りにしたため、総会には出しません（表には行の番号を変えずに残しています）" if n_skip else ""
-    return f"改定 {len(all_rows)}条のうち、{{must}}を含む条 {n_required}条、{{opt}}だけの条 {len(all_rows) - n_required}条{tail}"
+    tail = f"。このうち{n_skip}か条は理事会で見送りにしたため、総会には出しません（表には行の番号を変えずに残しています）" if n_skip else ""
+    return f"改定 {len(all_rows)}か条のうち、{{must}}を含む条 {n_required}か条、{{opt}}だけの条 {len(all_rows) - n_required}か条{tail}"
 
 
 def edit_label(edits: dict | None, a) -> str:
@@ -407,7 +407,7 @@ def _html_table(items: list[tuple[int, dict]], heading: str, edits: dict | None 
             f"{'<ul>' + choices + '</ul>' if choices else ''}</td>"
             "</tr>"
         )
-    head = f"<h2>{html.escape(heading)}（{len(items)}条）</h2>" if heading else ""
+    head = f"<h2>{html.escape(heading)}（{len(items)}か条）</h2>" if heading else ""
     return (f"{head}<table class=\"taisho\"><thead><tr><th>改定案</th><th>現行</th><th>区分・変更の理由・根拠</th></tr></thead>"
             f"<tbody>{''.join(body)}</tbody></table>")
 

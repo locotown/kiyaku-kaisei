@@ -13,7 +13,7 @@
   <button type="submit" form="artform" class="btn" {% if busy %}disabled{% endif %}>直した文を保存する</button></div>
 
 {% if reverted %}<div class="justdone">{{ icon("check") }}<span>{{ reverted }}を、AI が作った文に戻しました。新旧対照表などの資料も直し、版の番号が変わりました。</span></div>{% endif %}
-{% if saved %}<div class="justdone" id="saved-note">{{ icon("check") }}<span>{{ saved }}条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
+{% if saved %}<div class="justdone" id="saved-note">{{ icon("check") }}<span>{{ saved }}か条を保存しました。新旧対照表などの資料も直し、版の番号が変わりました。次の会議の前に、印刷し直してください。</span></div>{% endif %}
 {% if busy %}<p class="warn"><b class="w">AI が作業中です。</b>終わってから直してください。</p>{% endif %}
 
 <div class="review-top sec" id="row-top">
@@ -21,7 +21,7 @@
   <p class="small">人が直した文は、そのままでは法律や標準管理規約に合っているかを誰も確かめていません。資料では「委員会で直した文（AI の確認前）」と表示されます。
     「AI に確かめてもらう」を押すと、AI の元の文・指摘・根拠の条文と見比べて、問題がないかを根拠付きで返します（押したときだけ動きます。1条あたり数セント〜十数セント）。文を直したら、先に下の「直した文を保存する」を押してから確かめてください。結果は参考で、法的助言ではありません。</p>
   {% if counts.total %}
-  <p>委員会で直した条 <b>{{ counts.total }}条</b>（AI の確認前 <b>{{ counts.unchecked|length }}条</b>{% if counts.unchecked %}：{{ counts.unchecked|join("、") }}{% endif %}）</p>
+  <p>委員会で直した条 <b>{{ counts.total }}か条</b>（AI の確認前 <b>{{ counts.unchecked|length }}か条</b>{% if counts.unchecked %}：{{ counts.unchecked|join("、") }}{% endif %}）</p>
   {% if counts.flagged %}<p class="warn"><b class="w">AI が気になる点を挙げた条：{{ counts.flagged|join("、") }}</b>。下の結果を読んで、必要なら直すか、AI が作った文に戻してください。</p>{% endif %}
   {% if reviewing %}{% set rp = review_progress %}
   <div class="reviewing" role="status"><span class="spinner" aria-hidden="true"></span>

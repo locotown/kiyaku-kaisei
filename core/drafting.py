@@ -188,7 +188,7 @@ class DraftToolHandler(ToolHandler):
             try:
                 n = self.share_references(result.amendments)
                 if n:
-                    self.notify("tool", f"share_references：参照先の条の現行の文を採点役に渡す：{n}条")
+                    self.notify("tool", f"share_references：参照先の条の現行の文を採点役に渡す：{n}か条")
             except Exception as e:  # 渡せなくても改定案づくりは続ける（採点役は参照先の有無だけを確かめる）
                 self.notify("error", f"参照先の条の文を渡せませんでした：{e}")
         if errors:
@@ -262,7 +262,7 @@ def run_draft(
     )
     notify("session", session.id)
     if pre["drafts"]:
-        notify("precedent", f"標準どおりの条 {len(pre['drafts'])}条は、国の改正文を下書きに使います（{'、'.join(d['article'] for d in pre['drafts'][:6])}{' ほか' if len(pre['drafts']) > 6 else ''}）")
+        notify("precedent", f"標準どおりの条 {len(pre["drafts"])}か条は、国の改正文を下書きに使います（{'、'.join(d['article'] for d in pre['drafts'][:6])}{' ほか' if len(pre['drafts']) > 6 else ''}）")
     handler.attach(c, session.id, notify)
 
     kickoff = {

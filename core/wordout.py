@@ -184,7 +184,7 @@ def taisho_docx(draft, kiyaku, title: str = "管理規約 新旧対照表（案�
     widths = [100, 90, 79]  # A4 横の本文の幅（約269mm）を 改定案・現行・理由で分ける
     for document, items in grouped:
         if len(grouped) > 1 or document != "規約":
-            heading(doc, f"{group_heading(document)}（{len(items)}条）", 1)
+            heading(doc, f"{group_heading(document)}（{len(items)}か条）", 1)
         t = table(doc, ["改定案", "現行", "区分・変更の理由・根拠"], widths)
         for n, r in items:
             a = r["amendment"]
@@ -332,7 +332,7 @@ def explain_docx(ex, name: str = "", draft=None, ident: str = "") -> bytes:
         from core.taisho import classify
 
         cov = coverage(ex, draft)
-        heading(doc, f"付録：変更する条の一覧（{len(cov['rows'])}条）", 1)
+        heading(doc, f"付録：変更する条の一覧（{len(cov['rows'])}か条）", 1)
         widths = [24, 46, 16, 32, 20, 44]
         t = table(doc, ["条", "見出し", "種類", "区分", "決議", "説明の項目"], widths)
         for r, a in zip(cov["rows"], draft.amendments):

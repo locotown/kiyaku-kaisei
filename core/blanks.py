@@ -33,14 +33,19 @@ def snippets(text: str) -> list[str]:
 
 def in_draft(draft: dict | None) -> list[dict]:
     """改定案の条のうち、「○」の空欄が残っている条（削る条は除く）。"""
+    ams = (draft or {}).get("amendments") or []
+    # 行の番号（新旧対照表・「条の文を直す」と同じ。規約を先に、細則は出てきた順。core.taisho.numbered と同じ並べ方）
+    docs = sorted(dict.fromkeys(a.get("document") or "規約" for a in ams), key=lambda d: 0 if d == "規約" else 1)
+    order = [i for d in docs for i, a in enumerate(ams) if (a.get("document") or "規約") == d]
+    row = {i: n for n, i in enumerate(order, 1)}
     out = []
-    for a in (draft or {}).get("amendments") or []:
+    for i, a in enumerate(ams):
         if a.get("kind") == "削除":
             continue
         found = snippets(a.get("text") or "")
         if found:
             doc = a.get("document") or "規約"
-            out.append({"where": (f"{doc} " if doc != "規約" else "") + (a.get("article") or ""), "snippets": found})
+            out.append({"where": (f"{doc} " if doc != "規約" else "") + (a.get("article") or ""), "snippets": found, "n": row[i]})
     return out
 
 

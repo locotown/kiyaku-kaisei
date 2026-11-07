@@ -222,7 +222,7 @@ def to_html(ex: Explanation, name: str = "", draft: Draft | None = None, ident: 
             f"<td>{'、'.join(str(x) for x in r['items']) or '本文では取り上げていません'}</td></tr>"
             for r, a in zip(cov["rows"], draft.amendments)
         )
-        appendix = (f'<h2>付録：変更する条の一覧（{len(cov["rows"])}条）</h2>'
+        appendix = (f'<h2>付録：変更する条の一覧（{len(cov["rows"])}か条）</h2>'
                     '<table class="list"><tr><th>条</th><th>見出し</th><th>種類</th><th>区分</th><th>決議</th><th>説明の項目</th></tr>'
                     f"{trs}</table>")
     return f"""<!doctype html>

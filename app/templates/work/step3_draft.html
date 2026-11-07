@@ -29,8 +29,8 @@
   {% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "改定案作成中" and work.draft %}
-    {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}条）。下の「新旧対照表で確かめる」で中身を確認し、次は理事会での検討です。</span></div>
-    {% else %}<div class="justdone warn">{{ icon("alert") }}<span>改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}条）。下の「確かめた結果」を読んでから進んでください。</span></div>{% endif %}
+    {% if quality and quality.level == "ok" %}<div class="justdone">{{ icon("check") }}<span>改定案ができました（改定 {{ work.draft.amendments|length }}か条）。下の「新旧対照表で確かめる」で中身を確認し、次は理事会での検討です。</span></div>
+    {% else %}<div class="justdone warn">{{ icon("alert") }}<span>改定案はできましたが、確認が済んでいない点があります（改定 {{ work.draft.amendments|length }}か条）。下の「確かめた結果」を読んでから進んでください。</span></div>{% endif %}
   {% endif %}
   <div class="done{{ ' stale' if work.draft_stale else '' }}">
     <div class="stats">
@@ -52,7 +52,7 @@
       <h2>確かめた結果</h2>
       <div class="q-head">{{ icon("check") if q.level == "ok" else icon("alert") }}{{ q.head }}</div>
       <div class="q-body">
-        <div class="small">{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
+        <div class="small">{% for doc, n in q.by_doc.items() %}{{ doc }} {{ n }}か条{{ "＝総会の特別決議" if doc == "規約" else "＝総会の普通決議" }}{% if not loop.last %}、{% endif %}{% endfor %}</div>
         <ul class="q-list">
           <li><span class="mk {{ 'ok' if q.checks_ok else 'ng' }}">{{ icon("check") if q.checks_ok else icon("alert") }}</span> <b>プログラムによる確認</b>：{{ "問題なし" if q.checks_ok else "問題あり（上の「うまくいきませんでした」を確認）" }}
             <details><summary>確認した内容（{{ q.checks|length }}項目）</summary><ul>{% for c in q.checks %}<li>{{ c }}</li>{% endfor %}</ul></details></li>
@@ -64,7 +64,7 @@
               <div class="small">新旧対照表の「現行」欄は、ツールが読み込んだ規約から直接表示しています。そこと見比べて確認してください。</div></div>{% endif %}
             {% for r in q.rounds %}<details><summary>{{ r.n }}回目の確認役のコメント（原文）</summary><div class="btext">{{ r.explanation }}</div></details>{% endfor %}</li>
         </ul>
-        {% if q.precedent.count %}<div class="small">標準どおりの条 <b>{{ q.precedent.count }}条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
+        {% if q.precedent.count %}<div class="small">標準どおりの条 <b>{{ q.precedent.count }}か条</b>（{{ q.precedent.articles[:6]|join("、") }}{{ " ほか" if q.precedent.articles|length > 6 else "" }}）は、今の文が改正前の標準管理規約と一字一句同じだったため、国が公表した改正後の条文を下書きにしました。</div>{% endif %}
         {% if q.costs.lines %}<details class="costs"><summary>AI の費用（これまでの合計 約${{ "%.2f"|format(q.costs.total) }}）</summary>
           <ul>{% for c in q.costs.lines %}<li>{{ c.step }}：約${{ "%.2f"|format(c.usd) }}{% if c.at %} <span class="muted">（{{ c.at }}）</span>{% endif %}</li>{% endfor %}</ul>
           <div class="small">公開価格での概算です（APIキーの持ち主に請求されます）。11/5 より前に作った検討資料・住民向け説明の費用（1回 数セント〜数十セント）は記録していません。</div></details>{% endif %}
@@ -78,13 +78,13 @@
       {% if q.extra %}<div class="check extra"><span class="num small">{{ 3 if q.choices else 2 }}</span><div>指摘の対象以外で直した条：<b>{{ q.extra|join("、") }}</b>（条番号の参照合わせなど）。指摘から直接求められた改定ではないので、新旧対照表で特に確認してください。</div></div>{% endif %}
       {% set bl = draft_blanks(work) %}
       {# 標準管理規約の「○」の空欄（役員の人数・任期など）が改定案に残ると、そのままでは規約として使えない（計画D1） #}
-      {% if bl %}<div class="check blanks"><span class="num small">！</span><div><b class="w">「○」の空欄が残っている条があります（{{ bl|length }}条）。</b>標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が数字を入れて決めます。理事会で決めた数字を、<a href="/works/{{ id }}/articles#row-top">「条の文を直す」</a>で入れてください。
-        <ul class="small">{% for x in bl %}<li><b>{{ x.where }}</b>：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></div></div>{% endif %}
+      {% if bl %}<div class="check blanks"><span class="num small">！</span><div><b class="w">「○」の空欄が残っている条があります（{{ bl|length }}か条）。</b>標準管理規約は、役員の人数・任期・報告の頻度などを「○」で空けていて、組合が数字を入れて決めます。理事会で決めた数字を、「条の文を直す」で入れてください（条の名前を押すと、その条を直す欄に移ります）。
+        <ul class="small">{% for x in bl %}<li><a href="/works/{{ id }}/articles#row{{ x.n }}"><b>{{ x.where }}</b></a>：{{ x.snippets|join("　／　") }}</li>{% endfor %}</ul></div></div>{% endif %}
       {% set side = draft_side_notes(work) %}
       {% if side %}<div class="check"><span class="num small">＋</span><div><details class="fold"><summary>AI が気づいた、今回の指摘の範囲外の点（{{ side|length }}点）：改定案には入れていません。必要なら理事会で話し合い、「条の文を直す」で直せます</summary>
         <ul class="small">{% for s in side %}<li>{{ name_topics(s) }}</li>{% endfor %}</ul></details></div></div>{% endif %}
       {% set ec = edit_counts(work) %}
-      {% if ec.total %}<div class="check"><span class="num small">！</span><div>委員会で直した条が<b>{{ ec.total }}条</b>あります{% if ec.unchecked %}（そのうち AI の確認前 <b>{{ ec.unchecked|length }}条</b>：{{ ec.unchecked|join("、") }}）。人が直した文は、法律や標準管理規約に合っているかをまだ確かめていません。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で AI に確かめてもらえます</a>{% else %}。すべて AI が確かめました{% endif %}。
+      {% if ec.total %}<div class="check"><span class="num small">！</span><div>委員会で直した条が<b>{{ ec.total }}か条</b>あります{% if ec.unchecked %}（そのうち AI の確認前 <b>{{ ec.unchecked|length }}か条</b>：{{ ec.unchecked|join("、") }}）。人が直した文は、法律や標準管理規約に合っているかをまだ確かめていません。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で AI に確かめてもらえます</a>{% else %}。すべて AI が確かめました{% endif %}。
         {% if ec.flagged %}<div class="flagged">AI が気になる点を挙げた条：<b>{{ ec.flagged|join("、") }}</b>。<a href="/works/{{ id }}/articles#row-top">「条の文を直す」で内容を確かめ</a>、必要なら直すか AI の文に戻してください。</div>{% endif %}</div></div>{% endif %}
       {# 役割の違う操作を、同じ形で並べない：①新旧対照表を見る・持ち出す ②条の文を直す ③前のステップに戻る（人の確認の気づき） #}
       <div class="draftacts">
