@@ -1261,7 +1261,7 @@ def read_check(work_id: str) -> dict:
     try:
         return view(load_collection(_source(work_id)))
     except Exception:
-        return {"memos": [], "history": {"entries": [], "count": 0, "articles": []}, "has_history": False}
+        return {"memos": [], "history": {"entries": [], "count": 0, "articles": []}, "has_history": False, "documents": []}
 
 
 templates.env.globals["read_check"] = read_check
@@ -1287,9 +1287,15 @@ def kozo(work_id: str):
     from core.kozo import build, to_html
 
     work = store.load(work_id)
+    from core.ingest import load_collection
+
+    try:
+        fresh = load_collection(_source(work_id)).summary()   # 今の分け方で（読み込んだときの記録は古いことがある）
+    except Exception:
+        fresh = work.get("documents") or []
     docs = [{"kind": d["kind"], "title": d["title"],
              "count": (f"{d['articles']}{'項目' if d.get('style') == '項目' else 'か条'}" if d.get("articles") else "—")}
-            for d in work.get("documents") or []] or None
+            for d in fresh] or None
     k = build(_corpus(work_id), docs)
     title = f"{_org(work)} 規約集の構成表".strip()
     return HTMLResponse(to_html(k, title, ident=_ident(work_id, work)))

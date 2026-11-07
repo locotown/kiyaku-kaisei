@@ -38,13 +38,14 @@
       <button type="submit" class="boxed">保存する</button>
     </form></details>
   {% if source_note.text and source_note.kind != "サンプル" %}<div class="srcnote src-{{ source_note.kind }}"><b>{{ source_note.label }}から読み込みました。</b>{{ source_note.text }}</div>{% endif %}
-  {% if work.documents and work.documents|length > 1 %}
-  {% set docs = work.documents|selectattr("kind", "in", ["規約", "細則"])|list %}
-  <details class="fold" {% if not work.findings %}open{% endif %}><summary>読み込んだ文書：全{{ work.documents|length }}件（規約・細則 {{ docs|length }}件、その他 {{ work.documents|length - docs|length }}件）</summary>
-  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
+  {% set rc = read_check(id) %}{% set alldocs = rc.documents or work.documents or [] %}
+  {% if alldocs|length > 1 %}
+  {% set docs = alldocs|selectattr("kind", "in", ["規約", "細則"])|list %}
+  <details class="fold" {% if not work.findings %}open{% endif %}><summary>読み込んだ文書：全{{ alldocs|length }}件（規約・細則 {{ docs|length }}件、その他 {{ alldocs|length - docs|length }}件）</summary>
+  <p class="muted">ファイルを文書ごとに分けました。「規約」と「細則」を点検します。「その他の決まり」（ルール・申し合わせなど、規約でも細則でもない決まり）は、今回の改正対応の対象外です。改定案は、規約（特別決議）と細則（普通決議）に分けて出します。ページ参照（規約集 p○）や◆★の注記、「出典 = …」のような作業メモは本文から外しています。分け方が違う場合はお知らせください。</p>
   <table>
     <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
-    {% for d in work.documents %}
+    {% for d in alldocs %}
     <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
         <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "か条" }}{% else %}—{% endif %}</td>
         <td>{{ d.annotations }}件</td></tr>
@@ -53,7 +54,7 @@
   </details>
   {% endif %}
   {# 読み込んだ規約が今有効な版かの確かめ（課題①②。AI は使わない）。本文が改正前のままだと、古い文で点検し古い文に改定を重ねてしまう #}
-  {% set rc = read_check(id) %}{% set va = work.version or ("はい" if work.persona else "") %}
+  {% set va = work.version or ("はい" if work.persona else "") %}
   <section class="card2 readcheck" id="readcheck" aria-labelledby="rc-h">
     <h2 id="rc-h">読み込んだ版の確かめ</h2>
     {% if va == "はい" %}<p class="small">「これまでの改正を全部反映した版」として読み込みました。{% if rc.history.count %}念のため、下の「規約集の改正の記録」に出てくる条が、改正後の文になっているかを見てください。{% endif %}</p>

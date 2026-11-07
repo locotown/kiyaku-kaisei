@@ -57,4 +57,5 @@ def history(collection) -> dict:
 def view(collection) -> dict:
     corpus = Corpus.from_collection(collection)
     return {"memos": memo_lines(corpus), "history": history(collection),
-            "has_history": any(d.kind == "改正履歴" for d in collection.documents)}
+            "has_history": any(d.kind == "改正履歴" for d in collection.documents),
+            "documents": collection.summary()}   # 読み込んだときの記録ではなく、今の分け方で（分け方を直したら前の作業にも効く）
