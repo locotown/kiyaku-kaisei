@@ -332,10 +332,18 @@
 .tk .ml-lists ul { margin: var(--space-1) 0; padding-left: 1.2em; }
 @media (max-width: 640px) {
   .tk .ml-lists { grid-template-columns: 1fr; }
-  .tk .places { gap: var(--space-2); } .tk .place { padding: var(--space-2) var(--space-3); } .tk .place span { display: none; }
+  .tk .places { gap: var(--space-2); } .tk .place { padding: var(--space-2) var(--space-3); } .tk .place .d-long { display: none; } .tk .place .d-short { display: block; }
   .tk .ml-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tk .ml-seg { grid-auto-flow: row; width: 100%; justify-self: stretch; }
   .tk .ml-seg label + label { border-left: 0; border-top: 1px solid var(--color-line-2); }
 }
 .tk .ml-row[hidden], .tk .ml-when[hidden] { display: none; }   /* 並べ方（grid）が hidden の印を上書きしないように */
 @media (max-width: 640px) { .tk .place b { font-size: var(--text-sm); white-space: nowrap; } }
+
+.tk .place .d-short { display: none; }
+.tk .ml-tile b small { font-size: var(--text-xs); font-weight: 400; margin-left: 2px; color: var(--color-ink-2); }
+.tk .ml-k { font-size: var(--text-xs); font-weight: 700; color: var(--color-ink-3); margin-right: 6px; }
+.tk .ml-std summary { cursor: pointer; color: var(--color-primary); font-weight: 700; min-height: 36px; display: flex; align-items: center; }
+.tk .ml-std p { margin: var(--space-1) 0; padding: var(--space-2) var(--space-3); background: var(--color-bg); border-radius: var(--radius-1); }
+.tk .ml-memo-wrap { display: grid; gap: 4px; } .tk .ml-memo-wrap[hidden] { display: none; }
+@media (max-width: 640px) { .tk .place .d-short { display: block; font-size: var(--text-xs); } }

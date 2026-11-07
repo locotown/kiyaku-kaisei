@@ -1305,20 +1305,34 @@ def _touched(work: dict) -> set:
             if a.get("before_article") and (a.get("document") or "規約") == "規約"}
 
 
+def _added(work: dict) -> set:
+    """今回の改定案（①）で新しく足す、規約の条の番号（標準管理規約の条番号と同じ形）。"""
+    from core.sources import normalize_article_ref
+
+    out = set()
+    for a in (work.get("draft") or {}).get("amendments") or []:
+        if a.get("kind") == "新設" and (a.get("document") or "規約") == "規約":
+            out.add(normalize_article_ref(a["article"]))
+            if a.get("caption"):   # 条番号が標準とずれた規約では番号が合わないので、見出しでも照らし合わせる
+                out.add("見出し:" + re.sub(r"[\s　()（）]", "", a["caption"]))
+    return out
+
+
 @app.get("/works/{work_id}/minaoshi", response_class=HTMLResponse)
 def minaoshi_page(request: Request, work_id: str):
     """②これからの見直し（計画E2a）：違いの量・構成表・条の対応表と理事会の判断・決めたことの一覧。AI は使わない。"""
     from core.kozo import build
-    from core.minaoshi import ACTIONS, KEEP, WHEN, rows, state, summary
+    from core.minaoshi import ACTIONS, KEEP, added_now, rows, state, summary
 
     work = store.load(work_id)
     t = _taiou(work_id)
-    rs = rows(t, _touched(work))
+    rs = rows(t, _touched(work), _added(work))
     dec = work.get("minaoshi") or {}
     k = build(_corpus(work_id))
     return templates.TemplateResponse(request, "minaoshi.html", {
         "id": work_id, "work": work, "counts": t["counts"], "rows": rs, "dec": dec, "sum": summary(rs, dec),
-        "states": {r["id"]: state(dec.get(r["id"])) for r in rs}, "actions": ACTIONS, "keep": KEEP, "when": WHEN,
+        "states": {r["id"]: state(dec.get(r["id"])) for r in rs}, "actions": ACTIONS, "keep": KEEP,
+        "added_now": added_now(t, _added(work)),
         "kozo": {"rows": len(k["rows"]), "missing": len(k["missing"]), "bad": len(k["bad_cites"])}})
 
 
@@ -1330,16 +1344,16 @@ async def save_minaoshi(request: Request, work_id: str):
     form = await request.form()
     rid = str(form.get("id", ""))
     work = store.load(work_id)
-    rs = rows(_taiou(work_id), _touched(work))
+    rs = rows(_taiou(work_id), _touched(work), _added(work))
     row = next((r for r in rs if r["id"] == rid), None)
     if row is None:
         raise HTTPException(400, "その行は見つかりません。画面を開き直してください。")
     d, w = clean(row["type"], str(form.get("d", "")), str(form.get("w", "")))
-    memo = str(form.get("m", "")).strip()[:300]
+    memo = str(form.get("m", "")).strip()[:300] if d else ""   # 未判断に戻したらメモも消す（見えないメモが残っていた）
 
     def fn(data):
         m = dict(data.get("minaoshi") or {})
-        if d or memo:
+        if d:
             m[rid] = {"d": d, "w": w, "m": memo, "at": _now()}
         else:
             m.pop(rid, None)
@@ -1356,13 +1370,13 @@ def minaoshi_print(work_id: str):
     from core.minaoshi import rows, summary
 
     work = store.load(work_id)
-    rs = rows(_taiou(work_id), _touched(work))
+    rs = rows(_taiou(work_id), _touched(work), _added(work))
     s = summary(rs, work.get("minaoshi") or {})
     title = f"{_org(work)} 規約の見直しの宿題一覧".strip()
-    return HTMLResponse(_minaoshi_html(s, title, _ident(work_id, work)))
+    return HTMLResponse(_minaoshi_html(s, title, _ident(work_id, work), _org(work) or work.get("name", "")))
 
 
-def _minaoshi_html(s: dict, title: str, ident: str) -> str:
+def _minaoshi_html(s: dict, title: str, ident: str, who: str = "") -> str:
     import html as h
 
     from core.printstyle import PRINT_CSS, page_css, toolbar
@@ -1382,12 +1396,20 @@ def _minaoshi_html(s: dict, title: str, ident: str) -> str:
 {toolbar("", landscape=True, back_href="./minaoshi")}
 <h1>{h.escape(title)}</h1>
 <p class="note">{DISCLAIMER}</p>
-<p class="legend">今の規約と標準管理規約の条の対応表を見て、理事会が行ごとに決めたことの一覧です。次の理事会・総会や、全部改正の準備に引き継ぎます。</p>
-<p class="summary">宿題（次回以降） {c['later']}件・今回の改定案に入れる {c['now']}件・今のまま／残す {c['keep']}件・まだ決めていない {c['undecided']}件</p>
-<h2>宿題（次回以降に扱う）（{len(s['lists']['later'])}件）</h2>{table(s['lists']['later'])}
-<h2>今回の改定案に入れる（{len(s['lists']['now'])}件）</h2>{table(s['lists']['now'])}
+<p class="legend">{h.escape(who)}{'の' if who else ''}今の規約と標準管理規約の条の対応表を見て、理事会が行ごとに決めたことの一覧です（{_today_wareki()}時点）。次の理事会・総会や、全部改正の準備に引き継ぎます。</p>
+<p class="summary">宿題（次回以降に見直す） {c['later']}件・今のまま／残す／足さない {c['keep']}件・まだ決めていない {c['undecided']}件</p>
+<h2>宿題（次回以降に見直す）（{len(s['lists']['later'])}件）</h2>{table(s['lists']['later'])}
+<h2>今のまま・残す・足さないと決めた条（{len(s['lists']['keep'])}件）</h2>{table(s['lists']['keep'])}
 </body></html>
 """
+
+
+def _today_wareki() -> str:
+    from datetime import date
+
+    from core.consolidate import wareki
+
+    return wareki(date.today())
 
 
 @app.get("/works/{work_id}/taiou", response_class=HTMLResponse)

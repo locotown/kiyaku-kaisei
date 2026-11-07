@@ -75,9 +75,9 @@
       <ul class="small">{% for m in rc.memos %}<li><b>{% if m.doc != "規約" %}{{ m.doc }} {% endif %}{{ m.article }}</b>：{{ m.text }}</li>{% endfor %}</ul></div>{% endif %}
   </section>
   {# 構成表・対応表・見直しの判断は ②「これからの見直し」にまとめた（今回の改正の流れに混ぜない。11/7 作者の判断） #}
-  <div class="handoff-later"><b>これからの見直し（全部改正・少しずつの改正の準備）は ② へ</b>
-    <span class="small">規約集の構成表・標準管理規約との条の対応表・見直しの判断と宿題は、②「これからの見直し」にまとめました。今回の改正（法改正への対応）が済んでから、理事会で少しずつ使えます。</span>
-    <a href="/works/{{ id }}/minaoshi">② これからの見直しを開く{{ icon("arrow-right") }}</a></div>
+  <div class="handoff-later"><b>これからの見直し（全部改正・少しずつの改正の準備）は、上の「これからの見直し」へ</b>
+    <span class="small">規約集の構成表・標準管理規約との条の対応表・見直しの判断と宿題は、「これからの見直し」にまとめました。今回の改正（法改正への対応）が済んでから、理事会で少しずつ使えます。</span>
+    <a href="/works/{{ id }}/minaoshi">これからの見直しを開く{{ icon("arrow-right") }}</a></div>
   {% if work.findings %}
   <div class="actend nxs">{{ nextbar }}</div>
   {% endif %}

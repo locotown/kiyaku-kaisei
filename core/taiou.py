@@ -25,7 +25,7 @@ Z2H = str.maketrans("０１２３４５６７８９（）", "0123456789()")
 
 
 def _norm(s: str) -> str:
-    s = s.translate(Z2H)
+    s = re.sub(r"〔[^〕]{1,6}案〕", "", s.translate(Z2H))   # 両案の印は比べない
     s = re.sub(r"^(?:第[0-9一二三四五六七八九十百]+条(?:の[0-9]+)*|[0-9]+|[一二三四五六七八九十]+)[\s　]", "", s, flags=re.M)
     return re.sub(r"[\s　]", "", s)
 
@@ -40,7 +40,7 @@ def _merged(k: Kiyaku) -> list[dict]:
     for a in k.articles:
         body = "\n".join(line for line in a.text().splitlines() if not line.startswith("（" + a.caption + "）")) if a.caption else a.text()
         e = out.setdefault(a.number, {"number": a.number, "label": a.label, "caption": a.caption, "chapter": a.chapter, "texts": []})
-        e["texts"].append(body)
+        e["texts"].append((f"〔{a.variant}案〕\n" if a.variant else "") + body)   # 両案は案の印を付けて並べる
     for e in out.values():
         e["text"] = "\n".join(e["texts"])
         e["norm"] = _norm(e["text"])
@@ -97,7 +97,7 @@ def match(current: Kiyaku, standard: Kiyaku) -> dict:
             kind, amount = "違う", "小" if r >= 0.8 else ("中" if r >= 0.5 else "大")
         rows.append({"label": c["label"], "number": c["number"], "caption": c["caption"], "chapter": c["chapter"], "kind": kind,
                      "amount": amount, "ratio": round(r, 2), "std_label": s["label"] if s else "", "std_caption": s["caption"] if s else "",
-                     "std_number": s["number"] if s else "", "text": c["text"]})
+                     "std_number": s["number"] if s else "", "text": c["text"], "std_text": s["text"] if s else ""})
     missing = [{"label": s["label"], "number": s["number"], "caption": s["caption"], "chapter": s["chapter"], "text": s["text"]}
                for s in std if s["number"] not in used]
     counts = {k: sum(1 for r in rows if r["kind"] == k) for k in ("ほぼ同じ", "違う", "今の規約だけ")}
