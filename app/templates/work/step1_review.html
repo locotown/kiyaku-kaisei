@@ -46,12 +46,17 @@
     <tr><th>種類</th><th>題名</th><th>条・項目</th><th>外した注記</th></tr>
     {% for d in work.documents %}
     <tr><td>{{ d.kind }}</td><td>{{ d.title }}</td>
-        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "条" }}{% else %}—{% endif %}</td>
+        <td>{% if d.articles %}{{ d.articles }}{{ "項目" if d.style == "項目" else "か条" }}{% else %}—{% endif %}</td>
         <td>{{ d.annotations }}件</td></tr>
     {% endfor %}
   </table>
   </details>
   {% endif %}
+  {# 規約集の構成表：規約がほかの決まりに任せている事項と、対応する細則（計画F1。AI は使わない） #}
+  <div class="draftacts kozo-acts"><div class="da-card kozo-link">
+    <div class="da-head">{{ icon("file", "icon da-icon") }}<div><h3>規約集の構成表（細則の整理）</h3>
+      <p class="small">規約が「別に定める」「細則で定める」とした事項ごとに、対応する細則があるかと、細則が引いている規約の条が合っているかを一覧にします。細則の見直しを理事会で話し合うときに使えます（AI は使いません）。</p></div></div>
+    <div class="da-btns"><a class="tbtn2 boxed" href="/works/{{ id }}/kozo">{{ icon("file") }}開く（見る・印刷する）</a></div></div></div>
   {% if work.findings %}
   <div class="actend nxs">{{ nextbar }}</div>
   {% endif %}

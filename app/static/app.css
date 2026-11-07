@@ -320,6 +320,7 @@ html.js .panel .bar { position: fixed; left: 0; right: 0; bottom: 0; }
 .tk .revertbtn.armed { color: var(--color-must); border-color: var(--color-must); font-weight: 700; }
 
 /* ---- ステップ3の操作：新旧対照表 と 条の文を直す を別の枠に、戻るは枠の外に小さく ---- */
+.draftacts.kozo-acts { grid-template-columns: 1fr; }
 .draftacts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-top: var(--space-4); }
 .draftacts .da-card { display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
 .draftacts .da-head { display: grid; grid-template-columns: auto 1fr; gap: var(--space-3); align-items: start; }

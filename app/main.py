@@ -1247,6 +1247,20 @@ def final_docx(work_id: str, n: int):
     return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
+@app.get("/works/{work_id}/kozo", response_class=HTMLResponse)
+def kozo(work_id: str):
+    """規約集の構成表（計画F1。AI は使わない）：読み込んだ文書、規約がほかの決まりに任せている事項と対応する細則、細則が引く規約の条。"""
+    from core.kozo import build, to_html
+
+    work = store.load(work_id)
+    docs = [{"kind": d["kind"], "title": d["title"],
+             "count": (f"{d['articles']}{'項目' if d.get('style') == '項目' else 'か条'}" if d.get("articles") else "—")}
+            for d in work.get("documents") or []] or None
+    k = build(_corpus(work_id), docs)
+    title = f"{_org(work)} 規約集の構成表".strip()
+    return HTMLResponse(to_html(k, title, ident=_ident(work_id, work)))
+
+
 @app.get("/works/{work_id}/taisho", response_class=HTMLResponse)
 def taisho(work_id: str):
     p = store.path(work_id) / "taisho.html"
