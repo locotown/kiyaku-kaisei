@@ -5,6 +5,8 @@ CSS はファイルに埋め込む。値は app/static/tokens.css（デザイン
 トークンを変えたら、ここも合わせる（docs/DESIGN_SYSTEM.md）。判子は使わない（人が記録した結果ではないため）。
 """
 
+import re
+
 PRINT_CSS = """
 @import url("https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap");
 :root {
@@ -134,7 +136,9 @@ def page_css(title: str, landscape: bool = False, ident: str = "") -> str:
     会議で「何ページの何条」と言えるように、すべてのページに資料名とページ番号を入れる。
     ident（作業と改定案の版の番号）を右上に入れ、書き込んだ紙を戻したときに、どの版の紙かを見分けられるようにする。
     """
-    name = " ".join(title.split()).replace("\\", "").replace('"', "”")
+    # CSS の文字列に入れるので、\ と " のほか、< > も外す（</style> で抜けてスクリプトが動いた。検証での指摘）
+    name = re.sub(r"[\\<>]", "", " ".join(title.split())).replace('"', "”")
+    ident = re.sub(r"[\\\"<>]", "", ident or "")
     font = '"BIZ UDPGothic", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif'
     return f"""
 @page {{

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import threading
@@ -542,8 +543,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     from core.variants import groups as vgroups, picks as vpicks_of
 
     vpicks = vpicks_of(vgroups(corpus), work.get("variant_choices"))
-    held = date.fromisoformat(meeting["date"]) if meeting.get("date") else None
-    effective = date.fromisoformat(meeting["effective"]) if meeting.get("effective") else held
+    held = _iso_date(meeting.get("date"))
+    effective = _iso_date(meeting.get("effective")) or held
     docs = []
     for n, (doc, ams) in enumerate(adopted.items()):
         left = [ref_name(a) for a in ams if CHOICE_MARK in a.text]
@@ -947,7 +948,7 @@ async def save_decisions(request: Request, work_id: str):
         if f["category"] == "必須":
             decision = "採用"  # 必須は改定案に自動で入れる（docs/SPEC.md）
         if decision in DECISIONS:
-            reason = str(form.get(f"reason_{i}", prev.get("reason", ""))).strip()
+            reason = str(form.get(f"reason_{i}", prev.get("reason", ""))).strip()[:2000]
             decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     changed = before != {k: v.get("decision") for k, v in decisions.items()}
     stale = bool(work.get("draft")) and (changed or work.get("draft_stale", False))
@@ -961,8 +962,8 @@ async def save_decisions(request: Request, work_id: str):
 async def save_org(request: Request, work_id: str):
     form = await request.form()
     store.load(work_id)
-    fields = {"org": str(form.get("org", "")).strip()[:80]}
-    name = str(form.get("name", "")).strip()[:80]
+    fields = {"org": " ".join(str(form.get("org", "")).split())[:80]}   # 改行・タブは空白1つに（資料の題名が改行された）
+    name = " ".join(str(form.get("name", "")).split())[:80]
     if name:                                     # 作業の名前（空なら変えない。サンプルから始めた作業も名前を付け直せるように）
         fields["name"] = name
     store.update(work_id, **fields)
@@ -1053,7 +1054,10 @@ async def save_final_blanks(request: Request, work_id: str):
     for k, v in form.items():
         if not k.startswith("f|"):
             continue
-        _, doc, where, i = k.split("|", 3)
+        parts = k.split("|")
+        if len(parts) != 4 or not parts[3].isdigit() or int(parts[3]) > 200:   # 画面の欄でない名前は無視（500 になっていた）
+            continue
+        _, doc, where, i = parts
         got.setdefault(doc, {}).setdefault(where, {})[int(i)] = str(v).strip()[:30]
 
     def fn(d):
@@ -1156,7 +1160,7 @@ async def save_one_decision(request: Request, work_id: str, index: int):
         decision = "採用"
     if decision not in DECISIONS:
         raise HTTPException(400, "判断の値が正しくありません")
-    reason = str(form.get("reason", prev.get("reason", ""))).strip()
+    reason = str(form.get("reason", prev.get("reason", ""))).strip()[:2000]
     now = _now()
     decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     stale = bool(work.get("draft")) and (decision != prev.get("decision") or work.get("draft_stale", False))
@@ -1211,14 +1215,28 @@ async def save_meeting(request: Request, work_id: str):
                 edits[_edit_key(a)] = text
     if not any(results.values()):  # 結果を1つも選んでいないときは保存しない（できていた最新の規約を黙って消さない）
         return RedirectResponse(f"/works/{work_id}?done=meeting_empty#meeting", status_code=303)
-    meeting = {"name": str(form.get("m_name", "")).strip(), "date": str(form.get("m_date", "")).strip(),
-               "effective": str(form.get("m_effective", "")).strip(), "results": results, "edits": edits,
+    m_date, m_eff = str(form.get("m_date", "")).strip(), str(form.get("m_effective", "")).strip()
+    for v, label in ((m_date, "総会の日"), (m_eff, "施行日")):
+        if v and _iso_date(v) is None:   # 形の違う日付を保存すると、作業の画面が開けなくなった（検証での指摘）
+            raise HTTPException(400, f"{label}の形が違います。日付の欄で選び直してください（例：2027-04-01）。")
+    meeting = {"name": " ".join(str(form.get("m_name", "")).split())[:100], "date": m_date,
+               "effective": m_eff, "results": results, "edits": edits,
                "saved_at": _now()}
     store.update(work_id, meeting=meeting, board_changed_after_meeting="", board_changed_reason="",
                  meeting_board=_board_snapshot(store.load(work_id).get("board_decisions", {})))
     # 結果を1つも選んでいないときは「保存しました」と出さず、選ぶよう知らせる（何も入れずに終えたと思い込まないように）
     done = "meeting" if any(results.values()) else "meeting_empty"
     return RedirectResponse(f"/works/{work_id}?done={done}#meeting", status_code=303)
+
+
+def _iso_date(v):
+    """保存した日付（YYYY-MM-DD）を date に。形が違えば None（前に保存された壊れた値でも、作業の画面は開けるように）。"""
+    from datetime import date
+
+    try:
+        return date.fromisoformat(v) if v else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _final(work_id: str, n: int) -> dict:
@@ -1249,7 +1267,7 @@ def final_docx(work_id: str, n: int):
     from core.consolidate import to_docx
 
     d = _final(work_id, n)
-    name = quote(f"{d['title']}（最新）.docx")
+    name = quote(f"{d['title']}（最新）.docx", safe="")
     return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
@@ -1275,7 +1293,9 @@ async def save_version(request: Request, work_id: str):
     form = await request.form()
     v = str(form.get("version", ""))
     store.load(work_id)
-    store.update(work_id, version=v if v in VERSION_ANSWERS else "")
+    if v and v not in VERSION_ANSWERS:   # 不正な値で、保存済みの答えを黙って消さない（検証での指摘）
+        raise HTTPException(400, "答えの値が正しくありません。画面を開き直して選んでください。")
+    store.update(work_id, version=v)
     if "application/json" in request.headers.get("accept", ""):
         return JSONResponse({"ok": True})
     return RedirectResponse(f"/works/{work_id}#readcheck", status_code=303)
@@ -1383,7 +1403,7 @@ def minaoshi_print(work_id: str):
 async def save_minaoshi_map(request: Request, work_id: str):
     """対応する標準管理規約の条を、人が選び直す（計画E3-4。AI は使わない）。
     c＝今の規約の条番号、s＝標準管理規約の条番号（"none" は当たる条がない、"auto" は自動の対応づけに戻す）。
-    選び直した行の判断は、行の種類が変わることがあるので消す。"""
+    判断は消さない。行の種類が変わって選べない判断は、使わずに残す（自動に戻すと元に戻る）。"""
     form = await request.form()
     c, sn = str(form.get("c", "")), str(form.get("s", ""))
     if not c or not sn:
@@ -1402,11 +1422,8 @@ async def save_minaoshi_map(request: Request, work_id: str):
         else:
             m[c] = sn
         data["minaoshi_map"] = m
-        dec = dict(data.get("minaoshi") or {})
-        dec.pop(f"c{c}", None)
-        if sn:
-            dec.pop(f"s{sn}", None)
-        data["minaoshi"] = dec
+        # 判断は消さない（別の行の判断とメモまで黙って消えた。検証での指摘）。行の種類が変わって使えない判断は、
+        # 画面と一覧で外して扱い（core.minaoshi.valid）、自動の対応づけに戻すと元に戻る
     store.mutate(work_id, fn)
     return RedirectResponse(f"/works/{work_id}/minaoshi?mapped=c{c}#r-c{c}", status_code=303)
 
@@ -1474,7 +1491,7 @@ def _docx_response(data: bytes, ascii_name: str, name: str) -> Response:
     from urllib.parse import quote
 
     return Response(data, media_type=DOCX,
-                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"})
+                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name, safe="")}"})
 
 
 @app.get("/works/{work_id}/taisho.docx")
@@ -1593,14 +1610,33 @@ def _apply_board_form(work_id: str, form) -> None:
     must = required_refs(draft_now) if draft_now else set()
     changed_any = False
     # 組合が選ぶ点は、問いごとに1回だけ選ぶ（b_q_{問いの番号}）。答えを関係するすべての議題に使う
-    answers = {q["key"]: str(form.get(f"b_q_{k}", "")).strip() for k, q in enumerate(choice_questions(points))}
+    questions = choice_questions(points)
+    answers = {q["key"]: str(form.get(f"b_q_{k}", "")).strip() for k, q in enumerate(questions)}
+    # 画面の自動保存は、変えた欄の名前（b_touched）を一緒に送る。変えていない議題・問いは、保存されている値を使う
+    # （同じ作業を2つのタブで開いたとき、古いタブの値で別のタブの判断を元に戻した。検証での指摘）。写真の書き込みや
+    # スクリプトのない画面からの保存は、これまでどおり全部を使う
+    touched = None
+    if form.get("b_touched") is not None:
+        try:
+            touched = set(json.loads(str(form.get("b_touched"))))
+        except (ValueError, TypeError):
+            touched = None
+    if touched is not None:
+        for k, q in enumerate(questions):
+            if f"b_q_{k}" not in touched:   # 変えていない問いは、前に選んだ答えのまま
+                prev_pick = next((old.get(str(i), {}).get("picked", {}).get(str(j)) for i, pts in points.items()
+                                  for j, p in enumerate(pts) if point_key(p) == q["key"] and old.get(str(i), {}).get("picked")), None)
+                if prev_pick is not None:
+                    answers[q["key"]] = prev_pick
     for i, it in enumerate(paper.items):
-        d = str(form.get(f"b_decision_{i}", ""))
+        prev = old.get(str(i), {})
+        mine = touched is None or bool({f"b_decision_{i}", f"b_note_{i}", f"b_choice_{i}"} & touched)
+        d = str(form.get(f"b_decision_{i}", "")) if mine else prev.get("decision", "")
         pts = points.get(i, [])
         picked = {str(j): answers.get(point_key(p), "") for j, p in enumerate(pts)}
-        entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
-                 "choice": picked_text(pts, picked) if pts else str(form.get(f"b_choice_{i}", "")).strip()}
-        prev = old.get(str(i), {})
+        entry = {"decision": d if d in DECISIONS[it.tier] else "",
+                 "note": str(form.get(f"b_note_{i}", "")).strip()[:2000] if mine else prev.get("note", ""),
+                 "choice": picked_text(pts, picked) if pts else (str(form.get(f"b_choice_{i}", "")).strip()[:500] if mine else prev.get("choice", ""))}
         if entry != {k: prev.get(k, "") for k in entry} and (entry["decision"] in NEEDS_REDRAFT or prev.get("decision") in NEEDS_REDRAFT):
             changed_redraft = True
         if entry["choice"] != prev.get("choice", ""):  # 選んだ案が変われば、改定案に反映し直す
@@ -2364,13 +2400,13 @@ async def save_todos(request: Request, work_id: str):
                 continue
             if form.get(f"del_{tid}"):
                 continue
-            text = str(form.get(f"text_{tid}", "")).strip()
-            memo = str(form.get(f"memo_{tid}", "")).strip()
+            text = str(form.get(f"text_{tid}", "")).strip()[:1000]
+            memo = str(form.get(f"memo_{tid}", "")).strip()[:1000]
             done = bool(form.get(f"done_{tid}"))
             if text and (text, memo, done) != (t.get("text"), t.get("memo", ""), t.get("done", False)):
                 t.update(text=text, memo=memo, done=done, edited_at=now)
             keep.append(t)
-        new = str(form.get("new_text", "")).strip()
+        new = str(form.get("new_text", "")).strip()[:1000]
         if new:
             keep.append({"id": _todo_id(), "text": new, "where": str(form.get("new_where", "")).strip() or "全体",
                          "at": now, "batch": "", "memo": "", "done": False})

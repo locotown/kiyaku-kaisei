@@ -83,17 +83,19 @@ def test_kentou_and_map(board_work):
     assert 'href="../minaoshi"' in page                                              # 見直しのページに戻る
     page = c.get(f"/works/{wid}/minaoshi").text
     assert "対応する標準管理規約の条を選び直す" in page and "宿題の検討表を開く" in page
-    # 当たる条はない、に選び直すと、行は「今の規約だけ」になり、前の判断は消える
+    # 当たる条はない、に選び直すと、行は「今の規約だけ」になり、前の判断（標準に合わせる）は使えないので外れる。消えはしない
     r = c.post(f"/works/{wid}/minaoshi/map", data={"c": diff["number"], "s": "none"}, follow_redirects=False)
     assert r.status_code == 303 and "mapped=" in r.headers["location"]
     w = store.load(wid)
-    assert w["minaoshi_map"] == {diff["number"]: ""} and diff["id"] not in (w.get("minaoshi") or {})
+    assert w["minaoshi_map"] == {diff["number"]: ""} and w["minaoshi"][diff["id"]]["d"] == "標準に合わせる"
     rs2 = mrows(M._taiou(wid), M._touched(w), M._added(w))
     row = next(r for r in rs2 if r["id"] == diff["id"])
     assert row["type"] == "今の規約だけ" and row["fixed"]
-    assert "人が選び直した対応" in c.get(f"/works/{wid}/minaoshi").text
-    c.post(f"/works/{wid}/minaoshi/map", data={"c": diff["number"], "s": "auto"})     # 自動に戻す
+    page = c.get(f"/works/{wid}/minaoshi").text
+    assert "人が選び直した対応" in page and "総会の前に" not in page                      # 外れた判断のメモは一覧に出ない
+    c.post(f"/works/{wid}/minaoshi/map", data={"c": diff["number"], "s": "auto"})     # 自動に戻すと、判断も元に戻る
     assert store.load(wid)["minaoshi_map"] == {}
+    assert "総会の前に" in c.get(f"/works/{wid}/minaoshi").text
     assert c.post(f"/works/{wid}/minaoshi/map", data={"c": "999", "s": "none"}).status_code == 400
     assert c.post(f"/works/{wid}/minaoshi/map", data={"c": diff["number"]}).status_code == 400     # 選ばずに押した
     assert c.post(f"/works/{wid}/minaoshi/map", data={"c": diff["number"], "s": "999"}).status_code == 400

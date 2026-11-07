@@ -26,6 +26,7 @@
   <p class="small"><a href="/works/{{ id }}/kozo">{{ icon("file") }}構成表を開く（見る・印刷する）</a></p>
 </section>
 
+<noscript><p class="note2 small">この画面の絞り込みと「対応する標準管理規約の条を選び直す」は、ブラウザのスクリプトを有効にすると使えます。判断は、行ごとの「保存」で保存できます。</p></noscript>
 <section class="sec" aria-labelledby="ml-rows" id="ml-decide">
   <h2 id="ml-rows">条の対応表と、理事会の判断（{{ rows|length }}行）</h2>
   <p class="small muted">「ほぼ同じ」の条は判断が要らないので出していません。選ぶとすぐ保存します。対応づけは見出しと文の似かたによる目安です。</p>
@@ -47,14 +48,16 @@
         {% if r.type == "違う" %}<span class="ml-badge">違う（違いの量：{{ r.amount }}）</span>{% elif r.type == "今の規約だけ" %}<span class="ml-badge own">今の規約だけ（独自）</span>{% else %}<span class="ml-badge miss">標準にあって今の規約にない</span>{% endif %}
         {% if r.touched %}<span class="ml-badge now">今回の改正でも直す条</span>{% endif %}
         {% if r.fixed %}<span class="ml-badge fixed">人が選び直した対応</span>{% endif %}</div>
-      {% if mapped and mapped == r.id %}<p class="small ok ml-mapped" role="status">対応を選び直しました。この行の判断は、選び直す前のものを消しました。</p>{% endif %}
+      {% if mapped and mapped == r.id %}<p class="small ok ml-mapped" role="status">対応を選び直しました。この行の判断を確かめ直してください。</p>{% endif %}
       {% if r.text %}<div class="ml-ex small"><span class="ml-k">今の規約</span>{{ r.text|striptags|truncate(90, true, "…") }}</div>{% endif %}
       {# 標準管理規約の文。見ないと「合わせる」「足す」を決められない（想定ユーザーでの確認から） #}
       {% if r.std_text %}<details class="ml-std small"><summary>標準管理規約の文を見る（{{ r.std_label }}）{% if r.type == "違う" %}　似ている度合い {{ r.ratio }}%{% endif %}</summary>
         <p>{{ r.std_text|replace("\n", "<br>"|safe) }}</p>{% if r.text and r.type == "違う" %}<p class="muted"><b>今の規約（{{ r.label }}）：</b>{{ r.text|replace("\n", "<br>"|safe) }}</p>{% endif %}</details>{% endif %}
       <div class="mini2 ml-seg" role="radiogroup" aria-label="{{ r.label or r.std_label }} の判断">
         {%- for a in acts %}<label><input type="radio" name="d" value="{{ a }}" {% if d.d == a %}checked{% endif %}>{{ a }}</label>{% endfor -%}
-        <label class="b-none"><input type="radio" name="d" value="" {% if not d.d %}checked{% endif %}>未判断</label></div>
+        <noscript><label class="b-none"><input type="radio" name="d" value="" {% if not d.d %}checked{% endif %}>未判断</label></noscript></div>
+      {# 「未判断に戻す」は判断のボタンの外に置く（同じ組にあると、矢印キーで動かしたとき途中で未判断になりメモが消えた。検証での指摘） #}
+      <button type="button" class="ml-clear small" {% if not d.d %}hidden{% endif %}>未判断に戻す</button>
       <div class="ml-memo-wrap" {% if not d.d %}hidden{% endif %}>
         <input type="text" name="m" value="{{ d.m }}" class="ml-memo" placeholder="理由・経緯のメモ" aria-label="{{ r.label or r.std_label }} の理由・経緯のメモ">
         <span class="small muted ml-will">{% if d.d and d.d not in keep %}{{ will_later }}{% elif d.d %}{{ will_keep }}{% endif %}</span></div>
@@ -62,9 +65,9 @@
       <details class="ml-map small" data-kind="{{ 'cur' if r.type == '標準にない' else 'std' }}" data-sel="{{ r.std_number if r.fixed else '' }}">
         <summary>{% if r.type == "標準にない" %}今の規約に当たる条がある{% else %}対応する標準管理規約の条を選び直す{% endif %}</summary>
         <label>{% if r.type == "標準にない" %}今の規約の条{% else %}標準管理規約の条{% endif %}
-          <select name="{{ 'c' if r.type == '標準にない' else 's' }}" form="mf-{{ r.id }}" class="ml-map-sel"><option value="" disabled selected hidden>選んでください</option></select></label>
+          <select name="{{ 'c' if r.type == '標準にない' else 's' }}" form="mf-{{ r.id }}" class="ml-map-sel" required><option value="" disabled selected hidden>選んでください</option></select></label>
         <button type="submit" form="mf-{{ r.id }}" class="boxed">この対応にする</button>
-        <span class="muted">選び直すと、この行の判断は消えます（行の種類が変わることがあるため）。</span>
+        <span class="muted">選び直したら、関係する行の判断を確かめ直してください。行の種類が変わると前の判断は外れますが、消えはしません（自動の対応づけに戻すと元に戻ります）。</span>
       </details>
       <span class="bsave small" role="status"></span>
       <noscript><button type="submit" class="boxed">保存</button></noscript>
@@ -78,8 +81,8 @@
 <section class="sec" aria-labelledby="ml-lists">
   <h2 id="ml-lists">決めたことの一覧</h2>
   <div class="ml-lists">
-    <div class="card2"><h3>宿題（次回以降に見直す）</h3><div id="ml-l-later"></div></div>
-    <div class="card2"><h3>今のまま・残す・足さない</h3><div id="ml-l-keep"></div></div>
+    {% for k, h in (("later", "宿題（次回以降に見直す）"), ("keep", "今のまま・残す・足さない")) %}
+    <div class="card2"><h3>{{ h }}</h3><div id="ml-l-{{ k }}">{% if sum.lists[k] %}<ul>{% for i in sum.lists[k] %}<li><b>{{ i.name }}</b>（{{ i.caption }}）：{{ i.d }}{% if i.m %}　<span class="small muted">{{ i.m }}</span>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="small muted">まだありません。</p>{% endif %}</div></div>{% endfor %}
   </div>
   <p class="small muted">今回の改定案に入れたい見直しがあれば、今は「今回の改正」の「条の文を直す」で直してください。ここで決めた見直しを今回の改定案にそのまま入れる仕組みは、これから作ります。</p>
   <p><a class="tbtn2 boxed" href="/works/{{ id }}/minaoshi/shukudai">{{ icon("file") }}宿題の検討表を開く（見る・印刷する）</a></p>
@@ -104,15 +107,25 @@
     try {
       const r = await fetch(f.action, { method: "POST", body: new FormData(f), headers: { accept: "application/json" } });
       if (!r.ok) throw new Error(r.status);
-      lists(await r.json()); note.textContent = "保存しました"; note.className = "bsave small ok";
+      dirty.delete(f); lists(await r.json()); note.textContent = "保存しました"; note.className = "bsave small ok";
     } catch (e) { note.textContent = "保存できませんでした。もう一度選んでください"; note.className = "bsave small ng"; }
   };
+  const dirty = new Set();   // メモを書いて、まだ送っていない行
+  const clear = (f) => {     // 未判断に戻す：判断とメモを消して保存
+    f.querySelectorAll("input[name=d]").forEach((x) => { x.checked = false; });
+    f.querySelector(".ml-memo-wrap").hidden = true; f.querySelector(".ml-memo").value = "";
+    f.querySelector(".ml-will").textContent = ""; f.querySelector(".ml-clear").hidden = true;
+    f.dataset.state = "undecided"; save(f);
+  };
   document.querySelectorAll(".ml-row").forEach((f) => {
+    f.querySelector(".ml-clear").addEventListener("click", () => clear(f));
+    f.querySelector(".ml-memo").addEventListener("input", () => dirty.add(f));
     f.addEventListener("change", (e) => {
       if (e.target.form !== f) return;                              // 対応の選び直しの欄は別の form に送る
       if (e.target.name === "d") {
         const d = e.target.value; const w = f.querySelector(".ml-memo-wrap"); w.hidden = !d;
         if (!d) f.querySelector(".ml-memo").value = "";             // 未判断に戻したらメモも消す
+        f.querySelector(".ml-clear").hidden = !d;
         f.querySelector(".ml-will").textContent = !d ? "" : (KEEP.has(d) ? {{ will_keep|tojson }} : {{ will_later|tojson }});
       }
       f.dataset.state = stateOf(f); save(f);
@@ -122,6 +135,10 @@
   document.querySelectorAll(".ml-chip").forEach((c) => c.addEventListener("click", () => {
     filter = c.dataset.f; document.querySelectorAll(".ml-chip").forEach((x) => x.setAttribute("aria-pressed", x === c)); apply(); }));
   lists(SUM);
+  // 書いたメモを送る前に画面を閉じる・読み直すと消えた（検証での指摘）。離れる直前に送る
+  const flush = () => { dirty.forEach((f) => { try { navigator.sendBeacon(f.action, new FormData(f)); } catch (e) {} }); dirty.clear(); };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
   // 対応の選び直し：開いたときに選択肢を入れる（行ごとに全部の条を書き出すと重いので）
   const STD = {{ std_all|tojson }}, CUR = {{ cur_all|tojson }};
   document.querySelectorAll(".ml-map").forEach((dt) => dt.addEventListener("toggle", () => {

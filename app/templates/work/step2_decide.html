@@ -251,9 +251,10 @@
       s.innerHTML = (v === '採用' ? '{{ icon("check")|replace("\n", "") }}' : '');
       s.appendChild(document.createTextNode(label(v)));
     }
-    function confirm(i) {
+    function confirm(i, decisionOnly) {
       var data = new FormData(), box = $('cs-' + i);
-      data.append('decision', checked(i)); data.append('reason', $('rs-' + i).value);
+      // 判断だけを変えたときは理由を送らない（サーバーが保存済みの理由を残す。2つのタブで、古いタブが別のタブで書いた理由を消した）
+      data.append('decision', checked(i)); if (!decisionOnly) data.append('reason', $('rs-' + i).value);
       box.textContent = '保存中…'; box.className = 'cardsave';
       fetch('/works/{{ id }}/decisions/' + i, { method: 'POST', body: data })
         .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
@@ -281,7 +282,7 @@
       var i = m[1];
       if (e.target.value === $('db-' + i).dataset.saved) return;
       $('rs-' + i).value = $('cr-' + i).textContent === '（未記入）' ? '' : $('cr-' + i).textContent;
-      confirm(i);
+      confirm(i, true);
     });
     form.addEventListener('click', function (e) {
       var b = e.target.closest('button'); var t = (b && b.dataset) || {};

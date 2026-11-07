@@ -353,3 +353,8 @@
 .tk .ml-map button { justify-self: start; }
 .tk .ml-mapped { margin: 4px 0; font-weight: 700; }
 @media (max-width: 640px) { .tk .place .d-short { display: block; font-size: var(--text-xs); } }
+/* 未判断に戻す（判断のボタンの組の外。計画E3 の検証から） */
+.tk .ml-clear { justify-self: start; background: none !important; border: none !important; color: var(--color-ink-2); text-decoration: underline; padding: 4px 0 !important; min-height: 32px; cursor: pointer; }
+.tk .ml-clear[hidden] { display: none !important; }
+/* 改行のない長いメモで画面が横に崩れた（検証での指摘） */
+.tk .ml-lists, .tk .ml-row, .tk .ml-ex { overflow-wrap: anywhere; }

@@ -49,7 +49,7 @@ def new_id() -> str:
 
 
 def path(work_id: str) -> Path:
-    if not work_id.replace("-", "").isalnum():
+    if len(work_id) > 64 or not work_id.replace("-", "").isalnum() or not work_id.isascii():   # 長すぎる ID で 500 になった
         raise WorkNotFound(work_id)
     return WORK / work_id
 
