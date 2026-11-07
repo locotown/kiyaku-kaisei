@@ -83,10 +83,16 @@ def refs_removed(text: str) -> bool:
     return False
 
 
+# 標準管理規約の注記のない別案（「外部専門家を役員として選任できることとする場合」のあとの文）。
+# 実在の規約ならどちらかの案に決まっているので、架空の規約にも残さない（本文の行の後ろにつながって残り、
+# 最新の規約で「両案が残る条（第37条・第38条）」と出ていた。デモに映るので直した。11/7）
+ALT_CASE = re.compile(r"外部専門家を役員として選任できることとする場合.*$")
+
+
 def _clean(text: str) -> str:
     for p in WEB_PHRASES:
         text = p.sub("", text)
-    return text
+    return ALT_CASE.sub("", text).rstrip()
 
 
 def transform(k: Kiyaku) -> list[Article]:
