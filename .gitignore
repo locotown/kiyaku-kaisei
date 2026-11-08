@@ -1,5 +1,7 @@
 # 秘密情報（コミットしない）
 .env
+.env.*
+!.env.example
 CLAUDE.local.md
 
 # 非公開の検証データ
