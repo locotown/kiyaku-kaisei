@@ -22,3 +22,4 @@ seg_*/
 edit_*.log
 server.log
 voice_ext/
+voice_gemini_*/
