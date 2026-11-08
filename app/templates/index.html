@@ -73,11 +73,12 @@
 <div class="samples">
 {% for key, s in samples.items() %}
   <form action="/works" method="post" class="sample">
-    <input type="hidden" name="name" value="{{ s.name }}">
     <input type="hidden" name="sample" value="{{ key }}">
     <div class="s-title">{{ s.title }}<span class="s-format">{{ s.format }}</span></div>
     <div class="s-contents">{{ s.contents }}</div>
     <div class="muted s-point">{{ s.point }}</div>
+    {# 作業の名前を始める前に付けられるように（同じ名前の作業が並んで、自分のものを探せなかった。想定ユーザーでの確認から） #}
+    <label class="s-name small">作業の名前<input type="text" name="name" value="{{ s.name }}" maxlength="80" required></label>
     <button class="boxed" type="submit" data-ai="このサンプルで点検を始めます（AI が動きます）。&#10;目安 3〜7分・AI の費用 $1ほど。&#10;費用は、このツールに登録した AI の利用料（APIキー）として請求されます（$1 は約150円）。画面を閉じても処理は続きます。始めますか？">このサンプルで試す</button>
   </form>
 {% endfor %}

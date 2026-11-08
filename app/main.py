@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import threading
@@ -542,8 +543,8 @@ def final_documents(work_id: str, work: dict) -> list[dict]:
     from core.variants import groups as vgroups, picks as vpicks_of
 
     vpicks = vpicks_of(vgroups(corpus), work.get("variant_choices"))
-    held = date.fromisoformat(meeting["date"]) if meeting.get("date") else None
-    effective = date.fromisoformat(meeting["effective"]) if meeting.get("effective") else held
+    held = _iso_date(meeting.get("date"))
+    effective = _iso_date(meeting.get("effective")) or held
     docs = []
     for n, (doc, ams) in enumerate(adopted.items()):
         left = [ref_name(a) for a in ams if CHOICE_MARK in a.text]
@@ -712,6 +713,7 @@ def create_work(
 ):
     if kind != "単棟型":
         raise HTTPException(400, "現在は単棟型のみに対応しています。")
+    name = " ".join(name.split())[:80] or (SAMPLES.get(sample, {}).get("name", "") if sample else "") or "名前のない作業"
     if not sample:
         if not file or not file.filename:
             raise HTTPException(400, "規約のファイルを選んでください。")
@@ -947,7 +949,7 @@ async def save_decisions(request: Request, work_id: str):
         if f["category"] == "必須":
             decision = "採用"  # 必須は改定案に自動で入れる（docs/SPEC.md）
         if decision in DECISIONS:
-            reason = str(form.get(f"reason_{i}", prev.get("reason", ""))).strip()
+            reason = str(form.get(f"reason_{i}", prev.get("reason", ""))).strip()[:2000]
             decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     changed = before != {k: v.get("decision") for k, v in decisions.items()}
     stale = bool(work.get("draft")) and (changed or work.get("draft_stale", False))
@@ -961,8 +963,8 @@ async def save_decisions(request: Request, work_id: str):
 async def save_org(request: Request, work_id: str):
     form = await request.form()
     store.load(work_id)
-    fields = {"org": str(form.get("org", "")).strip()[:80]}
-    name = str(form.get("name", "")).strip()[:80]
+    fields = {"org": " ".join(str(form.get("org", "")).split())[:80]}   # 改行・タブは空白1つに（資料の題名が改行された）
+    name = " ".join(str(form.get("name", "")).split())[:80]
     if name:                                     # 作業の名前（空なら変えない。サンプルから始めた作業も名前を付け直せるように）
         fields["name"] = name
     store.update(work_id, **fields)
@@ -1031,7 +1033,8 @@ async def save_blanks(request: Request, work_id: str):
         text = fill(template, values)
         if text == am["text"]:
             continue
-        filled = [f"{x['before'].lstrip('…')[-6:]}{val}{x['after'].rstrip('…')[:4]}" for x, val in zip(v["slots"], values) if val]
+        # 入れた数字を、前後の言葉と一緒に「…理事が【3】分の1以上…」の形で残す（前後を短く切った形が、文の途中で切れたように読めた）
+        filled = [f"…{x['before'].lstrip('…')[-10:]}【{val}】{x['after'].rstrip('…')[:6]}…" for x, val in zip(v["slots"], values) if val]
         edits.append({"document": am.get("document") or "規約", "article": am["article"], "text": text,
                       "note": "空欄（○）に数字を入れた：" + ("、".join(filled) if filled else "入れた数字を消した")})
         fills[key] = {"template": template, "values": values, "filled": text, "at": _now()}
@@ -1053,7 +1056,10 @@ async def save_final_blanks(request: Request, work_id: str):
     for k, v in form.items():
         if not k.startswith("f|"):
             continue
-        _, doc, where, i = k.split("|", 3)
+        parts = k.split("|")
+        if len(parts) != 4 or not parts[3].isdigit() or int(parts[3]) > 200:   # 画面の欄でない名前は無視（500 になっていた）
+            continue
+        _, doc, where, i = parts
         got.setdefault(doc, {}).setdefault(where, {})[int(i)] = str(v).strip()[:30]
 
     def fn(d):
@@ -1156,7 +1162,7 @@ async def save_one_decision(request: Request, work_id: str, index: int):
         decision = "採用"
     if decision not in DECISIONS:
         raise HTTPException(400, "判断の値が正しくありません")
-    reason = str(form.get("reason", prev.get("reason", ""))).strip()
+    reason = str(form.get("reason", prev.get("reason", ""))).strip()[:2000]
     now = _now()
     decisions[key] = {"decision": decision, "reason": reason, "history": record(prev, decision, reason, now)}
     stale = bool(work.get("draft")) and (decision != prev.get("decision") or work.get("draft_stale", False))
@@ -1211,14 +1217,28 @@ async def save_meeting(request: Request, work_id: str):
                 edits[_edit_key(a)] = text
     if not any(results.values()):  # 結果を1つも選んでいないときは保存しない（できていた最新の規約を黙って消さない）
         return RedirectResponse(f"/works/{work_id}?done=meeting_empty#meeting", status_code=303)
-    meeting = {"name": str(form.get("m_name", "")).strip(), "date": str(form.get("m_date", "")).strip(),
-               "effective": str(form.get("m_effective", "")).strip(), "results": results, "edits": edits,
+    m_date, m_eff = str(form.get("m_date", "")).strip(), str(form.get("m_effective", "")).strip()
+    for v, label in ((m_date, "総会の日"), (m_eff, "施行日")):
+        if v and _iso_date(v) is None:   # 形の違う日付を保存すると、作業の画面が開けなくなった（検証での指摘）
+            raise HTTPException(400, f"{label}の形が違います。日付の欄で選び直してください（例：2027-04-01）。")
+    meeting = {"name": " ".join(str(form.get("m_name", "")).split())[:100], "date": m_date,
+               "effective": m_eff, "results": results, "edits": edits,
                "saved_at": _now()}
     store.update(work_id, meeting=meeting, board_changed_after_meeting="", board_changed_reason="",
                  meeting_board=_board_snapshot(store.load(work_id).get("board_decisions", {})))
     # 結果を1つも選んでいないときは「保存しました」と出さず、選ぶよう知らせる（何も入れずに終えたと思い込まないように）
     done = "meeting" if any(results.values()) else "meeting_empty"
     return RedirectResponse(f"/works/{work_id}?done={done}#meeting", status_code=303)
+
+
+def _iso_date(v):
+    """保存した日付（YYYY-MM-DD）を date に。形が違えば None（前に保存された壊れた値でも、作業の画面は開けるように）。"""
+    from datetime import date
+
+    try:
+        return date.fromisoformat(v) if v else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _final(work_id: str, n: int) -> dict:
@@ -1249,7 +1269,7 @@ def final_docx(work_id: str, n: int):
     from core.consolidate import to_docx
 
     d = _final(work_id, n)
-    name = quote(f"{d['title']}（最新）.docx")
+    name = quote(f"{d['title']}（最新）.docx", safe="")
     return Response(to_docx(d["blocks"], ident=_ident(work_id, store.load(work_id))), media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": f"attachment; filename=\"kiyaku_{n + 1}.docx\"; filename*=UTF-8''{name}"})
 
@@ -1275,10 +1295,149 @@ async def save_version(request: Request, work_id: str):
     form = await request.form()
     v = str(form.get("version", ""))
     store.load(work_id)
-    store.update(work_id, version=v if v in VERSION_ANSWERS else "")
+    if v and v not in VERSION_ANSWERS:   # 不正な値で、保存済みの答えを黙って消さない（検証での指摘）
+        raise HTTPException(400, "答えの値が正しくありません。画面を開き直して選んでください。")
+    store.update(work_id, version=v)
     if "application/json" in request.headers.get("accept", ""):
         return JSONResponse({"ok": True})
     return RedirectResponse(f"/works/{work_id}#readcheck", status_code=303)
+
+
+_TAIOU_CACHE: dict = {}
+
+
+def _taiou(work_id: str) -> dict:
+    """条の対応表（文の似かたの計算に1〜2秒かかるので、読み込んだファイルが同じ間は使い回す）。"""
+    from core.sources import standard
+    from core.taiou import match
+
+    src = _source(work_id)
+    fixed = store.load(work_id).get("minaoshi_map") or {}   # 人が選び直した対応（計画E3-4）
+    key = (work_id, src.stat().st_mtime, tuple(sorted(fixed.items())))
+    if key not in _TAIOU_CACHE:
+        _TAIOU_CACHE.clear() if len(_TAIOU_CACHE) > 20 else None
+        _TAIOU_CACHE[key] = match(_corpus(work_id).main, standard(), fixed)
+    return _TAIOU_CACHE[key]
+
+
+def _touched(work: dict) -> set:
+    """今回の改定案（①）で直す、今の規約の条の番号。"""
+    from core.sources import normalize_article_ref
+
+    return {normalize_article_ref(a["before_article"]) for a in (work.get("draft") or {}).get("amendments") or []
+            if a.get("before_article") and (a.get("document") or "規約") == "規約"}
+
+
+def _added(work: dict) -> set:
+    """今回の改定案（①）で新しく足す、規約の条の番号（標準管理規約の条番号と同じ形）。"""
+    from core.sources import normalize_article_ref
+
+    out = set()
+    for a in (work.get("draft") or {}).get("amendments") or []:
+        if a.get("kind") == "新設" and (a.get("document") or "規約") == "規約":
+            out.add(normalize_article_ref(a["article"]))
+            if a.get("caption"):   # 条番号が標準とずれた規約では番号が合わないので、見出しでも照らし合わせる
+                out.add("見出し:" + re.sub(r"[\s　()（）]", "", a["caption"]))
+    return out
+
+
+@app.get("/works/{work_id}/minaoshi", response_class=HTMLResponse)
+def minaoshi_page(request: Request, work_id: str):
+    """②これからの見直し（計画E2a）：違いの量・構成表・条の対応表と理事会の判断・決めたことの一覧。AI は使わない。"""
+    from core.kozo import build
+    from core.minaoshi import ACTIONS, KEEP, added_now, rows, state, summary, valid
+
+    work = store.load(work_id)
+    t = _taiou(work_id)
+    rs = rows(t, _touched(work), _added(work))
+    dec = {r["id"]: v for r in rs if (v := valid(r["type"], (work.get("minaoshi") or {}).get(r["id"])))}
+    k = build(_corpus(work_id))
+    return templates.TemplateResponse(request, "minaoshi.html", {
+        "id": work_id, "work": work, "counts": t["counts"], "rows": rs, "dec": dec, "sum": summary(rs, dec),
+        "states": {r["id"]: state(dec.get(r["id"])) for r in rs}, "actions": ACTIONS, "keep": KEEP,
+        "added_now": added_now(t, _added(work)), "std_all": t["std_all"],
+        "cur_all": [{"number": r["number"], "label": r["label"], "caption": r["caption"]} for r in t["rows"]],
+        "mapped": request.query_params.get("mapped", ""),
+        "after_meeting": bool(adopted_by_meeting(work)) if work.get("meeting") else False,
+        "kozo": {"rows": len(k["rows"]), "missing": len(k["missing"]), "bad": len(k["bad_cites"])}})
+
+
+@app.post("/works/{work_id}/minaoshi")
+async def save_minaoshi(request: Request, work_id: str):
+    """②の判断を1行ずつ保存する（選ぶとすぐ保存。空の判断は「まだ決めていない」に戻す）。"""
+    from core.minaoshi import clean, rows, summary
+
+    form = await request.form()
+    rid = str(form.get("id", ""))
+    work = store.load(work_id)
+    rs = rows(_taiou(work_id), _touched(work), _added(work))
+    row = next((r for r in rs if r["id"] == rid), None)
+    if row is None:
+        raise HTTPException(400, "その行は見つかりません。画面を開き直してください。")
+    d, w = clean(row["type"], str(form.get("d", "")), str(form.get("w", "")))
+    memo = str(form.get("m", "")).strip()[:300] if d else ""   # 未判断に戻したらメモも消す（見えないメモが残っていた）
+
+    def fn(data):
+        m = dict(data.get("minaoshi") or {})
+        if d:
+            m[rid] = {"d": d, "w": w, "m": memo, "at": _now()}
+        else:
+            m.pop(rid, None)
+        data["minaoshi"] = m
+    work = store.mutate(work_id, fn)
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"ok": True, "saved_at": _now(), **summary(rs, work.get("minaoshi") or {})})
+    return RedirectResponse(f"/works/{work_id}/minaoshi#r-{rid}", status_code=303)
+
+
+@app.get("/works/{work_id}/minaoshi/shukudai", response_class=HTMLResponse)
+def minaoshi_print(work_id: str):
+    """見直しの宿題の検討表（計画E3-1。印刷用）：宿題の条を、今の規約と標準管理規約の文を並べて、理事会の書き込み欄と一緒に。"""
+    from core.minaoshi import rows, summary, to_html
+
+    work = store.load(work_id)
+    rs = rows(_taiou(work_id), _touched(work), _added(work))
+    s = summary(rs, work.get("minaoshi") or {})
+    title = f"{_org(work)} 規約の見直し 宿題の検討表".strip()
+    return HTMLResponse(to_html(s, title, _ident(work_id, work), _org(work) or work.get("name", ""), _today_wareki()))
+
+
+@app.post("/works/{work_id}/minaoshi/map")
+async def save_minaoshi_map(request: Request, work_id: str):
+    """対応する標準管理規約の条を、人が選び直す（計画E3-4。AI は使わない）。
+    c＝今の規約の条番号、s＝標準管理規約の条番号（"none" は当たる条がない、"auto" は自動の対応づけに戻す）。
+    判断は消さない。行の種類が変わって選べない判断は、使わずに残す（自動に戻すと元に戻る）。"""
+    form = await request.form()
+    c, sn = str(form.get("c", "")), str(form.get("s", ""))
+    if not c or not sn:
+        raise HTTPException(400, "対応する条を選んでから押してください。")
+    sn = "" if sn == "none" else sn   # 画面では「当たる条はない」を none で送る（空は「まだ選んでいない」と区別するため）
+    t = _taiou(work_id)
+    if c not in {r["number"] for r in t["rows"]}:
+        raise HTTPException(400, "その条は見つかりません。画面を開き直してください。")
+    if sn not in ("", "auto") and sn not in {x["number"] for x in t["std_all"]}:
+        raise HTTPException(400, "その標準管理規約の条は見つかりません。")
+
+    def fn(data):
+        m = dict(data.get("minaoshi_map") or {})
+        if sn == "auto":
+            m.pop(c, None)
+        else:
+            m[c] = sn
+        data["minaoshi_map"] = m
+        # 判断は消さない（別の行の判断とメモまで黙って消えた。検証での指摘）。行の種類が変わって使えない判断は、
+        # 画面と一覧で外して扱い（core.minaoshi.valid）、自動の対応づけに戻すと元に戻る
+    store.mutate(work_id, fn)
+    return RedirectResponse(f"/works/{work_id}/minaoshi?mapped=c{c}#r-c{c}", status_code=303)
+
+
+def _today_wareki() -> str:
+    from datetime import datetime
+
+    from core.consolidate import wareki
+    from core.review import JST
+
+    return wareki(datetime.now(JST).date())   # 日本の日付で（サーバーの時計は UTC のことがある）
 
 
 @app.get("/works/{work_id}/taiou", response_class=HTMLResponse)
@@ -1288,9 +1447,7 @@ def taiou(work_id: str):
     from core.taiou import match, to_html
 
     work = store.load(work_id)
-    t = match(_corpus(work_id).main, standard())
-    touched = {normalize_article_ref(a["before_article"]) for a in (work.get("draft") or {}).get("amendments") or []
-               if a.get("before_article") and (a.get("document") or "規約") == "規約"}
+    t, touched = _taiou(work_id), _touched(work)
     title = f"{_org(work)} 管理規約と標準管理規約の条の対応表".strip()
     return HTMLResponse(to_html(t, title, ident=_ident(work_id, work), touched=touched))
 
@@ -1338,7 +1495,7 @@ def _docx_response(data: bytes, ascii_name: str, name: str) -> Response:
     from urllib.parse import quote
 
     return Response(data, media_type=DOCX,
-                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"})
+                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name, safe="")}"})
 
 
 @app.get("/works/{work_id}/taisho.docx")
@@ -1457,14 +1614,33 @@ def _apply_board_form(work_id: str, form) -> None:
     must = required_refs(draft_now) if draft_now else set()
     changed_any = False
     # 組合が選ぶ点は、問いごとに1回だけ選ぶ（b_q_{問いの番号}）。答えを関係するすべての議題に使う
-    answers = {q["key"]: str(form.get(f"b_q_{k}", "")).strip() for k, q in enumerate(choice_questions(points))}
+    questions = choice_questions(points)
+    answers = {q["key"]: str(form.get(f"b_q_{k}", "")).strip() for k, q in enumerate(questions)}
+    # 画面の自動保存は、変えた欄の名前（b_touched）を一緒に送る。変えていない議題・問いは、保存されている値を使う
+    # （同じ作業を2つのタブで開いたとき、古いタブの値で別のタブの判断を元に戻した。検証での指摘）。写真の書き込みや
+    # スクリプトのない画面からの保存は、これまでどおり全部を使う
+    touched = None
+    if form.get("b_touched") is not None:
+        try:
+            touched = set(json.loads(str(form.get("b_touched"))))
+        except (ValueError, TypeError):
+            touched = None
+    if touched is not None:
+        for k, q in enumerate(questions):
+            if f"b_q_{k}" not in touched:   # 変えていない問いは、前に選んだ答えのまま
+                prev_pick = next((old.get(str(i), {}).get("picked", {}).get(str(j)) for i, pts in points.items()
+                                  for j, p in enumerate(pts) if point_key(p) == q["key"] and old.get(str(i), {}).get("picked")), None)
+                if prev_pick is not None:
+                    answers[q["key"]] = prev_pick
     for i, it in enumerate(paper.items):
-        d = str(form.get(f"b_decision_{i}", ""))
+        prev = old.get(str(i), {})
+        mine = touched is None or bool({f"b_decision_{i}", f"b_note_{i}", f"b_choice_{i}"} & touched)
+        d = str(form.get(f"b_decision_{i}", "")) if mine else prev.get("decision", "")
         pts = points.get(i, [])
         picked = {str(j): answers.get(point_key(p), "") for j, p in enumerate(pts)}
-        entry = {"decision": d if d in DECISIONS[it.tier] else "", "note": str(form.get(f"b_note_{i}", "")).strip(),
-                 "choice": picked_text(pts, picked) if pts else str(form.get(f"b_choice_{i}", "")).strip()}
-        prev = old.get(str(i), {})
+        entry = {"decision": d if d in DECISIONS[it.tier] else "",
+                 "note": str(form.get(f"b_note_{i}", "")).strip()[:2000] if mine else prev.get("note", ""),
+                 "choice": picked_text(pts, picked) if pts else (str(form.get(f"b_choice_{i}", "")).strip()[:500] if mine else prev.get("choice", ""))}
         if entry != {k: prev.get(k, "") for k in entry} and (entry["decision"] in NEEDS_REDRAFT or prev.get("decision") in NEEDS_REDRAFT):
             changed_redraft = True
         if entry["choice"] != prev.get("choice", ""):  # 選んだ案が変われば、改定案に反映し直す
@@ -2228,13 +2404,13 @@ async def save_todos(request: Request, work_id: str):
                 continue
             if form.get(f"del_{tid}"):
                 continue
-            text = str(form.get(f"text_{tid}", "")).strip()
-            memo = str(form.get(f"memo_{tid}", "")).strip()
+            text = str(form.get(f"text_{tid}", "")).strip()[:1000]
+            memo = str(form.get(f"memo_{tid}", "")).strip()[:1000]
             done = bool(form.get(f"done_{tid}"))
             if text and (text, memo, done) != (t.get("text"), t.get("memo", ""), t.get("done", False)):
                 t.update(text=text, memo=memo, done=done, edited_at=now)
             keep.append(t)
-        new = str(form.get("new_text", "")).strip()
+        new = str(form.get("new_text", "")).strip()[:1000]
         if new:
             keep.append({"id": _todo_id(), "text": new, "where": str(form.get("new_where", "")).strip() or "全体",
                          "at": now, "batch": "", "memo": "", "done": False})
@@ -2256,6 +2432,9 @@ def edit_counts(work: dict) -> dict:
 
 
 templates.env.globals["edit_counts"] = edit_counts
+from core.readability import GLOSSARY as _GLOSSARY  # noqa: E402
+
+templates.env.globals["glossary"] = _GLOSSARY
 
 
 def board_preview(work: dict) -> dict:
@@ -2368,30 +2547,45 @@ def _review_material(work_id: str, work: dict, key: str) -> str:
                    note=e.get("note", ""), findings=findings,
                    basis=basis({"law_basis": am.law_basis, "standard_basis": am.standard_basis})
                    + _definitions(_corpus(work_id), e["original"] + e["text"])
-                   + _related(_corpus(work_id), document, article, e["original"] + e["text"]))
+                   + _related(_corpus(work_id), document, article, e["original"] + e["text"], draft=draft))
 
 
-def _related(corpus, document: str, article: str, text: str, extra: list[str] | None = None) -> list[dict]:
+def _related(corpus, document: str, article: str, text: str, extra: list[str] | None = None, draft=None) -> list[dict]:
     """確かめる役に渡す、関係する条の今の文：文中で参照している条・枝番のもとの条（第38条の2 → 第38条）・extra に挙げた条。
 
     渡していない条について「資料からは分からない」と人に確認を頼ませないため（想定ユーザーでの確認で分かった）。
+    細則が「規約第○条」を引くときは規約の条を、出典を「今の規約」として渡す。参照先が同じ総会の改定案で直る条なら、
+    改定案の文も並べる（改定前の項番号で「第9項に直せ」と誤って勧めた。想定ユーザー（委員）での確認から）。
     """
     from core.sources import normalize_article_ref
 
-    refs = re.findall(r"第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?", text) + list(extra or [])
+    pat = r"(規約)?(第[0-9０-９一二三四五六七八九十百]+条(?:の[0-9０-９一二三四五六七八九十]+)?)"
+    refs = [(bool(m.group(1)), m.group(2)) for m in re.finditer(pat, text)] + [(False, x) for x in (extra or [])]
     base = re.match(r"(第[0-9０-９一二三四五六七八九十百]+条)の", article)
     if base:
-        refs.append(base.group(1))
-    out, seen = [], {normalize_article_ref(article)}
-    for r in refs:
+        refs.append((False, base.group(1)))
+    amended = {}
+    for a in (draft.amendments if draft else []):
+        amended[(a.document or "規約", normalize_article_ref(a.article))] = a
+    out, seen = [], {(document, normalize_article_ref(article))}
+    for to_main, r in refs:
         num = normalize_article_ref(r)
-        if num in seen:
+        found, doc = [], document
+        if not to_main:
+            found = corpus.find(document, num) or []
+        if not found:
+            found, doc = corpus.find("規約", num) or [], "規約"
+        if (doc, num) in seen:
             continue
-        seen.add(num)
-        for a in corpus.find(document if document != "規約" else "規約", num) or corpus.find("規約", num):
-            out.append({"source": "今の規約" if document == "規約" else document, "ref": a.label,
-                        "caption": getattr(a, "caption", "") or "", "text": a.text()})
-    return out[:8]
+        seen.add((doc, num))
+        src = "今の規約" if doc == "規約" else doc
+        for a in found:
+            out.append({"source": src, "ref": a.label, "caption": getattr(a, "caption", "") or "", "text": a.text()})
+        am = amended.get((doc, num))
+        if am is not None and am.kind != "削除" and am.text:
+            out.append({"source": ("改定案の規約" if doc == "規約" else f"改定案の{doc}") + "（同じ総会で直す文）",
+                        "ref": am.article, "caption": am.caption or "", "text": am.text})
+    return out[:10]
 
 
 def _definitions(corpus, text: str) -> list[dict]:

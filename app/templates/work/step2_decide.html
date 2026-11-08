@@ -145,6 +145,8 @@
     <p class="muted"><b>改定に必要な決議</b>は、内容ではなく、どの文書を変えるかで決まります。規約の変更は総会の特別決議（区分所有法第31条第1項）、細則の変更は総会の普通決議（標準管理規約第48条）です。
       この一覧では、特別決議 {{ nres["特別"] }}件・普通決議 {{ nres["普通"] }}件です。{% if not nres["普通"] %}細則への指摘がないため、すべて規約の変更（特別決議）になっています。{% endif %}</p>
   </details>
+  <details class="glossary small"><summary>言葉の説明（定足数・特別決議・保存行為など）</summary>
+    <dl>{% for t, d in glossary %}<dt>{{ t }}</dt><dd>{{ d }}</dd>{% endfor %}</dl></details>
 
   <form action="/works/{{ id }}/decisions" method="post" id="decform">
   {% if adds %}
@@ -251,9 +253,10 @@
       s.innerHTML = (v === '採用' ? '{{ icon("check")|replace("\n", "") }}' : '');
       s.appendChild(document.createTextNode(label(v)));
     }
-    function confirm(i) {
+    function confirm(i, decisionOnly) {
       var data = new FormData(), box = $('cs-' + i);
-      data.append('decision', checked(i)); data.append('reason', $('rs-' + i).value);
+      // 判断だけを変えたときは理由を送らない（サーバーが保存済みの理由を残す。2つのタブで、古いタブが別のタブで書いた理由を消した）
+      data.append('decision', checked(i)); if (!decisionOnly) data.append('reason', $('rs-' + i).value);
       box.textContent = '保存中…'; box.className = 'cardsave';
       fetch('/works/{{ id }}/decisions/' + i, { method: 'POST', body: data })
         .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
@@ -281,7 +284,7 @@
       var i = m[1];
       if (e.target.value === $('db-' + i).dataset.saved) return;
       $('rs-' + i).value = $('cr-' + i).textContent === '（未記入）' ? '' : $('cr-' + i).textContent;
-      confirm(i);
+      confirm(i, true);
     });
     form.addEventListener('click', function (e) {
       var b = e.target.closest('button'); var t = (b && b.dataset) || {};

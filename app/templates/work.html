@@ -11,6 +11,7 @@
 {% set cst = cost_total(work) %}
 <p class="eyebrow wk">{{ work.name }}　<span class="muted"><span class="nowrap">状態：<b id="status">{{ shown_status }}</b></span>{% if cst %}　<span class="nowrap">AI の費用：これまで 約${{ "%.2f"|format(cst) }}</span>{% endif %}</span>{% if work.findings %}<a class="wk-ask" href="/consult?work={{ id }}">{{ icon("chat") }}この規約について相談する</a>{% endif %}</p>
 
+{% set place = "now" %}{% include "work/_places.html" %}
 {% if work.persona %}<p class="small persona-note">想定ユーザーの作業（架空・確認用）：{{ work.persona.who }}・{{ work.persona.round }}。{{ work.persona.note }}</p>{% endif %}
 <ol class="flow" id="journey" aria-label="進み具合">{% for st in journey.steps %}
   {%- set human = st.who == "human" %}

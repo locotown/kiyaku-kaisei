@@ -29,7 +29,7 @@ main { width: 100%; max-width: var(--layout-max); margin: 0 auto; padding: var(-
 
 /* ---- ボタン：既定は文字だけ。主のボタンは .btn だけ（1画面に1つ） ---- */
 .tk button { font: inherit; cursor: pointer; }
-.tk button:not(.btn):not(.tbtn):not(.fbtn):not(.seg *) { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit-min); padding: 0 var(--space-2);
+.tk button:not(.btn):not(.tbtn):not(.fbtn):not(.seg *):not(.ml-chip) { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit-min); padding: 0 var(--space-2);
   color: var(--color-primary); font-weight: 700; font-size: var(--text-sm); background: none; border: 0; }
 .tk button:not(.btn):disabled { color: var(--color-ink-3); cursor: not-allowed; }
 .tbtn2.boxed, .tk button.boxed { border: 1px solid var(--color-line-2) !important; border-radius: var(--radius-1); padding: 0 var(--space-4) !important; background: var(--color-surface) !important; }
@@ -187,6 +187,7 @@ details.item[open] .chev .icon { transform: rotate(180deg); }
 .s-contents { font-size: var(--text-sm); }
 .s-point { flex: 1; }
 .sample button { align-self: flex-start; }
+.s-name { display: grid; gap: 4px; color: var(--color-ink-2); } .s-name input { min-height: 40px; font-size: 1rem; padding: 0 var(--space-2); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); }
 
 /* ---- 下の帯の中身 ---- */
 .bar .t .muted { font-size: var(--text-sm); }

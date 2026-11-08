@@ -25,7 +25,7 @@ Z2H = str.maketrans("０１２３４５６７８９（）", "0123456789()")
 
 
 def _norm(s: str) -> str:
-    s = s.translate(Z2H)
+    s = re.sub(r"〔[^〕]{1,6}案〕", "", s.translate(Z2H))   # 両案の印は比べない
     s = re.sub(r"^(?:第[0-9一二三四五六七八九十百]+条(?:の[0-9]+)*|[0-9]+|[一二三四五六七八九十]+)[\s　]", "", s, flags=re.M)
     return re.sub(r"[\s　]", "", s)
 
@@ -40,7 +40,7 @@ def _merged(k: Kiyaku) -> list[dict]:
     for a in k.articles:
         body = "\n".join(line for line in a.text().splitlines() if not line.startswith("（" + a.caption + "）")) if a.caption else a.text()
         e = out.setdefault(a.number, {"number": a.number, "label": a.label, "caption": a.caption, "chapter": a.chapter, "texts": []})
-        e["texts"].append(body)
+        e["texts"].append((f"〔{a.variant}案〕\n" if a.variant else "") + body)   # 両案は案の印を付けて並べる
     for e in out.values():
         e["text"] = "\n".join(e["texts"])
         e["norm"] = _norm(e["text"])
@@ -57,15 +57,31 @@ def _ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b, autojunk=False).ratio()
 
 
-def match(current: Kiyaku, standard: Kiyaku) -> dict:
+def match(current: Kiyaku, standard: Kiyaku, fixed: dict | None = None) -> dict:
+    """fixed は人が選び直した対応（今の規約の条番号 → 標準管理規約の条番号。"" は当たる条がない）。計画E3-4。"""
     cur, std = _merged(current), _merged(standard)
     used: set[str] = set()
     pairs: dict[str, tuple[dict, float]] = {}
+    fixed = fixed or {}
+    std_by_num = {s["number"]: s for s in std}
+    none: set[str] = set()   # 人が「当たる条はない」とした条
+    # 0. 人が選び直した対応を先に決める（ほかの条は残りの中から対応づける）
+    for c in cur:
+        if c["number"] not in fixed:
+            continue
+        s = std_by_num.get(fixed[c["number"]])
+        if s is None or s["number"] in used:
+            none.add(c["number"])
+            continue
+        pairs[c["number"]] = (s, _best(c, s))
+        used.add(s["number"])
     by_cap: dict[str, list[dict]] = {}
     for s in std:
         by_cap.setdefault(_cap(s["caption"]), []).append(s)
     # 1. 見出しが同じ条（いちばん文が似ているもの）
     for c in cur:
+        if c["number"] in fixed:
+            continue
         cands = [s for s in by_cap.get(_cap(c["caption"]), []) if s["number"] not in used] if c["caption"] else []
         if cands:
             best = max(cands, key=lambda s: _best(c, s))
@@ -73,7 +89,7 @@ def match(current: Kiyaku, standard: Kiyaku) -> dict:
             used.add(best["number"])
     # 2. 見出しが違う条：文と見出しの似かたで探す
     for c in cur:
-        if c["number"] in pairs:
+        if c["number"] in pairs or c["number"] in none:
             continue
         rest = [s for s in std if s["number"] not in used]
         quick = sorted(rest, key=lambda s: SequenceMatcher(None, c["norm"], s["norm"], autojunk=False).quick_ratio(), reverse=True)[:6]
@@ -97,12 +113,14 @@ def match(current: Kiyaku, standard: Kiyaku) -> dict:
             kind, amount = "違う", "小" if r >= 0.8 else ("中" if r >= 0.5 else "大")
         rows.append({"label": c["label"], "number": c["number"], "caption": c["caption"], "chapter": c["chapter"], "kind": kind,
                      "amount": amount, "ratio": round(r, 2), "std_label": s["label"] if s else "", "std_caption": s["caption"] if s else "",
-                     "std_number": s["number"] if s else "", "text": c["text"]})
+                     "std_number": s["number"] if s else "", "text": c["text"], "std_text": s["text"] if s else "",
+                     "fixed": c["number"] in fixed})
     missing = [{"label": s["label"], "number": s["number"], "caption": s["caption"], "chapter": s["chapter"], "text": s["text"]}
                for s in std if s["number"] not in used]
     counts = {k: sum(1 for r in rows if r["kind"] == k) for k in ("ほぼ同じ", "違う", "今の規約だけ")}
     counts["標準にあって今の規約にない"] = len(missing)
-    return {"rows": rows, "missing": missing, "counts": counts}
+    return {"rows": rows, "missing": missing, "counts": counts,
+            "std_all": [{"number": s["number"], "label": s["label"], "caption": s["caption"]} for s in std]}
 
 
 GUIDE = ("今の規約の条ごとに、改正後の標準管理規約（令和7年10月改正・単棟型）のどの条に当たるかを、見出しと文の似かたで対応づけました。"

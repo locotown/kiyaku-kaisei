@@ -19,7 +19,8 @@
       {# 総会の前の段階：先に説明を作る（作り直す）よう案内する。総会が済んでいれば、下で記録もできる（画面の総点検で分かった） #}
       <div class="t"><b>総会の前に、住民向けの説明を{{ "作り直しましょう" if work.explain else "作りましょう" }}</b>このステップは総会のあとに使います。総会が済んでいれば、下で議案ごとの結果を選んで <button type="submit" form="meetingform">総会の結果を保存する</button></div>
       <a class="btn" href="#explain">ステップ5へ{{ icon("arrow-right") }}</a>
-    {%- else %}<div class="t"><b>総会の結果を記録しましょう</b><span class="muted">議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
+    {%- else %}{# 説明を作った直後にここへ移り、作った説明を見失った（想定ユーザーでの確認から）。説明を開く道をここにも置く #}
+      <div class="t"><b>住民向けの説明ができました。配って総会を開いたら、結果をここに記録します</b><span class="muted"><a href="/works/{{ id }}/explain">住民向けの説明を開く（見る・印刷する）</a>。総会が済んだら、議案ごとに結果を選んで保存すると、可決した改定から最新の規約を作ります</span></div>
       <button type="submit" form="meetingform" class="btn">総会の結果を保存する{{ icon("arrow-right") }}</button>{% endif %}{% endset %}
   <div class="nx nxb nxs"><p class="nx-k">次にすること</p>{{ nextbar }}</div>
   {% if done == "meeting_empty" %}<p class="warn"><b class="w">議案ごとの結果（可決など）が選ばれていないので、保存しませんでした。</b>下の「議案ごとの結果」で、議案ごとに結果を選んでから保存してください。前に保存した結果はそのまま残っています。</p>{% endif %}
@@ -68,7 +69,7 @@
         {# 最新の規約に残る「○」の空欄。入れた数字は最新の規約の画面と Word に入る（計画D3） #}
         <div class="{{ 'warn' if f.blanks else 'note2' }} blanks" id="fb-{{ f.n }}">{% if f.blanks %}<b class="w">「○」の空欄が残っている箇所があります（{{ f.blanks|length }}か所）。</b>標準管理規約のひな形で、組合が数字や名前を入れる箇所です。このままでは規約として使えないので、下の欄に入れてください（最新の規約の画面と Word に入ります）。{% if nb %}今回の改定で入った条（{{ nb|map(attribute="where")|join("、") }}）は理事会・総会で決めた数字を、{% endif %}それ以外は今お使いの規約（原本）の数字を入れます。改定ではなく、原本の数字を写す作業です。
           {% else %}<b>「○」の空欄には、すべて数字や名前を入れました（{{ nslot }}か所）。</b>最新の規約の画面と Word に入っています。{% endif %}
-          <details class="fold"{% if f.blanks %} open{% endif %}><summary>空欄に入れる数字・名前（{{ nslot }}か所）</summary>
+          <details class="fold"{% if f.blanks %} open{% endif %}><summary>空欄に入れる数字・名前（全部で {{ nslot }}か所）</summary>
           <form method="post" action="/works/{{ id }}/final-blanks" class="autoblank" data-done="保存しました。最新の規約の画面と Word に入ります。">
           {% for x in f.blank_slots %}<div class="bl-art"><b>{{ x.where }}</b>{% if x.changed %}（今回の改定）{% endif %}
             {% for ln in x.lines %}<p class="bl-line">{% for p in ln %}{% if "t" in p %}{{ p.t }}{% else %}{% set s = x.slots[p.slot] %}<input type="text" name="f|{{ f.doc }}|{{ x.where }}|{{ s.i }}" value="{{ s.value or s.suggest }}"{% set cls = ("unset" if not s.value else "") ~ (" wide" if s.mark|length > 1 else "") %}{% if cls|trim %} class="{{ cls|trim }}"{% endif %}

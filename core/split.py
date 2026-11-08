@@ -94,6 +94,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
     variant_label = ""                 # 案の見出し（「（ア）電磁的方法が利用可能ではない場合」の「電磁的方法が…場合」）
     variant_numbers: set[str] = set()  # （ア）の案に含まれる条番号
     in_second_variant = False
+    variant_in_body = False            # 案の印が条の途中に出た（項だけが（ア）（イ）に分かれる）
     in_appendix = False
     current: Article | None = None
     # 直前の要素（つなげ先）: ("para", Paragraph) / ("item", (Paragraph, idx)) / ("caption",) など
@@ -139,6 +140,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
                 in_second_variant = True
             variant = new_variant
             variant_label = m.group(2).strip()
+            variant_in_body = True
             last = None
             continue
         if RE_DELETED.match(line):
@@ -167,6 +169,7 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
                 variant_label=variant_label if variant else "",
                 note=pending_note if variant is None or number in variant_numbers else "",
             )
+            variant_in_body = False
             first = Paragraph(num=1, text=m.group(4))
             current.paragraphs.append(first)
             kiyaku.articles.append(current)
@@ -179,6 +182,10 @@ def split_kiyaku(raw_lines: list[str]) -> Kiyaku:
             kiyaku.preamble.append(line)
             last = ("preamble",)
             continue
+        if variant_in_body and pending_note:
+            # 案の印のあとに条ではなく項が続いた＝注記はこの条の中の両案のもの。次の条に付けない
+            # （第19条の2の中の注記を、次の第20条の注記にしてしまい、AI が「第20条の前の注記を削る」と書いた）
+            pending_note = ""
         m = RE_PARAGRAPH.match(line)
         if m and int(m.group(1)) == len(current.paragraphs) + 1:
             para = Paragraph(num=int(m.group(1)), text=m.group(2))

@@ -42,5 +42,7 @@ def test_version_answer_saved_and_shown(board_work):
     assert "改正後の文に差し替える" in page
     c.post(f"/works/{wid}/version", data={"version": "はい"})
     assert "改正を全部反映した版」として読み込みました" in c.get(f"/works/{wid}").text
-    c.post(f"/works/{wid}/version", data={"version": "でたらめ"})
+    assert c.post(f"/works/{wid}/version", data={"version": "でたらめ"}).status_code == 400
+    assert store.load(wid)["version"] == "はい"                     # 不正な値で、保存済みの答えを消さない
+    c.post(f"/works/{wid}/version", data={"version": ""})
     assert store.load(wid)["version"] == ""
