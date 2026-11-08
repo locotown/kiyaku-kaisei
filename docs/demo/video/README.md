@@ -107,3 +107,10 @@ OUT=demo_v3_c_ext.mp4 KARI=0 VOICE=ext python3 docs/demo/video/edit.py
 - 場面ごとに差し替えたあと Mei の版に戻すときは、`VOICE=mei python3 docs/demo/video/timing.py` から組み直す
 - 字幕は台本（DEMO_C.md）の文。読みを変えたら、台本の表も直してから rows.py から組み直す（rows.py は timing の結果を消すので、そのあと tts.py・timing.py も）
 - 締めの画面のクレジット（Open JTalk／Mei）は、声を全部差し替えたら figures/src/09_end.html から消して `node docs/demo/figures/render.js 09_end`
+
+### 11/8 提出用に決めた形（作者の判断）
+- 0:25 の背景：作者が撮った、正面から見た棟の写真（`photos/danchi.jpg`。横長に合わせて上下を切ると、車のナンバーは画面に入らない）
+- 締めの背景：作者が撮った、大きな棟を斜めから見た写真（`photos/end.jpg`）
+- 冒頭は掲示板の絵のまま（物語の入り口のため）
+- 絵と図の場面は止めて見せる（寄る動きが揺れて見えたため）
+- ナレーションは合成音声（Mei）。書き出した動画：`demo_final_c.mp4`（`demo_v3_c_photo5.mp4` と同じ）。写真は公開リポジトリに入れない
