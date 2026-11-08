@@ -22,7 +22,7 @@ DATA = Path(os.environ.get('KIYAKU_DATA_DIR', ''))
 if not DATA.name:
     sys.exit('KIYAKU_DATA_DIR（撮影用の保存先）を指定してください')
 WORK, SNAP = DATA / 'work', DATA / 'v3_snap'
-SRC = '20261108-110038-9e6e0c'   # 本物の AI で最初から作った作業
+SRC = '20261108-110038-9e6e0c'   # 本物の AI で最初から作った作業（点検まで）。改定案からは、推奨・参考を足して写した 20261108-111600-c7e5a2 で続けた（〔選択〕のある改定案にするため）
 IDS = {
     'reviewed': '20261108-110038-v3s1rv',   # 点検が終わった直後（まだ判断していない）
     'decided': '20261108-110038-v3s2dc',    # 推奨を3件採用した
@@ -57,8 +57,17 @@ def busy(key, snap, src_stage, span):
     (dst / 'work.json').write_text(json.dumps(w, ensure_ascii=False, indent=2))
 
 
+def reset_reviewed(snap):
+    """「点検が終わった直後」の作業を、写しておいた work.json に戻す（c4 の録画で判断を保存するので、録り直すたびに戻す）。"""
+    (WORK / IDS['reviewed'] / 'work.json').write_text((SNAP / snap).read_text())
+
+
 if __name__ == '__main__':
     pick = json.load(open(H / 'ids_v3_snap.json')) if (H / 'ids_v3_snap.json').exists() else {}
+    if pick.get('reviewed'):
+        reset_reviewed(pick['reviewed'])
+    if pick.get('board'):  # 理事会の欄（〔選択〕を選ぶ前）：c8 の録画で選ぶので、録り直すたびに戻す
+        (WORK / IDS['board'] / 'work.json').write_text((SNAP / pick['board']).read_text())
     if pick.get('review'):
         busy('review_busy', pick['review'], 'reviewed', pick.get('review_span', 120))
     if pick.get('draft'):

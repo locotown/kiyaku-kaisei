@@ -20,7 +20,7 @@ html,body{margin:0;background:transparent;width:1920px;height:1080px}
     await p.screenshot({ path: path.join(__dirname, SUBS, String(i).padStart(2, '0') + '.png'), omitBackground: true });
   }
   // 早送りの表示と、仮編集の印
-  for (const [name, text] of [['ff_review', '早送り　実時間 約4分'], ['ff_draft', '早送り　実時間 約10〜20分'], ['kari', '仮編集'], ['booklet', '（仮）手元の撮影に差し替え']]) {
+  for (const [name, text] of [['ff_review', '早送り　実時間 2分41秒'], ['ff_draft', '早送り　実時間 7分01秒'], ['kari', '仮編集'], ['booklet', '（仮）手元の撮影に差し替え']]) {
     await p.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>@font-face{font-family:N;font-weight:700;src:url(${F}700-normal.woff2)}
 html,body{margin:0;background:transparent;width:1920px;height:1080px}.t{position:absolute;${name === 'kari' ? 'left:28px;top:24px;background:rgba(200,16,46,.85)' : 'right:40px;top:36px;background:rgba(42,120,214,.92)'};color:#fff;font:700 30px N;padding:8px 18px;border-radius:8px}</style></head><body><div class="t">${text}</div></body></html>`);
     await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(150);

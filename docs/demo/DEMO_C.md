@@ -26,7 +26,8 @@
 | 2:50–3:00 | ⑥ 締め | 専門家に頼めない組合でも、自分たちの手で |
 
 ## 場面ごとの台本
-11/3 夜：名前「ととのう規約」で書き直した。物語の主人公（架空の理事長）を、見る理事・担当者が自分と重ねられるようにする。
+11/3 夜：名前「ととのう規約」で書き直した。
+11/8（v3）：③を今の画面で撮り直し、1:00・1:26・1:35・2:26・2:38 の文を今の画面と README の評価（3本の規約で、必ず直す論点 8/8）に合わせた。⑤で Claude の使い方を具体的に。物語の主人公（架空の理事長）を、見る理事・担当者が自分と重ねられるようにする。
 約束しすぎない（作るのは総会に出す資料の下書き）。1文は44字以内。
 
 ### ① 困りごと（0:00–0:26）
@@ -48,11 +49,11 @@
 | 0:38 | トップ画面。Word の規約集を読み込む | 山本さんは、今の規約を Word のまま読み込みました。 | Yamamoto uploads the current bylaws as a Word file. |
 | 0:44 | 点検の進み具合（早送り） | AI が条文を一つずつ読み、国の標準管理規約と、改正後の法律に照らし合わせます。 | Claude reads each article and checks it against the national model bylaws and the amended law. |
 | 0:52 | 指摘の一覧。必須の指摘 | 法律と食い違う箇所は「必須」。どの指摘にも、根拠の条文が付いています。 | Conflicts with the new law are marked "Required" — each with the exact legal article. |
-| 1:00 | 根拠の条文・まとめて判断 | どこまで直すかは、理事会のメンバーと相談して決めました。 | What to change was decided together with the board. |
+| 1:00 | 言葉の説明・推奨を「改定案に入れる」 | 難しい言葉には説明付き。どこまで直すかは、理事会で相談して決めました。 | Hard terms come with plain explanations. What to change was decided with the board. |
 | 1:07 | 改定案の作成（早送り） | 改定案は、書く AI と確かめる AI の二段構え。基準を満たすまで書き直します。 | One AI drafts; a separate AI checks the draft and sends it back until it meets the criteria. |
 | 1:17 | 新旧対照表 | できた新旧対照表は、そのまま総会資料の下書きになりました。 | The comparison table became the draft for the general meeting. |
-| 1:26 | 理事会の欄。組合が選ぶ点 | Web 会議を使うかどうかなど、組合で決めるべき点は、理事会で選びました。 | Choices like allowing online meetings were made by the board — not the AI. |
-| 1:35 | 住民向けの説明 | 住民への説明は、法律の言葉ではなく、暮らしの言葉で書かれています。 | The explanation for residents uses everyday words, not legal jargon. |
+| 1:26 | 理事会の欄。組合が選ぶ点（〔選択〕）→ 対象の条だけ作り直す | メールや Web での投票を認めるかは、理事会で選びました。選んだ条だけを AI が作り直します。 | Whether to allow voting by email or web was the board's choice. The AI then redrafts just those articles. |
+| 1:35 | 住民向けの説明 | 住民への説明は、今の規約と4月からの違いを、暮らしの言葉で伝えます。 | The resident explanation compares today's rule with the rule from April, in everyday words. |
 | 1:43 | 回覧板（12_kairanban） | 山本さんは、それを回覧板で、全ての家に回しました。 | Yamamoto passes it around on the building's circular board. |
 | 1:49 | 総会（06_soukai）に「可決」の判子 | そして総会。規約の改定は、可決されました。 | Then, the general meeting. The amendment passes. |
 | 1:56 | 最新の規約（Word） | 最新の規約も、附則まで付けて、プログラムで正確に組み立てます。 | The updated rulebook is assembled exactly by code. |
@@ -67,8 +68,9 @@
 ### ⑤ 信頼できる理由（2:26–2:50）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
 | --- | --- | --- | --- |
-| 2:26 | 構成図（03_architecture） | 判断は Claude に、正確さが要るところはプログラムに。決めるのは人です。 | Judgment goes to Claude, exactness to code — and people make the decisions. |
-| 2:38 | 評価（04_eval） | 国が公表した改正内容で測ったところ、法律上必須の箇所に見落としはありませんでした。 | Measured against the government's revision: no legally required change was missed. |
+| 2:26 | 構成図（03_architecture） | 判断は Claude のエージェントが、スキルと採点役を使って行います。正確さはプログラムに。決めるのは人です。 | Judgment: Claude agents with skills, checked by a separate grader. Exactness: code. Decisions: people. |
+| 2:33 | 同じ図（寄る） | 開発では Claude Code が架空の利用者になり、本物の AI で通しました。 | In development, Claude Code played fictional users, end to end with the real AI. |
+| 2:38 | 評価（04_eval） | 国の改正内容を正解に測ると、3本の規約すべてで、必ず直す論点を8つとも見つけました。 | Measured against the government's revision on 3 rulebooks: all 8 legally required changes found in each. |
 
 ### ⑥ 締め（2:50–3:00）
 | 時間 | 画面 | ナレーション | 英語の字幕 |
