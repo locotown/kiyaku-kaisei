@@ -116,3 +116,4 @@ OUT=demo_v3_c_ext.mp4 KARI=0 VOICE=ext python3 docs/demo/video/edit.py
 - ナレーションは Gemini 3.8 Flash TTS の声「Charon」（作者が5つの声と Mei を聞き比べて選んだ）。声の調子を通しで一定にするため、全場面の文を1回で読ませて場面の変わり目の間で切り分ける `GVOICE=Charon python3 docs/demo/video/gemini_tts_full.py` で作り（場面ごとに別々に作ると、画面が切り替わるたびにニュアンスが変わった。作者の声から）、上の「自分の声・別の音声合成に差し替える」の手順で組み直した。書き出した動画：`demo_v3_c_charon_full.mp4`。
 - 2回目（作者の声：導入が平坦でつまらなそう／「約1,600万人」を「いちてんろっぴゃくまん」と読む）：最初の4場面だけ、引き込む話し方の指示に変えた（同じ1回の呼び出しの中で指示だけ変えるので声は同じ）。読ませる文だけ「約千六百万人」に置き換えた（字幕はそのまま）。切り分けは、無音の長さだけだと後半の場面がずれたので、`uv run --with faster-whisper --with numpy python -I docs/demo/video/align_cuts.py` で文字起こしの時刻から境目を決め（`bounds.json`）、`gemini_tts_full.py` をもう一度動かして切り分けた。全23場面を文字起こしで確かめ、頭と終わりが台本どおり。書き出した動画：`demo_v3_c_charon_full2.mp4`。締めのクレジットも Gemini TTS に変えた（Mei に戻すときは figures/src/09_end.html を戻して書き出し直す）
 - 写真は公開リポジトリに入れない
+- **完成（11/8 作者の判断）**：`demo_v3_c_charon_full2.mp4` を完成版とし、`demo_final_c.mp4` に写した（提出・YouTube に上げるのはこのファイル。コミットしない）
