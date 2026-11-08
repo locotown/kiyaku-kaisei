@@ -48,8 +48,12 @@ for i, (r, v) in enumerate(zip(rows, VIS)):
                 src = ph
             inputs += ['-loop', '1', '-t', str(d), '-i', str(src)]
             frames = d * 30
-            # ゆっくり寄る（拡大してから zoompan で揺れを抑える。写真は縦横比を保って切り抜く）
-            chains.append(f"[0:v]scale=2880:1620:force_original_aspect_ratio=increase,crop=2880:1620,zoompan=z='1+0.04*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,setsar=1[base]")
+            # 止めて見せる（11/8：ゆっくり寄る動きが、画面全体が微妙に揺れて見えて気持ち悪い、という作者の声から。
+            # 寄る動きに戻すときは ZOOM=1）。写真は縦横比を保って中央を切り抜く
+            if os.environ.get('ZOOM') == '1':
+                chains.append(f"[0:v]scale=2880:1620:force_original_aspect_ratio=increase,crop=2880:1620,zoompan=z='1+0.04*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,setsar=1[base]")
+            else:
+                chains.append("[0:v]scale=1920:1080:force_original_aspect_ratio=increase:flags=lanczos,crop=1920:1080,fps=30,setsar=1[base]")
     elif kind == 'montage':  # 早回し：いくつかの画面を同じ長さずつつなぐ（「名前@開始の秒」をカンマ区切り）
         parts_m = [x.split('@') for x in name.split(',')]
         each = round(d / len(parts_m), 2)
