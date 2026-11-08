@@ -252,15 +252,3 @@ def test_long_whitespace_line_is_fast():
     clean_line("第1条 " + "　" * 100_000 + "（p.3）◆")
     assert time.time() - t < 1.0
     assert clean_line("第1条　目的（規約集 p.3）◆") == "第1条　目的"
-
-
-def test_icons_are_served_without_login(pub):
-    """アイコン（favicon・ホーム画面用）は、ログインの前のページでも出る。"""
-    M, store, client = pub
-    c = client()
-    r = c.get("/favicon.ico")
-    assert r.status_code == 200 and r.headers["content-type"] == "image/x-icon"
-    for path in ("/static/icons/favicon.svg", "/static/icons/apple-touch-icon.png", "/static/icons/site.webmanifest"):
-        assert c.get(path).status_code == 200, path
-    page = c.get("/login").text
-    assert 'rel="icon"' in page and 'rel="apple-touch-icon"' in page and 'rel="manifest"' in page

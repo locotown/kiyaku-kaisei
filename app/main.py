@@ -128,7 +128,7 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 # ---- 審査員向けの公開版のログイン（core/auth.py。環境変数 KIYAKU_ACCOUNTS があるときだけ働く） ----
 from core import auth  # noqa: E402
 
-OPEN_PATHS = ("/login", "/logout", "/healthz", "/favicon.ico")
+OPEN_PATHS = ("/login", "/logout", "/healthz")
 _WORK_PATH = re.compile(r"^/works/([^/]+)")
 _CONSULT_PATH = re.compile(r"^/consult/([^/]+)")
 
@@ -171,12 +171,6 @@ async def require_login(request: Request, call_next):
                         secure=request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https",
                         max_age=auth.IDLE)
     return response
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-def favicon():
-    """ブラウザが自動で取りに来るアイコン（印刷用の資料のページなど、リンクを書いていないページでも出る）。"""
-    return FileResponse(Path(__file__).parent / "static" / "favicon.ico", media_type="image/x-icon")
 
 
 @app.get("/healthz")
