@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# 作業・相談・AI の登録の保存先。公開先では、消えない場所（ディスク）を環境変数で指す。手元では private/
+DATA = Path(os.environ.get("KIYAKU_DATA_DIR") or ROOT / "private")
 KEY_NAMES = ("KIYAKU_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
 
 # 既定のモデル（docs/ARCHITECTURE.md）

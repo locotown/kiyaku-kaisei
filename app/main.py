@@ -50,7 +50,7 @@ def recover_interrupted() -> list[str]:
     デモの録画用に、わざと処理中にしてある架空の作業（demo_busy）は対象にしない。
     """
     fixed = []
-    for w in store.list_works():
+    for w in store.list_works(all_users=True):
         def stop_reading(data: dict) -> None:
             for b in data.get("notes", []):
                 if b.get("status") == "読み取り中":
@@ -104,7 +104,7 @@ def rerender_all() -> None:
 
     印刷の体裁などを直したとき、すでに作ってある作業の資料にも反映するため。処理中の作業は触らない。
     """
-    for w in store.list_works():
+    for w in store.list_works(all_users=True):
         if w["status"] in BUSY:
             continue
         try:
@@ -123,6 +123,100 @@ async def lifespan(_app):
 app = FastAPI(title="ととのう規約", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")  # デザイントークンなど
+
+
+# ---- 審査員向けの公開版のログイン（core/auth.py。環境変数 KIYAKU_ACCOUNTS があるときだけ働く） ----
+from core import auth  # noqa: E402
+
+OPEN_PATHS = ("/login", "/logout", "/healthz")
+_WORK_PATH = re.compile(r"^/works/([^/]+)")
+_CONSULT_PATH = re.compile(r"^/consult/([^/]+)")
+
+
+def _owner_of(kind: str, ident: str) -> str | None:
+    try:
+        return (store.load(ident) if kind == "work" else store.load_consult(ident)).get("owner")
+    except store.WorkNotFound:
+        return None
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """公開版：ログインしていなければログインの画面へ。自分の作業・相談だけを開ける（ほかの人のものは「見つかりません」）。"""
+    if not auth.enabled():
+        return await call_next(request)
+    path = request.url.path
+    if path in OPEN_PATHS or path.startswith("/static/"):
+        return await call_next(request)
+    acc = auth.from_cookie(request.cookies.get(auth.COOKIE))
+    if acc is None:
+        if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+            from urllib.parse import quote
+
+            return RedirectResponse(f"/login?next={quote(path)}", status_code=303)
+        return JSONResponse({"detail": "ログインが切れました。画面を開き直して、ログインしてください。"}, status_code=401)
+    token = auth.CURRENT.set(acc)
+    try:
+        m = _WORK_PATH.match(path)
+        c = _CONSULT_PATH.match(path)
+        if m and m.group(1) not in ("",) and not auth.can_open(_owner_of("work", m.group(1))):
+            return _error_page(request, 404, "この作業は見つかりません。削除されたか、アドレスが違う可能性があります。")
+        if c and c.group(1) != "profile" and not auth.can_open(_owner_of("consult", c.group(1))):
+            return _error_page(request, 404, "この相談は見つかりません。")
+        response = await call_next(request)
+    finally:
+        auth.CURRENT.reset(token)
+    # 操作のたびに、操作のない時間を数え直す（12時間で切れる）
+    response.set_cookie(auth.COOKIE, auth.make_cookie(acc["id"]), httponly=True, samesite="lax",
+                        secure=request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https",
+                        max_age=auth.IDLE)
+    return response
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, next: str = "/", error: str = ""):
+    return templates.TemplateResponse(request, "login.html", {"next": next if next.startswith("/") and not next.startswith("//") else "/",
+                                                              "error": error})
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    form = await request.form()
+    nxt = str(form.get("next") or "/")
+    if not nxt.startswith("/") or nxt.startswith("//"):
+        nxt = "/"
+    client = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "")
+    acc, why = auth.login(str(form.get("id", "")).strip()[:64], str(form.get("password", ""))[:200], client)
+    if acc is None:
+        return templates.TemplateResponse(request, "login.html", {"next": nxt, "error": why}, status_code=401)
+    resp = RedirectResponse(nxt, status_code=303)
+    resp.set_cookie(auth.COOKIE, auth.make_cookie(acc["id"]), httponly=True, samesite="lax",
+                    secure=request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https",
+                    max_age=auth.IDLE)
+    return resp
+
+
+@app.get("/logout")
+def logout():
+    resp = RedirectResponse("/login", status_code=303)
+    resp.delete_cookie(auth.COOKIE)
+    return resp
+
+
+def _ai_guard() -> None:
+    """公開版：AI の費用の上限を超えていたら、新しい AI の処理を始めない。"""
+    why = auth.ai_refusal()
+    if why:
+        raise HTTPException(429, why)
+
+
+templates.env.globals["auth_user"] = lambda: auth.CURRENT.get()
+templates.env.globals["auth_until"] = lambda: auth.until_label(auth.CURRENT.get() or {})
 SAMPLE = ROOT / "evals/data/r7_tantou_before.txt"
 # 画面で選べるサンプル（すべて公開資料か架空のデータ）
 SAMPLES = {
@@ -711,6 +805,9 @@ def create_work(
     version: str = Form(""),
     file: UploadFile | None = File(None),
 ):
+    _ai_guard()   # 公開版：AI の費用の上限
+    if file is not None and file.filename and (file.size or 0) > 20 * 1024 * 1024:
+        raise HTTPException(400, "ファイルが大きすぎます（20MB まで）。")
     if kind != "単棟型":
         raise HTTPException(400, "現在は単棟型のみに対応しています。")
     name = " ".join(name.split())[:80] or (SAMPLES.get(sample, {}).get("name", "") if sample else "") or "名前のない作業"
@@ -750,6 +847,7 @@ def create_work(
     from core.readcheck import VERSION_ANSWERS
 
     store.save(work_id, {"name": name, "org": org.strip(), "info": info, "status": "点検中", "articles": len(kiyaku.articles),
+                         "owner": auth.user_id(),   # 公開版：持ち主（ほかのアカウントからは見えない）
                          "documents": documents, "log": [],
                          # 読み込んだ規約が今有効な版か（課題①）。サンプルは今有効な版として扱う
                          "version": "はい" if sample else (version if version in VERSION_ANSWERS else "")})
@@ -1178,6 +1276,7 @@ async def save_one_decision(request: Request, work_id: str, index: int):
 
 @app.post("/works/{work_id}/draft")
 def start_draft(work_id: str):
+    _ai_guard()   # 公開版：AI の費用の上限
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
@@ -1189,6 +1288,7 @@ def start_draft(work_id: str):
 @app.post("/works/{work_id}/draft/resume")
 def resume_draft_work(work_id: str):
     """途中で止まった改定案づくりを、AI のセッションにつなぎ直して続きから進める（最初から作り直すより費用を抑えられる）。"""
+    _ai_guard()   # 公開版：AI の費用の上限
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
@@ -1552,6 +1652,7 @@ def taisho_md(work_id: str):
 
 @app.post("/works/{work_id}/explain")
 def start_explain(work_id: str):
+    _ai_guard()   # 公開版：AI の費用の上限
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
@@ -1575,6 +1676,7 @@ def explain_page(work_id: str):
 
 @app.post("/works/{work_id}/board")
 def start_board(work_id: str):
+    _ai_guard()   # 公開版：AI の費用の上限
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
@@ -1699,6 +1801,7 @@ async def save_board_decisions(request: Request, work_id: str):
 @app.post("/works/{work_id}/board/redraft")
 def redraft_with_board(work_id: str, mode: str = Form("full")):
     """理事会の判断を改定案に反映する。mode=partial は対象の条だけ、それ以外は全体を最初から作り直す。"""
+    _ai_guard()   # 公開版：AI の費用の上限
     work = store.load(work_id)
     if work["status"] in BUSY:
         raise HTTPException(409, "処理中です。終わるまでお待ちください。")
@@ -1926,6 +2029,7 @@ def _with_batch(work_id: str, batch: str, fn) -> None:
 @app.post("/works/{work_id}/notes")
 async def upload_notes(work_id: str, doc: str = Form(...), photos: list[UploadFile] = File(...)):
     """書き込みのある資料の写真を読み込み、読み取りを始める（写真は何枚でも）。"""
+    _ai_guard()   # 公開版：AI の費用の上限
     from core.notes import preprocess
 
     work = store.load(work_id)
@@ -2002,6 +2106,7 @@ def _read_notes(work_id: str, batch: str) -> None:
 @app.post("/works/{work_id}/notes/{batch}/resume")
 def resume_notes(work_id: str, batch: str):
     """途中で止まった読み取りを、残りの写真から続ける。"""
+    _ai_guard()   # 公開版：AI の費用の上限
     b = _note_batch(store.load(work_id), batch)
     if b["status"] == "読み取り中":
         raise HTTPException(409, "読み取り中です。終わるまでお待ちください。")
@@ -2655,6 +2760,7 @@ def review_status(work_id: str):
 @app.post("/works/{work_id}/articles/review")
 async def review_articles(request: Request, work_id: str):
     """委員会で直した条を、AI に確かめてもらう（押したときだけ。1条あたり数セント）。key がなければ、確認前の条をまとめて。"""
+    _ai_guard()   # 公開版：AI の費用の上限
     from core.editcheck import label
 
     form = await request.form()

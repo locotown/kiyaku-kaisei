@@ -13,29 +13,42 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from core.config import ROOT
+from core import auth
+from core.config import DATA, ROOT
 from core.review import JST
 
-WORK = ROOT / "private/work"
+WORK = DATA / "work"
 # 想定ユーザー（架空）が使った作業の記録。リポジトリに入れて配り、一覧を開いたときに private/work へ写す
 # （写しなので、開いて操作してもリポジトリのファイルは変わらない）。中身はアプリのサンプル（架空）だけ
 SEED = ROOT / "data/public/persona_works"
 # AI 相談（ととのう規約に相談する）の記録と、マンションの基本情報。貼った文には人名などが入りうるので、private/ にだけ置く
-CONSULT = ROOT / "private/consult"
+CONSULT = DATA / "consult"
 _lock = threading.Lock()
 
 
 def seed_persona_works() -> int:
-    """想定ユーザーの作業のうち、まだ private/work にないものを写す。写した件数を返す。"""
+    """想定ユーザーの作業のうち、まだ private/work にないものを写す。写した件数を返す。
+
+    公開版（ログインあり）では、アカウントごとに別の写しを作り、持ち主をそのアカウントにする
+    （ログインしてすぐ、AI を待たずに総会まで済んだ作業を触れるように。ほかの人の写しは見えない）。"""
     import shutil
 
     if not SEED.exists():
         return 0
+    me = auth.user_id() if auth.enabled() else ""
+    if auth.enabled() and not me:
+        return 0
     n = 0
     for d in SEED.iterdir():
-        if (d / "work.json").exists() and not (WORK / d.name).exists():
+        dest = WORK / (f"{d.name}-{me}" if me else d.name)
+        if (d / "work.json").exists() and not dest.exists():
             WORK.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(d, WORK / d.name)
+            shutil.copytree(d, dest)
+            if me:
+                data = json.loads((dest / "work.json").read_text(encoding="utf-8"))
+                data["owner"] = me
+                data["seeded"] = True   # 写したサンプル。中の費用の記録は、公開版の費用の上限に数えない
+                (dest / "work.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             n += 1
     return n
 
@@ -123,7 +136,8 @@ def display_status(data: dict) -> str:
     return status
 
 
-def list_works() -> list[dict]:
+def list_works(all_users: bool = False) -> list[dict]:
+    """作業の一覧。公開版では今のアカウントのものだけ（all_users=True はサーバーの起動時の点検用）。"""
     seed_persona_works()
     if not WORK.exists():
         return []
@@ -132,6 +146,8 @@ def list_works() -> list[dict]:
         f = d / "work.json"
         if f.exists():
             data = json.loads(f.read_text(encoding="utf-8"))
+            if not all_users and not auth.can_open(data.get("owner")):   # 公開版：ほかの人の作業は一覧に出さない
+                continue
             status = display_status(data)  # 作業の画面の表示とそろえる
             out.append({"id": d.name, "name": data.get("name", ""), "status": status,
                         "findings": len(data.get("findings", [])), "persona": data.get("persona")})
@@ -185,21 +201,29 @@ def list_consults() -> list[dict]:
         return []
     out = []
     for f in sorted(CONSULT.glob("*.json"), reverse=True):
-        if f.name == "profile.json":
+        if f.name.startswith("profile"):
             continue
         try:
-            out.append(json.loads(f.read_text(encoding="utf-8")))
+            c = json.loads(f.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if auth.can_open(c.get("owner")):   # 公開版：ほかの人の相談は出さない
+            out.append(c)
     return out
 
 
+def _profile_path() -> Path:
+    """マンションの基本情報。公開版ではアカウントごと（ほかの人が入れた戸数で計算しないように）。"""
+    me = auth.user_id() if auth.enabled() else ""
+    return CONSULT / (f"profile-{me}.json" if me else "profile.json")
+
+
 def load_profile() -> dict:
-    p = CONSULT / "profile.json"
+    p = _profile_path()
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 def save_profile(profile: dict) -> None:
     with _lock:
         CONSULT.mkdir(parents=True, exist_ok=True)
-        (CONSULT / "profile.json").write_text(json.dumps(profile, ensure_ascii=False, indent=1), encoding="utf-8")
+        _profile_path().write_text(json.dumps(profile, ensure_ascii=False, indent=1), encoding="utf-8")

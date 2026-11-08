@@ -364,3 +364,10 @@
 .tk .glossary dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: var(--space-2) 0; }
 .tk .glossary dt { font-weight: 700; } .tk .glossary dd { margin: 0; }
 @media (max-width: 640px) { .tk .glossary dl { grid-template-columns: 1fr; } .tk .glossary dd { margin-bottom: 6px; } }
+/* 審査員向けの公開版（ログイン） */
+.tk .pubnote { margin: 0; padding: 8px 16px; font-size: var(--text-sm); background: var(--color-primary-soft); color: var(--color-ink); text-align: center; }
+.tk .login { max-width: 480px; margin: var(--space-6) auto; }
+.tk .login form { display: grid; gap: var(--space-3); margin: var(--space-4) 0; }
+.tk .login label { display: grid; gap: 4px; font-weight: 700; }
+.tk .login input { min-height: 44px; font-size: 1rem; padding: 0 var(--space-3); border: 1px solid var(--color-line-2); border-radius: var(--radius-1); font-weight: 400; }
+.tk .login .btn { justify-self: start; }
