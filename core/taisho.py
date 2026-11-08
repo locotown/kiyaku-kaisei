@@ -197,7 +197,7 @@ def _pairs_html(r: dict) -> str:
     def flush():
         if not same:
             return
-        names = "・".join(x["new_label"] for x in same if x["new_label"])
+        names = html.escape("・".join(x["new_label"] for x in same if x["new_label"]))
         body = "".join(f'<p>{html.escape(x["new"]).replace(chr(10), "<br>")}</p>' for x in same)
         out.append(f'<details class="pp-same"><summary>変わっていない項{("（" + names + "）") if names else ""}を見る</summary>{body}</details>')
         same.clear()

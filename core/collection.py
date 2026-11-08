@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from core.model import Kiyaku
 from core.split import normalize, split_kiyaku
 
-PAGE_REF = re.compile(r"[\s　]*[（(]\s*(?:規約集\s*)?p\.?\s*\d+(?:\s*[-–~〜]\s*p?\.?\s*\d+)?\s*[）)]")
+PAGE_REF = re.compile(r"(?<![\s　])[\s　]*[（(]\s*(?:規約集\s*)?p\.?\s*\d+(?:\s*[-–~〜]\s*p?\.?\s*\d+)?\s*[）)]")
 MARKER_TAIL = re.compile(r"[\s　]*[◆★]+$")
 # 注記：◆★※で始まる行、「- 」の箇条書き、「出典 = …」「旧条文 = …」のような記録の行。
 # 標準管理規約の選択式の注記「〔※…〕」は条文の一部なので含めない
@@ -83,10 +83,15 @@ class Collection:
         return [d.summary() for d in self.documents]
 
 
+MAX_LINE = 5000   # 1行の長さの上限（空白が長く続く行で、正規表現の処理時間が膨らまないように）
+
+
 def clean_line(line: str) -> str:
     """ページ参照と行末の◆★を取り除く。"""
+    if len(line) > MAX_LINE:
+        line = line[:MAX_LINE]
     line = PAGE_REF.sub("", line)
-    return MARKER_TAIL.sub("", line).rstrip()
+    return line.rstrip().rstrip("◆★").rstrip()
 
 
 COVER = re.compile(r"規約[・及び、]+細則")

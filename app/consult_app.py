@@ -187,7 +187,8 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
         work_id, rules = split_work(form.get("work_id"))
         if work_id:
             try:
-                store.load(work_id)
+                if not auth.can_open(store.load(work_id).get("owner")):
+                    work_id = ""   # 公開版：他人の作業の規約は使わない
             except store.WorkNotFound:
                 work_id = ""
         if rules == "最新" and not (work_id and has_latest and has_latest(work_id)):

@@ -29,9 +29,20 @@ def read_lines(path: str | Path) -> list[str]:
     raise UnsupportedFormat(f"対応していない形式です: {suffix}（対応形式: {', '.join(sorted(SUPPORTED))}）")
 
 
+MAX_DOCX_UNZIPPED = 200 * 1024 * 1024   # Word の中身を展開したときの大きさの上限（小さなファイルに見せかけて膨らむものを読まない）
+
+
 def _read_docx(path: Path) -> list[str]:
+    import zipfile
+
     import docx  # python-docx
 
+    try:
+        with zipfile.ZipFile(path) as z:
+            if sum(i.file_size for i in z.infolist()) > MAX_DOCX_UNZIPPED:
+                raise UnsupportedFormat("Word のファイルの中身が大きすぎます")
+    except zipfile.BadZipFile as e:
+        raise UnsupportedFormat("Word のファイルとして読めません") from e
     doc = docx.Document(str(path))
     lines: list[str] = []
     for block in doc.element.body.iterchildren():
