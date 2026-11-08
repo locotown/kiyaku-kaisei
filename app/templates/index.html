@@ -101,11 +101,11 @@
 {% endfor %}
 </table>
 {% endmacro %}
-{% if mine %}{{ rows(mine) }}{% else %}<p class="muted">まだ作業はありません。</p>{% endif %}
+{% if mine %}{{ rows(mine) }}{% else %}<p class="muted">{% if auth_user() %}あなたが作った作業は、まだありません。{% else %}まだ作業はありません。{% endif %}</p>{% endif %}
 {% if personas %}
 {# 想定ユーザー（架空）が実際の画面で使った作業。どんな判断をして、どうなったかを確認ボードと合わせて見返せるように #}
-<details class="persona-works" open><summary><b>想定ユーザーの作業（架空・確認用）{{ personas|length }}件</b></summary>
-  <p class="small muted">改善のたびに、架空の想定ユーザー（スマホの理事長・Mac の委員・スマホの新任理事）がサンプルの規約で実際に使った作業です。判断の履歴・作業の記録・費用をそのまま見返せます。開いて操作してもかまいません（元の記録は変わりません）。</p>
+<details class="persona-works" open><summary><b>{% if auth_user() %}見本の作業（架空のサンプルで総会まで済ませたもの。あなた専用の写し）{% else %}想定ユーザーの作業（架空・確認用）{% endif %}{{ personas|length }}件</b></summary>
+  <p class="small muted">{% if auth_user() %}AI を待たずに、改定案・理事会の検討資料・住民向けの説明・総会のあとの最新の規約まで見られます。ほかの審査員とは別の写しなので、自由に開いて操作してかまいません。{% endif %}改善のたびに、架空の想定ユーザー（スマホの理事長・Mac の委員・スマホの新任理事）がサンプルの規約で実際に使った作業です。判断の履歴・作業の記録・費用をそのまま見返せます。開いて操作してもかまいません（元の記録は変わりません）。</p>
   {{ rows(personas) }}
 </details>
 {% endif %}

@@ -75,6 +75,10 @@ def test_seed_works_are_per_account(pub, monkeypatch):
     monkeypatch.setattr(store, "SEED", store.ROOT / "data/public/persona_works")   # ほかのテストでは写さない設定なので戻す
     a, b = client("judge1", "pw-one"), client("judge2", "pw-two")
     a.get("/"), b.get("/")
+    page = a.get("/").text
+    # 公開版では、写しが他人の作業に見えないよう「見本の作業（あなた専用の写し）」と書く（11/8 作者の声）
+    assert "見本の作業（架空のサンプルで総会まで済ませたもの。あなた専用の写し）" in page
+    assert "あなたが作った作業は、まだありません。" in page and "想定ユーザーの作業（架空・確認用）" not in page
     owners = {json.loads(f.read_text(encoding="utf-8")).get("owner") for f in store.WORK.glob("*/work.json")}
     assert owners <= {"judge1", "judge2"} and len(owners) == 2
     from core import auth as A
