@@ -45,7 +45,8 @@ def accounts() -> dict[str, dict]:
 
 
 def enabled() -> bool:
-    return bool(accounts())
+    """ログインを使うか。KIYAKU_ACCOUNTS が入っていれば、読み取れなくても使う（壊れた値で誰でも入れる状態にしない）。"""
+    return bool(os.environ.get("KIYAKU_ACCOUNTS", "").strip())
 
 
 def hash_password(pw: str, salt: str | None = None) -> str:
@@ -91,13 +92,18 @@ def blocked(key: str) -> bool:
 
 
 def login(user_id: str, pw: str, client: str) -> tuple[dict | None, str]:
-    """(アカウント, 断った理由)。理由は画面に出す日本語。"""
-    for key in (f"ip:{client}", f"id:{user_id}"):
+    """(アカウント, 断った理由)。理由は画面に出す日本語。
+    失敗の数は、接続元ごとと、接続元×ID ごとに数える（ID だけで数えると、他人が審査員のログインを止められる）。"""
+    keys = (f"ip:{client}", f"ipid:{client}|{user_id}")
+    for key in keys:
         if blocked(key):
             return None, "ログインの失敗が続いたため、しばらく受け付けません。15分ほどしてからお試しください。"
     acc = accounts().get(user_id)
     if not acc or not _check_password(pw, acc["pw"]):
-        for key in (f"ip:{client}", f"id:{user_id}"):
+        if len(_fails) > 10_000:   # 記録が増えすぎないように、古いものを捨てる
+            for k in [k for k in _fails if not blocked(k)]:
+                _fails.pop(k, None)
+        for key in keys:
             _fails.setdefault(key, []).append(time.time())
         return None, "ID かパスワードが違います。"
     if time.time() >= expires_at(acc):
@@ -190,9 +196,15 @@ def spent() -> tuple[float, float]:
                 w = json.loads(f.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
+            costs = w.get("costs") or []
+            notes = [b for b in w.get("notes") or [] if isinstance(b, dict)]
             if w.get("seeded"):
-                continue   # 写したサンプル（想定ユーザーの作業）の費用は、この公開版で使った額ではない
-            usd = sum(_usd(e) for e in w.get("costs") or [])
+                # 写したサンプル（想定ユーザーの作業）に元からある費用は数えない。写したあとに動かした AI の費用は数える
+                n_costs, old_notes = _seed_base(f.parent.name, w)
+                costs = costs[n_costs:]
+                notes = [b for b in notes if b.get("id") not in old_notes]
+            usd = sum(_usd(e) for e in costs)
+            usd += sum(float(b.get("cost_usd") or 0) for b in notes)   # 写真の読み取り
             total += usd
             if w.get("owner") == me:
                 mine += usd
@@ -211,6 +223,49 @@ def spent() -> tuple[float, float]:
     return mine, total
 
 
+def _seed_base(work_id: str, w: dict) -> tuple[int, set]:
+    """写したサンプルに、写したときから入っていた（費用の記録の数, 写真の読み取りの id）。"""
+    if isinstance(w.get("seed_costs"), int):
+        return w["seed_costs"], set(w.get("seed_notes") or [])
+    from app import store   # 記録する前に写した作業は、元のサンプルから数える
+    seed = store.SEED / work_id.rsplit("-", 1)[0] / "work.json"
+    try:
+        d = json.loads(seed.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = w
+    return len(d.get("costs") or []), {b.get("id") for b in d.get("notes") or [] if isinstance(b, dict)}
+
+
+BUSY_WORK = ("点検中", "改定案作成中", "検討資料作成中", "説明文作成中")
+MAX_RUNNING = 2   # 同時に動かせる AI の処理の数（費用は終わってから記録されるため、並べて上限をすり抜けないように）
+
+
+def running() -> int:
+    """今のアカウントで、動いている AI の処理の数。"""
+    from app import store
+
+    me, n = user_id(), 0
+    for f in list(store.WORK.glob("*/work.json")) if store.WORK.exists() else []:
+        try:
+            w = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if w.get("owner") != me:
+            continue
+        n += w.get("status") in BUSY_WORK
+        n += sum(1 for b in w.get("notes") or [] if isinstance(b, dict) and b.get("status") == "読み取り中")
+    for f in list(store.CONSULT.glob("*.json")) if store.CONSULT.exists() else []:
+        if f.name.startswith("profile"):
+            continue
+        try:
+            c = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if c.get("owner") == me and any(t.get("status") == "考え中" for t in c.get("turns") or []):
+            n += 1
+    return n
+
+
 def ai_refusal() -> str:
     """新しい AI の処理を始めてよければ空。だめなら画面に出す理由。"""
     if not enabled() or is_admin():
@@ -221,4 +276,6 @@ def ai_refusal() -> str:
         return "この公開版の AI の費用が上限に達したため、新しい AI の処理は始められません。これまでの作業は見られます。"
     if mine >= per_user:
         return f"このアカウントの AI の費用が上限（約${per_user:.0f}）に達したため、新しい AI の処理は始められません。これまでの作業は見られます。"
+    if running() >= MAX_RUNNING:
+        return f"AI の処理が{MAX_RUNNING}つ動いています。終わってから、もう一度お試しください。"
     return ""

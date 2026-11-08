@@ -190,7 +190,7 @@ async def login_submit(request: Request):
     nxt = str(form.get("next") or "/")
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/"
-    client = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "")
+    client = request.headers.get("x-forwarded-for", "").split(",")[-1].strip() or (request.client.host if request.client else "")   # 公開先のプロキシが最後に付け足した値（先頭は利用者が偽れる）
     acc, why = auth.login(str(form.get("id", "")).strip()[:64], str(form.get("password", ""))[:200], client)
     if acc is None:
         return templates.TemplateResponse(request, "login.html", {"next": nxt, "error": why}, status_code=401)
@@ -2026,9 +2026,12 @@ def _with_batch(work_id: str, batch: str, fn) -> None:
     store.mutate(work_id, change)
 
 
+MAX_PHOTOS, MAX_PHOTO_BYTES = 30, 25 * 1024 * 1024   # 1回に読み込む写真の枚数と、1枚の大きさの上限
+
+
 @app.post("/works/{work_id}/notes")
 async def upload_notes(work_id: str, doc: str = Form(...), photos: list[UploadFile] = File(...)):
-    """書き込みのある資料の写真を読み込み、読み取りを始める（写真は何枚でも）。"""
+    """書き込みのある資料の写真を読み込み、読み取りを始める（1回に30枚まで）。"""
     _ai_guard()   # 公開版：AI の費用の上限
     from core.notes import preprocess
 
@@ -2040,10 +2043,15 @@ async def upload_notes(work_id: str, doc: str = Form(...), photos: list[UploadFi
     batch = __import__("datetime").datetime.now().strftime("%Y%m%d%H%M%S")
     d = _notes_dir(work_id, batch)
     d.mkdir(parents=True, exist_ok=True)
+    if len(photos) > MAX_PHOTOS:
+        raise HTTPException(400, f"写真は1回に{MAX_PHOTOS}枚までにしてください。")
     saved, skipped = [], 0
     for f in photos:
         try:
-            jpeg = preprocess(await f.read())
+            raw = await f.read(MAX_PHOTO_BYTES + 1)
+            if len(raw) > MAX_PHOTO_BYTES:
+                raise ValueError("大きすぎる写真")
+            jpeg = preprocess(raw)
         except ValueError:
             skipped += 1
             continue

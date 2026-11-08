@@ -48,6 +48,8 @@ def seed_persona_works() -> int:
                 data = json.loads((dest / "work.json").read_text(encoding="utf-8"))
                 data["owner"] = me
                 data["seeded"] = True   # 写したサンプル。中の費用の記録は、公開版の費用の上限に数えない
+                data["seed_costs"] = len(data.get("costs") or [])   # 写したあとに増えた分は数える
+                data["seed_notes"] = [b.get("id") for b in data.get("notes") or [] if isinstance(b, dict)]
                 (dest / "work.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             n += 1
     return n

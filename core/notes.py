@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from core.config import MODEL, client
 
 MAX_SIDE = 1600  # スマホの写真は大きいので縮める（読み取りに十分で、費用が半分ほどになる）
+MAX_PIXELS = 50_000_000   # スマホの写真（約5千万画素）まで。これより大きい画像は読まない
 # Claude Opus 5.5 の公開価格（ドル／100万トークン）。費用は概算として記録する
 PRICE = {"input": 4.0, "output": 20.0, "cache_read": 0.4, "cache_write": 5.0}
 
@@ -71,10 +72,13 @@ def preprocess(data: bytes) -> bytes:
             return data
         raise ValueError("画像として読めないファイルです（JPEG・PNG で 4.5MB まで）") from None
 
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELS
     try:
         im = Image.open(io.BytesIO(data))
+        if im.width * im.height > MAX_PIXELS:   # 開く前に大きさだけ見る（展開するとメモリを使い切る画像がある）
+            raise ValueError("画像が大きすぎます")
         im = ImageOps.exif_transpose(im).convert("RGB")
-    except (UnidentifiedImageError, OSError) as e:
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
         raise ValueError("画像として読めないファイルです") from e
     im.thumbnail((MAX_SIDE, MAX_SIDE))
     out = io.BytesIO()

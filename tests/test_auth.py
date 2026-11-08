@@ -138,3 +138,95 @@ def test_local_use_has_no_login(monkeypatch):
     import app.main as M
     monkeypatch.delenv("KIYAKU_ACCOUNTS", raising=False)
     assert TestClient(M.app).get("/", follow_redirects=False).status_code == 200
+
+
+# ---- 11/8 セキュリティの点検から ------------------------------------------------------
+
+def test_lockout_by_others_does_not_block_judge(pub):
+    """他の接続元が審査員の ID で失敗を重ねても、審査員本人はログインできる（ID だけで止めない）。"""
+    M, store, client = pub
+    c = client()
+    for _ in range(auth.FAIL_MAX + 2):
+        c.post("/login", data={"id": "judge2", "password": "x"}, headers={"x-forwarded-for": "203.0.113.9"})
+    r = c.post("/login", data={"id": "judge2", "password": "pw-two"}, headers={"x-forwarded-for": "198.51.100.7"},
+               follow_redirects=False)
+    assert r.status_code == 303
+    # 接続元は、公開先のプロキシが最後に付け足した値で数える（先頭は偽れる）
+    for i in range(auth.FAIL_MAX):
+        c.post("/login", data={"id": "judge1", "password": "x"}, headers={"x-forwarded-for": f"10.0.0.{i}, 192.0.2.1"})
+    r = c.post("/login", data={"id": "judge1", "password": "pw-one"}, headers={"x-forwarded-for": "10.9.9.9, 192.0.2.1"})
+    assert r.status_code == 401 and "しばらく受け付けません" in r.text
+
+
+def test_broken_accounts_env_keeps_login_required(pub, monkeypatch):
+    """KIYAKU_ACCOUNTS が壊れていても、ログインなしで開ける状態にしない。"""
+    M, store, client = pub
+    monkeypatch.setenv("KIYAKU_ACCOUNTS", "[{oops")
+    r = client().get("/", follow_redirects=False)
+    assert r.status_code in (303, 401) and "ログイン" in (r.text + r.headers.get("location", ""))
+
+
+def test_ai_run_on_seeded_copy_and_photos_are_counted(pub, monkeypatch):
+    """写したサンプルで動かした AI の費用と、写真の読み取りの費用も、上限に数える。"""
+    M, store, client = pub
+    a = client("judge1", "pw-one")
+    wid = new_work(a)
+    store.mutate(wid, lambda d: d.update(seeded=True, seed_costs=1, status="点検済み",
+                                         costs=[{"cost": {"amount": 9999}}, {"cost": {"amount": 300}}],
+                                         notes=[{"id": "1", "status": "読み取り済み", "cost_usd": 0.5}]))
+    token = auth.CURRENT.set(auth.accounts()["judge1"])
+    try:
+        assert round(auth.spent()[0], 2) == 3.5          # 元の $99.99 は数えず、写したあとの $3 と写真の $0.5
+    finally:
+        auth.CURRENT.reset(token)
+
+
+def test_parallel_ai_runs_are_limited(pub):
+    """費用は終わってから記録されるので、同時に動かせる処理の数を限る。"""
+    M, store, client = pub
+    a = client("judge1", "pw-one")
+    for _ in range(auth.MAX_RUNNING):
+        new_work(a)                                      # AI は止めてあるので「点検中」のまま
+    r = a.post("/works", data={"name": "三つ目", "sample": "standard"}, follow_redirects=False)
+    assert r.status_code == 429
+
+
+def test_consult_cannot_use_others_work(pub, monkeypatch):
+    """相談で、他人の作業の規約を使えない。"""
+    M, store, client = pub
+    import app.consult_app as C
+    monkeypatch.setattr(C, "_run", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(C.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    wid = new_work(client("judge1", "pw-one"))
+    b = client("judge2", "pw-two")
+    r = b.post("/consult", data={"mode": "ask", "question": "総会の定足数は？", "work_id": wid}, follow_redirects=False)
+    assert r.status_code == 303
+    saved = [json.loads(f.read_text(encoding="utf-8")) for f in store.CONSULT.glob("*.json") if not f.name.startswith("profile")]
+    assert saved and all(s["work_id"] == "" and s["work_name"] == "" for s in saved)
+
+
+def test_taisho_labels_are_escaped(monkeypatch):
+    from core import taisho
+    lab = "〔<script>案〕"
+    monkeypatch.setattr(taisho, "para_pairs", lambda o, n: [{"kind": "same", "new_label": lab, "new": "x", "old": "x", "old_label": lab}])
+    a = type("A", (), {"kind": "改正"})()
+    out = taisho._pairs_html({"amendment": a, "old_text": "１　x\n２　y", "new_text": "１　x\n２　y"})
+    assert "<script>" not in out and "&lt;script&gt;" in out
+
+
+def test_huge_image_and_docx_bomb_are_refused(tmp_path):
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    from core import ingest, notes
+    buf = io.BytesIO()
+    Image.new("1", (9000, 9000)).save(buf, "PNG")       # 小さなファイルでも、展開すると大きい画像
+    with pytest.raises(ValueError):
+        notes.preprocess(buf.getvalue())
+    p = tmp_path / "bomb.docx"
+    with zipfile.ZipFile(p, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/document.xml", b"0" * (ingest.MAX_DOCX_UNZIPPED + 1))
+    with pytest.raises(ingest.UnsupportedFormat):
+        ingest._read_docx(p)
