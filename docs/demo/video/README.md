@@ -113,5 +113,5 @@ OUT=demo_v3_c_ext.mp4 KARI=0 VOICE=ext python3 docs/demo/video/edit.py
 - 締めの背景：作者が撮った、大きな棟を斜めから見た写真（`photos/end.jpg`）
 - 冒頭は掲示板の絵のまま（物語の入り口のため）
 - 絵と図の場面は止めて見せる（寄る動きが揺れて見えたため）
-- ナレーションは Gemini 3.8 Flash TTS の声「Charon」（作者が5つの声と Mei を聞き比べて選んだ）。`GVOICE=Charon python3 docs/demo/video/gemini_tts.py` で全場面を作り、上の「自分の声・別の音声合成に差し替える」の手順で組み直した。書き出した動画：`demo_v3_c_charon.mp4`。締めのクレジットも Gemini TTS に変えた（Mei に戻すときは figures/src/09_end.html を戻して書き出し直す）
+- ナレーションは Gemini 3.8 Flash TTS の声「Charon」（作者が5つの声と Mei を聞き比べて選んだ）。声の調子を通しで一定にするため、全場面の文を1回で読ませて場面の変わり目の間で切り分ける `GVOICE=Charon python3 docs/demo/video/gemini_tts_full.py` で作り（場面ごとに別々に作ると、画面が切り替わるたびにニュアンスが変わった。作者の声から）、上の「自分の声・別の音声合成に差し替える」の手順で組み直した。書き出した動画：`demo_v3_c_charon_full.mp4`。締めのクレジットも Gemini TTS に変えた（Mei に戻すときは figures/src/09_end.html を戻して書き出し直す）
 - 写真は公開リポジトリに入れない

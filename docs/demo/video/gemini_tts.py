@@ -39,7 +39,7 @@ def say(text: str) -> bytes:
     req = urllib.request.Request(URL, data=json.dumps(body).encode(), headers=headers, method='POST')
     for attempt in range(4):
         try:
-            with urllib.request.urlopen(req, timeout=120) as r:
+            with urllib.request.urlopen(req, timeout=int(os.environ.get('GTIMEOUT', '600'))) as r:
                 data = json.load(r)
             audio = [c for s in data.get('steps', []) if s.get('type') == 'model_output'
                      for c in s.get('content', []) if c.get('type') == 'audio']
