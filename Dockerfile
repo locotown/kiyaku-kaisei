@@ -1,4 +1,4 @@
-# 審査員向けの公開版（docs/DEPLOY.md）。手元で使うときは要らない（README の「動かし方」）
+# 審査員向けの公開版（docs/DEPLOY.md）。手元で使うときは要らない（docs/SETUP.md）
 FROM python:3.13-slim
 ENV PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 RUN pip install --no-cache-dir "uv>=0.11"
