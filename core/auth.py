@@ -18,6 +18,7 @@ import hmac
 import json
 import os
 import secrets
+import threading
 import time
 from datetime import datetime, timedelta
 
@@ -120,8 +121,14 @@ def _sign(body: bytes) -> str:
     return base64.urlsafe_b64encode(hmac.new(_secret(), body, hashlib.sha256).digest()).decode().rstrip("=")
 
 
+def _pw_tag(acc: dict | None) -> str:
+    """パスワードを変えると、それまでのクッキーが使えなくなるように、パスワードのハッシュから作る短い印。"""
+    return hashlib.sha256(str((acc or {}).get("pw", "")).encode()).hexdigest()[:12]
+
+
 def make_cookie(user_id: str) -> str:
-    body = base64.urlsafe_b64encode(json.dumps({"u": user_id, "t": int(time.time())}).encode()).decode().rstrip("=")
+    body = base64.urlsafe_b64encode(json.dumps({"u": user_id, "t": int(time.time()),
+                                                "p": _pw_tag(accounts().get(user_id))}).encode()).decode().rstrip("=")
     return body + "." + _sign(body.encode())
 
 
@@ -140,6 +147,8 @@ def from_cookie(value: str | None) -> dict | None:
     now = time.time()
     if not acc or now >= expires_at(acc) or now - float(data.get("t", 0)) > IDLE:
         return None
+    if not hmac.compare_digest(str(data.get("p", "")), _pw_tag(acc)):
+        return None   # パスワードを差し替えたあとの古いクッキー
     return acc
 
 
@@ -266,6 +275,10 @@ def running() -> int:
     return n
 
 
+_starts: dict[str, list[float]] = {}
+_start_lock = threading.Lock()
+
+
 def ai_refusal() -> str:
     """新しい AI の処理を始めてよければ空。だめなら画面に出す理由。"""
     if not enabled() or is_admin():
@@ -276,6 +289,10 @@ def ai_refusal() -> str:
         return "この公開版の AI の費用が上限に達したため、新しい AI の処理は始められません。これまでの作業は見られます。"
     if mine >= per_user:
         return f"このアカウントの AI の費用が上限（約${per_user:.0f}）に達したため、新しい AI の処理は始められません。これまでの作業は見られます。"
-    if running() >= MAX_RUNNING:
-        return f"AI の処理が{MAX_RUNNING}つ動いています。終わってから、もう一度お試しください。"
+    with _start_lock:   # 同時に送られた依頼が、どれも「動いている数」を数える前にすり抜けないように
+        now = time.time()
+        recent = [t for t in _starts.get(user_id(), []) if now - t < 60]
+        if running() >= MAX_RUNNING or len(recent) >= MAX_RUNNING:
+            return f"AI の処理が{MAX_RUNNING}つ動いています（または1分以内に{MAX_RUNNING}つ始めました）。少し待ってから、もう一度お試しください。"
+        _starts[user_id()] = recent + [now]
     return ""

@@ -28,6 +28,7 @@ def pub(monkeypatch, tmp_path):
     monkeypatch.setattr(store, "CONSULT", tmp_path / "consult")
     monkeypatch.setattr(M, "_run_review", lambda wid: None)   # AI は動かさない
     auth._fails.clear()
+    auth._starts.clear()
 
     def client(uid=None, pw=None):
         c = TestClient(M.app)
@@ -230,3 +231,24 @@ def test_huge_image_and_docx_bomb_are_refused(tmp_path):
         z.writestr("word/document.xml", b"0" * (ingest.MAX_DOCX_UNZIPPED + 1))
     with pytest.raises(ingest.UnsupportedFormat):
         ingest._read_docx(p)
+
+
+def test_cookie_invalid_after_password_change(pub, monkeypatch):
+    """パスワードを差し替えると、それまでのクッキーは使えない（Claude Security F9）。"""
+    M, store, client = pub
+    old = auth.make_cookie("judge1")
+    assert auth.from_cookie(old)["id"] == "judge1"
+    accs = json.loads(accounts_env())
+    accs[0]["pw"] = auth.hash_password("new-pw")
+    monkeypatch.setenv("KIYAKU_ACCOUNTS", json.dumps(accs))
+    assert auth.from_cookie(old) is None
+
+
+def test_long_whitespace_line_is_fast():
+    """空白が長く続く行でも、読み込みの処理が止まらない（Claude Security F3）。"""
+    from core.collection import clean_line
+    t = time.time()
+    clean_line(" " * 200_000 + "x")
+    clean_line("第1条 " + "　" * 100_000 + "（p.3）◆")
+    assert time.time() - t < 1.0
+    assert clean_line("第1条　目的（規約集 p.3）◆") == "第1条　目的"
