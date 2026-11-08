@@ -53,8 +53,12 @@ def add(buf, x, at, gain=1.0):
 
 # --- ナレーション
 voice = np.zeros(N)
-for i, r in enumerate(rows):
-    add(voice, read_wav(H / f'voice_out_{P}_{V}' / f'{i:02d}.wav'), r['voice_at'], 1.0)
+FULL = H / f'voice_out_{P}_{V}' / 'full.wav'   # 外で作った音声が1本（動画の頭から通しで読んだもの）なら、そのまま 0 秒に置く（README）
+if FULL.exists():
+    add(voice, read_wav(FULL), 0.0, 1.0)
+else:
+    for i, r in enumerate(rows):
+        add(voice, read_wav(H / f'voice_out_{P}_{V}' / f'{i:02d}.wav'), r['voice_at'], 1.0)
 
 voice *= 0.85 / np.abs(voice).max()  # ナレーションを主役の音量に
 

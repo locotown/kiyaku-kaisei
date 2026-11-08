@@ -19,10 +19,10 @@ from collections.abc import Callable
 
 import anthropic
 
-from core.config import ROOT, api_key, client
+from core.config import DATA, ROOT, api_key, client
 
 COMMITTED = ROOT / "agents/state.json"
-PRIVATE = ROOT / "private/agents"
+PRIVATE = DATA / "agents"
 NOT_MINE = (anthropic.NotFoundError, anthropic.PermissionDeniedError)  # 別のワークスペースの登録は、見えない
 _lock = threading.Lock()
 

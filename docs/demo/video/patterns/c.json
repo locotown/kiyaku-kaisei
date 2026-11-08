@@ -5,7 +5,7 @@
   "img:11_rijicho",
   "img:11_rijicho",
   "img:05_danchi",
-  "montage:c3_findings@3,c7_taisho@2,c10_explain@3,c12_final@2",
+  "montage:c3_findings@2.5,c7_taisho@2,c10_explain@5.5,c12_final@0.5",
   "clip:c1_upload",
   "clip:c2_review_busy",
   "clip:c3_findings",
@@ -20,6 +20,7 @@
   "img:01_japan",
   "img:02_kiyaku",
   "img:booklet",
+  "img:03_architecture",
   "img:03_architecture",
   "img:04_eval",
   "img:09_end"
@@ -60,15 +61,6 @@
     1330,
     300
    ]
-  ],
-  "18": [
-   [
-    "booklet",
-    "badge",
-    0,
-    0,
-    0
-   ]
   ]
  },
  "sfx": {
@@ -83,10 +75,15 @@
    5,
    16,
    19,
-   21
+   22
   ],
-  "chime": 21
+  "chime": 22
  },
  "dense_until": 38,
- "dense_after": 168
+ "dense_after": 168,
+ "photos": {
+  "0": "open",
+  "3": "danchi",
+  "22": "end"
+ }
 }

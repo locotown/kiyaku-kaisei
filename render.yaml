@@ -1,0 +1,24 @@
+# Render の Blueprint（審査員向けの公開版。docs/DEPLOY.md）。値が秘密の環境変数は、ここに書かず Render の画面で入れる
+services:
+  - type: web
+    name: totonou-kiyaku
+    runtime: docker
+    plan: starter            # 常に動いているプラン（無料プランは寝ると AI の処理が途切れ、保存も消える）
+    region: singapore
+    branch: main
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /var/data   # 作業・相談・AI の登録を残す
+      sizeGB: 1
+    envVars:
+      - key: KIYAKU_ANTHROPIC_API_KEY   # 公開用だけの API キー（Console で使用額の上限を付けたもの）
+        sync: false
+      - key: KIYAKU_ACCOUNTS            # scripts/make_accounts.py が出す1行
+        sync: false
+      - key: KIYAKU_SESSION_SECRET
+        generateValue: true
+      - key: KIYAKU_LIMIT_USER_USD      # アカウントごとの AI の費用の上限（ドル）
+        value: "20"
+      - key: KIYAKU_LIMIT_TOTAL_USD     # 全体の上限（ドル）
+        value: "200"

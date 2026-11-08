@@ -18,7 +18,9 @@
   <button class="tbtn" type="button" id="textsize" aria-pressed="false" aria-label="文字の大きさ">{{ icon("text-size") }}<span class="lbl">文字の大きさ</span></button>
   <a class="tbtn keep" href="/consult" aria-label="相談する">{{ icon("chat") }}<span class="lbl">相談する</span></a>
   <a class="tbtn" href="/#works" aria-label="これまでの見直し">{{ icon("list") }}<span class="lbl">これまでの見直し</span></a>
+  {% if auth_user() %}<a class="tbtn" href="/logout" aria-label="ログアウト（{{ auth_user().id }}）">{{ icon("arrow-right") }}<span class="lbl">ログアウト（{{ auth_user().id }}）</span></a>{% endif %}
 </header>
+{% if auth_user() %}<p class="pubnote">審査用の公開版です（{{ auth_until() }}）。実在の規約を読み込むと、この公開先のサーバーに残ります（審査のあとに消します）。AI の処理には、アカウントごとの費用の上限があります。</p>{% endif %}
 <main>{% block content %}{% endblock %}</main>
 <footer class="foot">このツールの出力は「総会提案の下書き」であり、法的助言ではありません。改正区分所有法（2026年4月施行）・標準管理規約（2025年10月改正）に対応。改正区分所有法に抵触しない範囲では、内容は各管理組合が自由に決められます。</footer>
 <script>

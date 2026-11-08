@@ -14,10 +14,11 @@ import time
 import traceback
 from datetime import datetime
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app import store
+from core import auth
 from core import consult as C
 from core.config import MissingApiKey
 from core.review import JST
@@ -133,6 +134,11 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
         finally:
             RUNNING.discard(cid)
 
+    def _guard() -> None:
+        why = auth.ai_refusal()   # 公開版：AI の費用の上限
+        if why:
+            raise HTTPException(429, why)
+
     def _start(cid: str, n: int) -> None:
         RUNNING.add(cid)
         threading.Thread(target=_run, args=(cid, n), daemon=True).start()
@@ -169,6 +175,7 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
 
     @app.post("/consult")
     async def new_consult(request: Request):
+        _guard()
         form = await request.form()
         mode = form.get("mode") if form.get("mode") in MODES else "ask"
         text = str(form.get("text") or "").replace("\r\n", "\n").strip()
@@ -197,7 +204,7 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
         work_name = ""
         if work_id:
             work_name = store.load(work_id).get("name", "")
-        store.save_consult({"id": cid, "created": _now(), "mode": mode, "title": title, "text": text, "question": question,
+        store.save_consult({"id": cid, "owner": auth.user_id(), "created": _now(), "mode": mode, "title": title, "text": text, "question": question,
                             "sent_text": sent_text, "mapping": mapping, "masked": masked,
                             "mask_more": [w.strip() for w in re.split(r"[、,，\s]+", str(form.get("mask_more") or "")) if len(w.strip()) >= 2], "work_id": work_id, "work_name": work_name, "rules": rules,
                             "turns": [{"mode": mode, "question": question, "sent_question": sent_q, "status": "考え中",
@@ -223,6 +230,7 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
 
     @app.post("/consult/{cid}/ask")
     async def follow_up(request: Request, cid: str):
+        _guard()
         form = await request.form()
         question = str(form.get("question") or "").replace("\r\n", "\n").strip()
         data = store.load_consult(cid)
@@ -243,6 +251,7 @@ def register(app, templates, corpus_for, latest_for=None, has_latest=None) -> No
     @app.post("/consult/{cid}/rerun")
     def rerun(cid: str):
         """最後の質問に、もう一度答えてもらう（基本情報を入れたあと・エラーのあと）。"""
+        _guard()
         data = store.load_consult(cid)
         if any(t.get("status") == "考え中" for t in data["turns"]):
             return RedirectResponse(f"/consult/{cid}", status_code=303)

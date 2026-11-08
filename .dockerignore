@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+.env.*
+private/
+CLAUDE.local.md
+node_modules/
+**/__pycache__/
+.pytest_cache/
+docs/demo/video/*.mp4
+docs/demo/video/*.wav
+docs/demo/video/clips/

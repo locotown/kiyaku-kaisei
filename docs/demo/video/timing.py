@@ -8,7 +8,8 @@ H = Path(__file__).parent
 rows = json.load(open(H / f'rows_{P}.json'))
 # 女性・男性の両方の声が収まるよう、長いほうに合わせる（映像は1回だけ組み立て、音だけ差し替える）
 voice = {}
-for vf in H.glob(f'voice_{P}_*.json'):
+ONLY = os.environ.get('VOICE')  # 声を1つに絞る（例：VOICE=mei。外で作った音声は VOICE=ext）。省くと、ある声すべての長いほう
+for vf in (H.glob(f'voice_{P}_{ONLY}.json') if ONLY else H.glob(f'voice_{P}_*.json')):
     for v in json.load(open(vf)):
         voice[v['i']] = max(voice.get(v['i'], 0), v['voice'])
 TOTAL, LEAD, TAIL = 180.0, 0.3, 0.6
