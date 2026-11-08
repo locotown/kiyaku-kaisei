@@ -27,10 +27,13 @@ only = os.environ.get('ONLY')
 OUT.mkdir(exist_ok=True)
 
 
-def say(text: str) -> bytes:
+def say(text) -> bytes:
+    """text は文字列か、[(文, 話し方の指示), …]（1回の呼び出しの中で、部分ごとに話し方を変える）。"""
+    parts = text if isinstance(text, list) else [(text, STYLE)]
     body = {"model": MODEL,
-            "input": [{"type": "user_input", "content": [{"type": "text", "text": text,
-                                                          "annotations": [{"type": "speech_metadata", "style": STYLE}]}]}],
+            "input": [{"type": "user_input", "content": [{"type": "text", "text": t,
+                                                          "annotations": [{"type": "speech_metadata", "style": st}]}
+                                                         for t, st in parts]}],
             "response_format": {"type": "audio", "mime_type": "audio/wav"},
             "generation_config": {"speech_config": [{"voice": VOICE}]}}
     headers = {"Content-Type": "application/json"}
