@@ -7,7 +7,7 @@
 
 - **デモ動画（3分）**：https://youtu.be/04kzeyyCAbM
 - **審査員の方へ**：ログインして実際に操作できる期限付きの公開版を用意しました（URL とログイン情報は提出フォームに記載）
-- **成果物の見本**（架空のサンプルで作ったもの。ログイン不要）：[新旧対照表](docs/samples/01_taisho.pdf)・[理事会の検討資料](docs/samples/02_board.pdf)・[住民向けの説明](docs/samples/03_explain.pdf)・[宿題の検討表](docs/samples/04_shukudai.pdf)（PDF）、[最新の規約](docs/samples/05_kiyaku_latest.docx)（Word）
+- **成果物の見本**（架空のサンプルで作ったもの。ログイン不要）：[新旧対照表](docs/samples/01_taisho.pdf)・[理事会の検討資料](docs/samples/02_board.pdf)・[住民向けの説明](docs/samples/03_explain.pdf)・[宿題の検討表](docs/samples/04_shukudai.pdf)・[最新の規約](docs/samples/05_kiyaku_latest.pdf)（PDF。最新の規約は [Word](docs/samples/05_kiyaku_latest.docx) でもダウンロードできます）
 
 ![指摘を判断する画面（架空のサンプル）](docs/readme/01_findings.png)
 
