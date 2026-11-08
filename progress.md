@@ -436,3 +436,4 @@
 - 11/12 以降：Render のサービスを止めるか消す（読み込まれた規約もディスクごと消える）、Console の公開用キー（render-public）を無効にする
 - 締切のあと：残した課題（docs/checks/r28.md）、計画E3-2（今回の改定案に入れる）・E3-3（次の作業への引き継ぎ）、Claude Security の F7・F8（手元の利用での CSRF）
 - 確認ボード第29回：1-1 は作者が確認できた。1-2 の指摘（最新の規約の見本が Word で、GitHub では見えない）から、同じ見本の PDF を足し、README のリンクを PDF に（Word はダウンロード用に残す）
+- アイコン（作者が6案から A「今のロゴのまま」を選んだ）：favicon.ico（16・32・48）・favicon.svg・ホーム画面用（iPhone 180px、Android 192・512px、マスク可能 512px）と site.webmanifest を作り、画面の head に入れた。/favicon.ico はログインの前でも出す（印刷用の資料のページにも出る）。テスト275件合格
